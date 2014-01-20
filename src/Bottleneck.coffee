@@ -13,15 +13,15 @@ class Bottleneck
 			next = @queue.shift()
 			done = false
 			@timeouts.push setTimeout () =>
-				next.task () =>
+				next.task.apply {}, next.args.concat () =>
 					if not done
 						done = true
 						@nbRunning--
 						@_tryToRun()
 						next.cb.apply {}, Array::slice.call arguments, 0
 			, wait
-	submit: (task, cb) ->
-		@queue.push {task, cb}
+	submit: (task, args..., cb) ->
+		@queue.push {task, args, cb}
 		@_tryToRun()
 
 	stopAll: ->

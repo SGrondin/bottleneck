@@ -28,8 +28,8 @@ var limiter = new Bottleneck(1, 2000);
 
 ```new Bottleneck(maxNb, minTime);```
 
-* maxNb : How many requests can be executing at the same time. 0 means unlimited.
-* minTime : How long to wait between each new request.
+* maxNb : How many requests can be running at the same time. 0 means unlimited.
+* minTime : How long to wait between each request.
 
 
 Instead of doing
@@ -38,9 +38,7 @@ someAsyncCall(arg1, arg2, callback);
 ```
 You do
 ```javascript
-limiter.submit(function(cb){
-    someAsyncCall(ar1, arg2, cb);
-}, callback);
+limiter.submit(someAsyncCall, ar1, arg2, callback);
 ```
 And now you can be assured that someAsyncCall will follow the rate guidelines!
 
@@ -48,11 +46,6 @@ And now you can be assured that someAsyncCall will follow the rate guidelines!
 ```javascript
 limiter.stopAll();
 ```
-stopAll cancels all requests not already running and prevents new requests from being submitted.
+stopAll cancels all queued up requests and prevents additonal requests from being submitted.
 
-##TODO
 
-Change the API to
-```javascript
-limiter.submit(someAsyncCall, ar1, arg2, callback);
-```
