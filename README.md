@@ -1,10 +1,10 @@
 bottleneck
 ==========
 
-Bottleneck is a simple and efficient Asynchronous Rate Limiter for Node.JS. When dealing with services with limited resources, it's important to ensure that they don't become overloaded with requests. Bottleneck handles that case in a fast and clean way.
+Bottleneck is a simple and efficient Asynchronous Rate Limiter for Node.JS. When dealing with services with limited resources, it's important to ensure that they don't become overloaded. Bottleneck handles that case in a fast and clean way.
 
 
-#Installation
+#Install
 
 __Node__
 ```javascript
@@ -20,25 +20,26 @@ __Browser__
 Most APIs have a rate limit. For example, the Reddit.com API limits programs to 1 request every 2 seconds.
 
 ```javascript
-var Bottleneck = require("bottleneck"); //Ignore if Browser
+var Bottleneck = require("bottleneck"); //Node.JS only
 
-// Wait at least 2000ms between each request. Never more than 1 request running at a time.
+// Wait at least 2000ms between each request.
+// Never more than 1 request running at a time.
 var limiter = new Bottleneck(1, 2000);
 ```
 
 ```new Bottleneck(maxNb, minTime);```
 
 * maxNb : How many requests can be running at the same time. 0 for unlimited.
-* minTime : How long to wait after launching a request before launching another one.
+* minTime : Optional. How long to wait after launching a request before launching another one.
 
 
 Instead of doing
 ```javascript
-someAsyncCall(arg1, arg2, callback);
+someAsyncCall(arg1, arg2, argN, callback);
 ```
 You do
 ```javascript
-limiter.submit(someAsyncCall, arg1, arg2, callback);
+limiter.submit(someAsyncCall, arg1, arg2, argN, callback);
 ```
 And now you can be assured that someAsyncCall will follow the rate guidelines!
 
