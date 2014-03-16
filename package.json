@@ -1,6 +1,6 @@
 {
   "name": "bottleneck",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Async rate limiter",
   "main": "lib/index.js",
   "scripts": {
@@ -27,7 +27,7 @@
     "url": "https://github.com/SGrondin/bottleneck/issues"
   },
   "devDependencies":{
-    "coffee-script": "*",
+    "coffee-script": "1.7.x",
     "browserify": "*",
     "uglify-js": "*"
   }

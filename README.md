@@ -1,7 +1,9 @@
 bottleneck
 ==========
 
-Bottleneck is a simple and efficient Asynchronous Rate Limiter for Node.JS. When dealing with services with limited resources, it's important to ensure that they don't become overloaded. Bottleneck handles that case in a fast and clean way.
+Bottleneck is a simple and efficient Asynchronous Rate Limiter for Node.JS and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded. Bottleneck is the easiest solution as it doesn't add any complexity to the code.
+
+Databases, file systems, network access, APIs, etc. are all services that can easily be overwhelmed.
 
 
 #Install
@@ -43,10 +45,16 @@ limiter.submit(someAsyncCall, arg1, arg2, argN, callback);
 ```
 And now you can be assured that someAsyncCall will follow the rate guidelines!
 
+If a callback isn't necessary, pass ```null``` instead.
+
 ###stopAll
 ```javascript
 limiter.stopAll();
 ```
 Cancels all queued up requests and prevents additonal requests from being submitted.
 
-
+###changeSettings
+```javascript
+limiter.changeSettings(maxNb, minTime)
+```
+Same parameters as the constructor, pass ```null``` to skip a parameter.

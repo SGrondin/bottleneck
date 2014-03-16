@@ -1,31 +1,30 @@
 class Bottleneck
 	constructor: (@maxNb=0, @minTime=0) ->
-		@nextRequest = Date.now()
-		@nbRunning = 0
-		@queue = []
-		@timeouts = []
-
+		@_nextRequest = Date.now()
+		@_nbRunning = 0
+		@_queue = []
+		@_timeouts = []
 	_tryToRun: ->
-		if (@nbRunning < @maxNb or @maxNb <= 0) and @queue.length > 0
-			@nbRunning++
-			wait = Math.max @nextRequest-Date.now(), 0
-			@nextRequest = Date.now() + wait + @minTime
-			next = @queue.shift()
+		if (@_nbRunning < @maxNb or @maxNb <= 0) and @_queue.length > 0
+			@_nbRunning++
+			wait = Math.max @_nextRequest-Date.now(), 0
+			@_nextRequest = Date.now() + wait + @minTime
+			next = @_queue.shift()
 			done = false
-			@timeouts.push setTimeout () =>
+			@_timeouts.push setTimeout () =>
 				next.task.apply {}, next.args.concat () =>
 					if not done
 						done = true
-						@nbRunning--
+						@_nbRunning--
 						@_tryToRun()
-						next.cb.apply {}, Array::slice.call arguments, 0
+						next.cb?.apply {}, Array::slice.call arguments, 0
 			, wait
 	submit: (task, args..., cb) ->
-		@queue.push {task, args, cb}
+		@_queue.push {task, args, cb}
 		@_tryToRun()
-
+	changeSettings: (@maxNb=@maxNb, @minTime=@minTime) -> @
 	stopAll: ->
-		(clearTimeout a for a in @timeouts)
+		(clearTimeout a for a in @_timeouts)
 		@_tryToRun = -> # Ugly, but it's that or more global state
 
 module.exports = Bottleneck
