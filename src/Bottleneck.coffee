@@ -11,10 +11,11 @@ class Bottleneck
 			@_nextRequest = Date.now() + wait + @minTime
 			next = @_queue.shift()
 			done = false
-			@_timeouts.push setTimeout () =>
+			index = @_timeouts.push setTimeout () =>
 				next.task.apply {}, next.args.concat () =>
 					if not done
 						done = true
+						@_timeouts[index-1] = null
 						@_nbRunning--
 						@_tryToRun()
 						next.cb?.apply {}, Array::slice.call arguments, 0
