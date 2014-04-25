@@ -15,7 +15,7 @@ class Bottleneck
 				next.task.apply {}, next.args.concat () =>
 					if not done
 						done = true
-						@_timeouts[index-1] = null
+						delete @_timeouts[index-1]
 						@_nbRunning--
 						@_tryToRun()
 						next.cb?.apply {}, Array::slice.call arguments, 0

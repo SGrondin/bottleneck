@@ -28,7 +28,7 @@
               var _ref;
               if (!done) {
                 done = true;
-                _this._timeouts[index - 1] = null;
+                delete _this._timeouts[index - 1];
                 _this._nbRunning--;
                 _this._tryToRun();
                 return (_ref = next.cb) != null ? _ref.apply({}, Array.prototype.slice.call(arguments, 0)) : void 0;
