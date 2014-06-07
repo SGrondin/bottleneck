@@ -1,10 +1,11 @@
 {
   "name": "bottleneck",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Async rate limiter",
   "main": "lib/index.js",
   "scripts": {
-    "test": "echo \"No test specified\" && exit 1"
+    "test": "echo \"No test specified\" && exit 1",
+    "make": "./scripts/recompile.sh"
   },
   "repository": {
     "type": "git",
@@ -17,7 +18,8 @@
     "queues",
     "timing",
     "limiter",
-    "load"
+    "load",
+    "synchronize"
   ],
   "author": {
     "name": "Simon Grondin"

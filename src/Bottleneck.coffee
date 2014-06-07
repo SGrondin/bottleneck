@@ -1,5 +1,6 @@
 class Bottleneck
-	constructor: (@maxNb=0, @minTime=0) ->
+	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2}
+	constructor: (@maxNb=0, @minTime=0, @highWater=0, @strategy=Bottleneck::strategy.LEAK) ->
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
 		@_queue = []
@@ -11,21 +12,27 @@ class Bottleneck
 			@_nextRequest = Date.now() + wait + @minTime
 			next = @_queue.shift()
 			done = false
-			index = @_timeouts.push setTimeout () =>
+			index = -1 + @_timeouts.push setTimeout () =>
 				next.task.apply {}, next.args.concat () =>
 					if not done
 						done = true
-						delete @_timeouts[index-1]
+						delete @_timeouts[index]
 						@_nbRunning--
 						@_tryToRun()
 						next.cb?.apply {}, Array::slice.call arguments, 0
 			, wait
 	submit: (task, args..., cb) ->
+		reachedHighWaterMark = @highWater > 0 and @_queue.length == @highWater
+		if reachedHighWaterMark
+			if @strategy == Bottleneck::strategy.LEAK then @_queue.shift()
+			else if @strategy == Bottleneck::strategy.OVERFLOW then return reachedHighWaterMark
 		@_queue.push {task, args, cb}
 		@_tryToRun()
-	changeSettings: (@maxNb=@maxNb, @minTime=@minTime) -> @
+		reachedHighWaterMark
+	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) -> @
 	stopAll: ->
 		(clearTimeout a for a in @_timeouts)
-		@_tryToRun = -> # Ugly, but it's that or more global state
+		@_tryToRun = ->
+		@submit = ->
 
 module.exports = Bottleneck
