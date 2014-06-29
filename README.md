@@ -44,9 +44,9 @@ All the submitted requests will be executed *in order*.
 #Docs
 
 ###Constructor
-```new Bottleneck(maxNb, minTime, highWater, strategy);```
+```new Bottleneck(maxConcurrent, minTime, highWater, strategy);```
 
-* maxNb : How many requests can be running at the same time. Default: 0 (unlimited)
+* maxConcurrent : How many requests can be running at the same time. Default: 0 (unlimited)
 * minTime : How long to wait after launching a request before launching another one. Default: 0ms
 * highWater : How long can the queue get? Default: 0 (unlimited)
 * strategy : Which strategy use if the queue gets longer than the high water mark. Default: Bottleneck.strategy.LEAK.
@@ -58,6 +58,8 @@ This adds a request to the queue.
 It returns true if the queue's length is under the high water mark, otherwise it returns false.
 
 If a callback isn't necessary, you must pass ```null``` instead.
+
+Make sure that all the requests will eventually complete! This is very important if you are using a maxConcurrent value that isn't 0 (unlimited), otherwise those uncompleted requests will end clogging up the limiter and no new requests will get through. A way to do this is to use a timer that will call the callback no matter what. It's safe to call the callback more than once, subsequent calls are ignored.
 
 ###strategies
 
@@ -76,6 +78,6 @@ Cancels all queued up requests and prevents additonal requests from being submit
 
 ###changeSettings()
 ```javascript
-limiter.changeSettings(maxNb, minTime, highWater, strategy)
+limiter.changeSettings(maxConcurrent, minTime, highWater, strategy)
 ```
 Same parameters as the constructor, pass ```null``` to skip a parameter and keep it to its current value.
