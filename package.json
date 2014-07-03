@@ -1,6 +1,6 @@
 {
   "name": "bottleneck",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Async rate limiter",
   "main": "lib/index.js",
   "scripts": {
@@ -15,11 +15,10 @@
     "async rate limiter",
     "async",
     "rate limiter",
-    "queues",
     "timing",
-    "limiter",
     "load",
-    "synchronize"
+    "limiter",
+    "ddos"
   ],
   "author": {
     "name": "Simon Grondin"

@@ -7,7 +7,8 @@
   Bottleneck = (function() {
     Bottleneck.strategy = Bottleneck.prototype.strategy = {
       LEAK: 1,
-      OVERFLOW: 2
+      OVERFLOW: 2,
+      BLOCK: 3
     };
 
     function Bottleneck(maxNb, minTime, highWater, strategy) {
@@ -19,6 +20,8 @@
       this._nbRunning = 0;
       this._queue = [];
       this._timeouts = [];
+      this._unblockTime = 0;
+      this.penalty = 5 * this.minTime;
     }
 
     Bottleneck.prototype._tryToRun = function() {
@@ -50,7 +53,10 @@
       var args, cb, reachedHighWaterMark, task, _i;
       task = arguments[0], args = 3 <= arguments.length ? __slice.call(arguments, 1, _i = arguments.length - 1) : (_i = 1, []), cb = arguments[_i++];
       reachedHighWaterMark = this.highWater > 0 && this._queue.length === this.highWater;
-      if (reachedHighWaterMark) {
+      if (this.strategy === Bottleneck.prototype.strategy.BLOCK && (reachedHighWaterMark || this._unblockTime >= Date.now())) {
+        this._unblockTime = Date.now() + this.penalty;
+        return true;
+      } else if (reachedHighWaterMark) {
         if (this.strategy === Bottleneck.prototype.strategy.LEAK) {
           this._queue.shift();
         } else if (this.strategy === Bottleneck.prototype.strategy.OVERFLOW) {
@@ -71,6 +77,11 @@
       this.minTime = minTime != null ? minTime : this.minTime;
       this.highWater = highWater != null ? highWater : this.highWater;
       this.strategy = strategy != null ? strategy : this.strategy;
+      return this;
+    };
+
+    Bottleneck.prototype.changePenalty = function(penalty) {
+      this.penalty = penalty != null ? penalty : this.penalty;
       return this;
     };
 

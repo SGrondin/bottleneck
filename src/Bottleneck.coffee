@@ -1,10 +1,12 @@
 class Bottleneck
-	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2}
+	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2, BLOCK:3}
 	constructor: (@maxNb=0, @minTime=0, @highWater=0, @strategy=Bottleneck::strategy.LEAK) ->
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
 		@_queue = []
 		@_timeouts = []
+		@_unblockTime = 0
+		@penalty = 5 * @minTime
 	_tryToRun: ->
 		if (@_nbRunning < @maxNb or @maxNb <= 0) and @_queue.length > 0
 			@_nbRunning++
@@ -23,13 +25,17 @@ class Bottleneck
 			, wait
 	submit: (task, args..., cb) ->
 		reachedHighWaterMark = @highWater > 0 and @_queue.length == @highWater
-		if reachedHighWaterMark
+		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @_unblockTime >= Date.now())
+			@_unblockTime = Date.now() + @penalty
+			return true
+		else if reachedHighWaterMark
 			if @strategy == Bottleneck::strategy.LEAK then @_queue.shift()
 			else if @strategy == Bottleneck::strategy.OVERFLOW then return reachedHighWaterMark
 		@_queue.push {task, args, cb}
 		@_tryToRun()
 		reachedHighWaterMark
 	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) -> @
+	changePenalty: (@penalty=@penalty) -> @
 	stopAll: ->
 		(clearTimeout a for a in @_timeouts)
 		@_tryToRun = ->
