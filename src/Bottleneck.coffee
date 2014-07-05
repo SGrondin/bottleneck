@@ -6,7 +6,7 @@ class Bottleneck
 		@_queue = []
 		@_timeouts = []
 		@_unblockTime = 0
-		@penalty = 5 * @minTime
+		@penalty = 8 * @minTime
 	_tryToRun: ->
 		if (@_nbRunning < @maxNb or @maxNb <= 0) and @_queue.length > 0
 			@_nbRunning++

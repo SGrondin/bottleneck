@@ -21,7 +21,7 @@
       this._queue = [];
       this._timeouts = [];
       this._unblockTime = 0;
-      this.penalty = 5 * this.minTime;
+      this.penalty = 8 * this.minTime;
     }
 
     Bottleneck.prototype._tryToRun = function() {
