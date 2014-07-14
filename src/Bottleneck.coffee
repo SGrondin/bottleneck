@@ -6,7 +6,9 @@ class Bottleneck
 		@_queue = []
 		@_timeouts = []
 		@_unblockTime = 0
-		@penalty = 8 * @minTime
+		@penalty = (15 * @minTime) or 5000
+		@interrupt = false
+	check: -> (@_nbRunning < @maxNb or @maxNb <= 0) and (@_nextRequest-Date.now()) <= 0
 	_tryToRun: ->
 		if (@_nbRunning < @maxNb or @maxNb <= 0) and @_queue.length > 0
 			@_nbRunning++
@@ -14,19 +16,20 @@ class Bottleneck
 			@_nextRequest = Date.now() + wait + @minTime
 			next = @_queue.shift()
 			done = false
-			index = -1 + @_timeouts.push setTimeout () =>
-				next.task.apply {}, next.args.concat () =>
+			index = -1 + @_timeouts.push setTimeout =>
+				next.task.apply {}, next.args.concat =>
 					if not done
 						done = true
 						delete @_timeouts[index]
 						@_nbRunning--
 						@_tryToRun()
-						next.cb?.apply {}, Array::slice.call arguments, 0
+						if not @interrupt then next.cb?.apply {}, Array::slice.call arguments, 0
 			, wait
 	submit: (task, args..., cb) ->
 		reachedHighWaterMark = @highWater > 0 and @_queue.length == @highWater
 		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @_unblockTime >= Date.now())
 			@_unblockTime = Date.now() + @penalty
+			@_nextRequest = @_unblockTime + @minTime
 			return true
 		else if reachedHighWaterMark
 			if @strategy == Bottleneck::strategy.LEAK then @_queue.shift()
@@ -36,9 +39,10 @@ class Bottleneck
 		reachedHighWaterMark
 	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) -> @
 	changePenalty: (@penalty=@penalty) -> @
-	stopAll: ->
+	stopAll: (@interrupt=@interrupt) ->
 		(clearTimeout a for a in @_timeouts)
 		@_tryToRun = ->
-		@submit = ->
+		@submit = -> false
+		@check = -> false
 
 module.exports = Bottleneck
