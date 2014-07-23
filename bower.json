@@ -1,0 +1,28 @@
+{
+  "name": "bottleneck",
+  "main": "bottleneck.js",
+  "version": "1.4.1",
+  "homepage": "https://github.com/SGrondin/bottleneck",
+  "authors": [
+    "SGrondin <github@simongrondin.name>"
+  ],
+  "description": "Async rate limiter",
+  "moduleType": [
+    "globals",
+    "node"
+  ],
+  "keywords": [
+    "async",
+    "rate",
+    "limiter",
+    "throttling",
+    "load",
+    "ddos"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components"
+  ]
+}

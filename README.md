@@ -1,16 +1,22 @@
 bottleneck
 ==========
 
-Bottleneck is a simple and efficient Asynchronous Rate Limiter for Node.JS and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded. Bottleneck is the easiest solution as it doesn't add any complexity to the code.
+Bottleneck is a tiny and efficient Asynchronous Rate Limiter for Node.JS and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded. Bottleneck is the easiest solution as it doesn't add any complexity to the code.
+
+It is battle-hardened and reliable.
 
 
 #Install
 
 __Node__
-```javascript
+```
 npm install bottleneck
 ```
 __Browser__
+```
+bower install bottleneck
+```
+or
 ```html
 <script type="text/javascript" src="bottleneck.min.js"></script>
 ```
@@ -20,7 +26,7 @@ __Browser__
 Most APIs have a rate limit. For example, the Reddit.com API limits programs to 1 request every 2 seconds.
 
 ```javascript
-var Bottleneck = require("bottleneck"); //Node.JS only
+var Bottleneck = require("bottleneck"); //Node only
 
 // Never more than 1 request running at a time.
 // Wait at least 2000ms between each request.
@@ -55,23 +61,23 @@ var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
 
 This adds a request to the queue, see the example above.
 
-It returns `true` if the strategy was executed. Therefore it will always return `false` if `highWater` is set to 0.
+It returns `true` if the strategy was executed.
 
 **Note:** If a callback isn't necessary, you must pass `null` or an empty function instead.
 
-Make sure that all the requests will eventually complete! This is very important if you are using a `maxConcurrent` value that isn't 0 (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. A way to do this is to use a timer that will always call the callback. It's safe to call the callback more than once, subsequent calls are ignored.
+**Note:** Make sure that all the requests will eventually complete! This is very important if you are using a `maxConcurrent` value that isn't 0 (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. A way to do this is to use a timer that will always call the callback. It's safe to call the callback more than once, subsequent calls are ignored.
 
 ###strategies
 
 A strategy is a simple algorithm that is executed every time `submit` would cause the queue to exceed `highWater`.
 
-####Bottleneck.strategy.LEAK
+#####Bottleneck.strategy.LEAK
 When submitting a new request, if the queue length reaches `highWater`, drop the oldest request in the queue. This is useful when requests that have been waiting for too long are not important anymore.
 
-####Bottleneck.strategy.OVERFLOW
+#####Bottleneck.strategy.OVERFLOW
 When submitting a new request, if the queue length reaches `highWater`, do not add the new request.
 
-####Bottleneck.strategy.BLOCK
+#####Bottleneck.strategy.BLOCK
 When submitting a new request, if the queue length reaches `highWater`, the limiter falls into "blocked mode". No new requests will be accepted until it unblocks. It will unblock after `penalty` milliseconds have passed without receiving a new request. `penalty` is equal to `15 * minTime` (or 5000 if `minTime` is 0) by default and can be changed by calling `changePenalty()`. This strategy is ideal when bruteforce attacks are to be expected.
 
 
@@ -102,15 +108,21 @@ limiter.changePenalty(penalty);
 This changes the `penalty` value used by the BLOCK strategy.
 
 
+##Execution guarantee
+
+Bottleneck will execute every submitted task in order. They will all *eventually* be executed as long as:
+
+* `highWater` is set to `0`, which prevents a strategy from dropping requests.
+* `maxConcurrent` is set to `0` **OR** all requests call the callback *eventually*.
+
+
 # Thoughts
 
 The main design goal for Bottleneck is to be extremely small and transparent to use. It's meant to add the least possible complexity to the code.
 
-Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse. Bottleneck is tiny, so it's not unreasonable to create one instance of it for each origin IP. The `BLOCK` strategy will then easily lock out abusers and prevent the server from being used for a [DNS amplification attack](http://blog.cloudflare.com/65gbps-ddos-no-problem).
+Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse. Bottleneck is so tiny, it's not unreasonable to create one instance of it for each origin IP, even if it means creating thousands of instances. The `BLOCK` strategy will then easily lock out abusers and prevent the server from being used for a [DNS amplification attack](http://blog.cloudflare.com/65gbps-ddos-no-problem).
 
 Other times, the application acts as a client and Bottleneck is used to not overload the server. In those cases, it's often better to not set any `highWater` mark so that no request is ever lost.
-
-As long as `highWater` is 0, all requests are assured to be executed at some point. Once again, when using a `maxConcurrent` value greater than 0, make sure that all requests will call the callback eventually.
 
 -----
 
