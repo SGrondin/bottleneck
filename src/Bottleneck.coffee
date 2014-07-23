@@ -8,10 +8,12 @@ class Bottleneck
 		@_unblockTime = 0
 		@penalty = (15 * @minTime) or 5000
 		@interrupt = false
-	check: -> (@_nbRunning < @maxNb or @maxNb <= 0) and (@_nextRequest-Date.now()) <= 0
+		@reservoir = null
+	check: -> (@_nbRunning < @maxNb or @maxNb <= 0) and (@_nextRequest-Date.now()) <= 0 and (not @reservoir? or @reservoir > 0)
 	_tryToRun: ->
-		if (@_nbRunning < @maxNb or @maxNb <= 0) and @_queue.length > 0
+		if (@_nbRunning < @maxNb or @maxNb <= 0) and @_queue.length > 0 and (not @reservoir? or @reservoir > 0)
 			@_nbRunning++
+			if @reservoir? then @reservoir--
 			wait = Math.max @_nextRequest-Date.now(), 0
 			@_nextRequest = Date.now() + wait + @minTime
 			next = @_queue.shift()
@@ -25,6 +27,8 @@ class Bottleneck
 						@_tryToRun()
 						if not @interrupt then next.cb?.apply {}, Array::slice.call arguments, 0
 			, wait
+			true
+		else false
 	submit: (task, args..., cb) ->
 		reachedHighWaterMark = @highWater > 0 and @_queue.length == @highWater
 		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @_unblockTime >= Date.now())
@@ -39,6 +43,12 @@ class Bottleneck
 		reachedHighWaterMark
 	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) -> @
 	changePenalty: (@penalty=@penalty) -> @
+	changeReservoir: (@reservoir) ->
+		while @_tryToRun() then
+		@
+	incrementReservoir: (incr=0) ->
+		@changeReservoir @reservoir+incr
+		@
 	stopAll: (@interrupt=@interrupt) ->
 		(clearTimeout a for a in @_timeouts)
 		@_tryToRun = ->

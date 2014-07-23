@@ -23,21 +23,25 @@
       this._unblockTime = 0;
       this.penalty = (15 * this.minTime) || 5000;
       this.interrupt = false;
+      this.reservoir = null;
     }
 
     Bottleneck.prototype.check = function() {
-      return (this._nbRunning < this.maxNb || this.maxNb <= 0) && (this._nextRequest - Date.now()) <= 0;
+      return (this._nbRunning < this.maxNb || this.maxNb <= 0) && (this._nextRequest - Date.now()) <= 0 && ((this.reservoir == null) || this.reservoir > 0);
     };
 
     Bottleneck.prototype._tryToRun = function() {
       var done, index, next, wait;
-      if ((this._nbRunning < this.maxNb || this.maxNb <= 0) && this._queue.length > 0) {
+      if ((this._nbRunning < this.maxNb || this.maxNb <= 0) && this._queue.length > 0 && ((this.reservoir == null) || this.reservoir > 0)) {
         this._nbRunning++;
+        if (this.reservoir != null) {
+          this.reservoir--;
+        }
         wait = Math.max(this._nextRequest - Date.now(), 0);
         this._nextRequest = Date.now() + wait + this.minTime;
         next = this._queue.shift();
         done = false;
-        return index = -1 + this._timeouts.push(setTimeout((function(_this) {
+        index = -1 + this._timeouts.push(setTimeout((function(_this) {
           return function() {
             return next.task.apply({}, next.args.concat(function() {
               var _ref;
@@ -53,6 +57,9 @@
             }));
           };
         })(this), wait));
+        return true;
+      } else {
+        return false;
       }
     };
 
@@ -90,6 +97,20 @@
 
     Bottleneck.prototype.changePenalty = function(penalty) {
       this.penalty = penalty != null ? penalty : this.penalty;
+      return this;
+    };
+
+    Bottleneck.prototype.changeReservoir = function(reservoir) {
+      this.reservoir = reservoir;
+      while (this._tryToRun()) {}
+      return this;
+    };
+
+    Bottleneck.prototype.incrementReservoir = function(incr) {
+      if (incr == null) {
+        incr = 0;
+      }
+      this.changeReservoir(this.reservoir + incr);
       return this;
     };
 

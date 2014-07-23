@@ -43,7 +43,10 @@ limiter.submit(someAsyncCall, arg1, arg2, argN, callback);
 ```
 And now you can be assured that someAsyncCall will abide by your rate guidelines!
 
-All the submitted requests will be executed *in order*.
+Bottleneck builds a queue of requests and executes them as soon as possible. All the requests will be executed *in order*.
+
+This is sufficient for the vast majority of applications. Keep reading to learn about the fine tuning available for the more complex cases.
+
 
 #Docs
 
@@ -52,20 +55,24 @@ All the submitted requests will be executed *in order*.
 var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
 ```
 
-* maxConcurrent : How many requests can be running at the same time. *Default: 0 (unlimited)*
-* minTime : How long to wait after launching a request before launching another one. *Default: 0ms*
-* highWater : How long can the queue get? *Default: 0 (unlimited)*
-* strategy : Which strategy use if the queue gets longer than the high water mark. *Default: `Bottleneck.strategy.LEAK`.*
+* `maxConcurrent` : How many requests can be running at the same time. *Default: `0` (unlimited)*
+* `minTime` : How long to wait after launching a request before launching another one. *Default: `0`ms*
+* `highWater` : How long can the queue get? *Default: `0` (unlimited)*
+* `strategy` : Which strategy to use if the queue gets longer than the high water mark. *Default: `Bottleneck.strategy.LEAK`.*
 
 ###submit()
 
-This adds a request to the queue, see the example above.
+Adds a request to the queue.
+
+```javascript
+limiter.submit(someAsyncCall, arg1, arg2, argN, callback);
+```
 
 It returns `true` if the strategy was executed.
 
 **Note:** If a callback isn't necessary, you must pass `null` or an empty function instead.
 
-**Note:** Make sure that all the requests will eventually complete! This is very important if you are using a `maxConcurrent` value that isn't 0 (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. A way to do this is to use a timer that will always call the callback. It's safe to call the callback more than once, subsequent calls are ignored.
+**Note:** Make sure that all the requests will eventually complete! This is very important if you are using a `maxConcurrent` value that isn't `0` (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. A way to do this is to use a timer that will always call the callback. It's safe to call the callback more than once, subsequent calls are ignored.
 
 ###strategies
 
@@ -78,14 +85,14 @@ When submitting a new request, if the queue length reaches `highWater`, drop the
 When submitting a new request, if the queue length reaches `highWater`, do not add the new request.
 
 #####Bottleneck.strategy.BLOCK
-When submitting a new request, if the queue length reaches `highWater`, the limiter falls into "blocked mode". No new requests will be accepted until it unblocks. It will unblock after `penalty` milliseconds have passed without receiving a new request. `penalty` is equal to `15 * minTime` (or 5000 if `minTime` is 0) by default and can be changed by calling `changePenalty()`. This strategy is ideal when bruteforce attacks are to be expected.
+When submitting a new request, if the queue length reaches `highWater`, the limiter falls into "blocked mode". No new requests will be accepted into the queue until the limiter unblocks. It will unblock after `penalty` milliseconds have passed without receiving a new request. `penalty` is equal to `15 * minTime` (or `5000` if `minTime` is `0`) by default and can be changed by calling `changePenalty()`. This strategy is ideal when bruteforce attacks are to be expected.
 
 
 ###check()
 ```javascript
 limiter.check();
 ```
-If a task was submitted right now, would it be run immediately? Returns a boolean.
+If a request was submitted right now, would it be run immediately? Returns a boolean.
 
 ###stopAll()
 ```javascript
@@ -93,7 +100,7 @@ limiter.stopAll(interrupt);
 ```
 Cancels all *queued up* requests and prevents additonal requests from being submitted.
 
-* interrupt : If true, prevent the tasks currently running from calling their callback when they're done. *Default: false*
+* `interrupt` : If true, prevent the requests currently running from calling their callback when they're done. *Default: `false`*
 
 ###changeSettings()
 ```javascript
@@ -105,15 +112,26 @@ Same parameters as the constructor, pass ```null``` to skip a parameter and keep
 ```javascript
 limiter.changePenalty(penalty);
 ```
-This changes the `penalty` value used by the BLOCK strategy.
+This changes the `penalty` value used by the `BLOCK` strategy.
+
+###changeReservoir(), incrementReservoir()
+```javascript
+limiter.changeReservoir(reservoir);
+
+limiter.incrementReservoir(incrementBy);
+```
+* `reservoir` : How many requests can be executed before the limiter stops executing requests. *Default: `null` (unlimited)*
+
+If `reservoir` reaches `0`, no new requests will be executed until it is no more `0`
 
 
 ##Execution guarantee
 
-Bottleneck will execute every submitted task in order. They will all *eventually* be executed as long as:
+Bottleneck will execute every submitted request in order. They will **all** *eventually* be executed as long as:
 
-* `highWater` is set to `0`, which prevents a strategy from dropping requests.
-* `maxConcurrent` is set to `0` **OR** all requests call the callback *eventually*.
+* `highWater` is set to `0` (default), which prevents the strategy from ever being run.
+* `maxConcurrent` is set to `0` (default) **OR** all requests call the callback *eventually*.
+* `reservoir` is `null` (default).
 
 
 # Thoughts

@@ -1,7 +1,7 @@
 {
   "name": "bottleneck",
   "main": "bottleneck.js",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "homepage": "https://github.com/SGrondin/bottleneck",
   "authors": [
     "SGrondin <github@simongrondin.name>"
@@ -15,6 +15,7 @@
     "async",
     "rate",
     "limiter",
+    "throttle",
     "throttling",
     "load",
     "ddos"

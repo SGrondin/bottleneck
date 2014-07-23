@@ -1,6 +1,6 @@
 {
   "name": "bottleneck",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Async rate limiter",
   "main": "lib/index.js",
   "scripts": {
@@ -14,6 +14,7 @@
   "keywords": [
     "async rate limiter",
     "rate limiter",
+    "throttle",
     "throttling",
     "load",
     "limiter",
