@@ -1,9 +1,11 @@
 bottleneck
 ==========
 
-Bottleneck is a tiny and efficient Asynchronous Rate Limiter for Node.JS and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded. Bottleneck is the easiest solution as it doesn't add any complexity to the code.
+Bottleneck is a tiny and efficient Asynchronous Rate Limiter for Node.JS and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded.
 
-It is battle-hardened and reliable.
+Bottleneck is the easiest solution as it doesn't add any complexity to the code.
+
+It's battle-hardened, reliable and production-ready. [Unblock.us.org](http://unblock.us.org) uses it to serve millions of queries per day.
 
 
 #Install
@@ -45,7 +47,7 @@ And now you can be assured that someAsyncCall will abide by your rate guidelines
 
 Bottleneck builds a queue of requests and executes them as soon as possible. All the requests will be executed *in order*.
 
-This is sufficient for the vast majority of applications. Read the Gotchas section and you're good to go. Or keep reading to learn about the fine tuning available for the more complex cases.
+This is sufficient for the vast majority of applications. Read the [Gotchas](https://github.com/SGrondin/bottleneck#gotchas) section and you're good to go. Or keep reading to learn about the fine tuning available for the more complex cases.
 
 
 #Docs
@@ -59,6 +61,7 @@ var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
 * `minTime` : How long to wait after launching a request before launching another one. *Default: `0`ms*
 * `highWater` : How long can the queue get? *Default: `0` (unlimited)*
 * `strategy` : Which strategy to use if the queue gets longer than the high water mark. *Default: `Bottleneck.strategy.LEAK`.*
+
 
 ###submit()
 
@@ -97,6 +100,7 @@ limiter.check();
 ```
 If a request was submitted right now, would it be run immediately? Returns a boolean.
 
+
 ###stopAll()
 ```javascript
 limiter.stopAll(interrupt);
@@ -105,17 +109,20 @@ Cancels all *queued up* requests and prevents additonal requests from being subm
 
 * `interrupt` : If true, prevent the requests currently running from calling their callback when they're done. *Default: `false`*
 
+
 ###changeSettings()
 ```javascript
 limiter.changeSettings(maxConcurrent, minTime, highWater, strategy);
 ```
 Same parameters as the constructor, pass ```null``` to skip a parameter and keep it to its current value.
 
+
 ###changePenalty()
 ```javascript
 limiter.changePenalty(penalty);
 ```
 This changes the `penalty` value used by the `BLOCK` strategy.
+
 
 ###changeReservoir(), incrementReservoir()
 ```javascript
