@@ -47,7 +47,7 @@ And now you can be assured that someAsyncCall will abide by your rate guidelines
 
 Bottleneck builds a queue of requests and executes them as soon as possible. All the requests will be executed *in order*.
 
-This is sufficient for the vast majority of applications. Read the [Gotchas](https://github.com/SGrondin/bottleneck#gotchas) section and you're good to go. Or keep reading to learn about the fine tuning available for the more complex cases.
+This is sufficient for the vast majority of applications. Read the [Gotchas](https://github.com/SGrondin/bottleneck#gotchas) section and you're good to go. Or keep reading to learn about all the fine tuning available for the more complex cases.
 
 
 #Docs
@@ -115,6 +115,12 @@ Cancels all *queued up* requests and prevents additonal requests from being subm
 limiter.changeSettings(maxConcurrent, minTime, highWater, strategy);
 ```
 Same parameters as the constructor, pass ```null``` to skip a parameter and keep it to its current value.
+
+**Note:** Changing `maxConcurrent` and `minTime` will not affect requests that have already been scheduled for execution.
+
+For example, imagine that 3 minute-long requests are `submit`'ted at time T+0 with `maxConcurrent = 0` and `minTime = 2000`. The requests will be launched at T+0 seconds, T+2 seconds and T+4 seconds respectively. If right after adding the requests to Bottleneck, you were to call `limiter.changeSettings(1);`, it won't change the fact that there will be 3 requests running at the same time for roughly 60 seconds as in this example they each take a minute to complete. Once again, `changeSettings` only affects requests that have not yet been `submit`'ted.
+
+This is by design, as Bottleneck made a promise to execute those requests according to the settings valid at the time. Changing settings afterwards should not retroactively affect space & time nor break previous assumptions as that would make code very error-prone and Bottleneck a tool that cannot be relied upon.
 
 
 ###changePenalty()

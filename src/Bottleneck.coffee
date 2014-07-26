@@ -41,7 +41,9 @@ class Bottleneck
 		@_queue.push {task, args, cb}
 		@_tryToRun()
 		reachedHighWaterMark
-	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) -> @
+	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) ->
+		while @_tryToRun() then
+		@
 	changePenalty: (@penalty=@penalty) -> @
 	changeReservoir: (@reservoir) ->
 		while @_tryToRun() then
