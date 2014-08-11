@@ -34,6 +34,7 @@ class Bottleneck
 		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @_unblockTime >= Date.now())
 			@_unblockTime = Date.now() + @penalty
 			@_nextRequest = @_unblockTime + @minTime
+			@_queue = []
 			return true
 		else if reachedHighWaterMark
 			if @strategy == Bottleneck::strategy.LEAK then @_queue.shift()
