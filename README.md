@@ -91,7 +91,7 @@ When submitting a new request, if the queue length reaches `highWater`, drop the
 When submitting a new request, if the queue length reaches `highWater`, do not add the new request.
 
 #####Bottleneck.strategy.BLOCK
-When submitting a new request, if the queue length reaches `highWater`, the limiter falls into "blocked mode". No new requests will be accepted into the queue until the limiter unblocks. It will unblock after `penalty` milliseconds have passed without receiving a new request. `penalty` is equal to `15 * minTime` (or `5000` if `minTime` is `0`) by default and can be changed by calling `changePenalty()`. This strategy is ideal when bruteforce attacks are to be expected.
+When submitting a new request, if the queue length reaches `highWater`, the limiter falls into "blocked mode". All queued requests are dropped and no new requests will be accepted into the queue until the limiter unblocks. It will unblock after `penalty` milliseconds have passed without receiving a new request. `penalty` is equal to `15 * minTime` (or `5000` if `minTime` is `0`) by default and can be changed by calling `changePenalty()`. This strategy is ideal when bruteforce attacks are to be expected.
 
 
 ###check()
