@@ -47,7 +47,7 @@ And now you can be assured that someAsyncCall will abide by your rate guidelines
 
 Bottleneck builds a queue of requests and executes them as soon as possible. All the requests will be executed *in order*.
 
-This is sufficient for the vast majority of applications. Read the [Gotchas](https://github.com/SGrondin/bottleneck#gotchas) section and you're good to go. Or keep reading to learn about all the fine tuning available for the more complex cases.
+This is sufficient for the vast majority of applications. **Read the [Gotchas](https://github.com/SGrondin/bottleneck#gotchas) section** and you're good to go. Or keep reading to learn about all the fine tuning available for the more complex cases.
 
 
 #Docs
@@ -75,9 +75,9 @@ It returns `true` if the strategy was executed.
 
 ####Gotchas
 
-* If a callback isn't necessary, you must pass `null` or an empty function instead.
+* If a callback isn't necessary, you must pass `null` or an empty function instead. It will not work if you forget to do this.
 
-* Make sure that all the requests will eventually complete! This is very important if you are using a `maxConcurrent` value that isn't `0` (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. A way to do this is to use a timer that will always call the callback. It's safe to call the callback more than once, subsequent calls are ignored.
+* Make sure that all the requests will eventually complete by calling their callback! Again, even if you submitted your request with a `null` callback , it still needs to call its callback. This is very important if you are using a `maxConcurrent` value that isn't `0` (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. It's safe to call the callback more than once, subsequent calls are ignored.
 
 
 ###strategies
