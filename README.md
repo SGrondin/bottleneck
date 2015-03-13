@@ -1,7 +1,8 @@
 bottleneck
 ==========
-
+[npm-downloads]: https://img.shields.io/npm/dm/bottleneck.svg?style=flat
 [![Join the chat at https://gitter.im/SGrondin/bottleneck](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/SGrondin/bottleneck?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+![Downloads][npm-downloads]
 
 Bottleneck is a tiny and efficient Asynchronous Rate Limiter for Node.JS and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded.
 
