@@ -144,6 +144,21 @@ limiter.incrementReservoir(incrementBy);
 
 If `reservoir` reaches `0`, no new requests will be executed until it is no more `0`
 
+###chain()
+
+* `limiter` : If another limiter is passed, tasks that are ready to be executed will be submitted to that other limiter. *Default: `null` (none)*
+
+Suppose you have 2 types of tasks, A and B. They both have their own limiter with their own settings, but both must also follow a global limiter C:
+```javascript
+var limiterA = new Bottleneck(...some settings...);
+var limiterB = new Bottleneck(...some different settings...);
+var limiterC = new Bottleneck(...some global settings...);
+limiterA.chain(limiterC);
+limiterB.chain(limiterC);
+// Requests submitted to limiterA must follow the A and C rate limits.
+// Requests submitted to limiterB must follow the B and C rate limits.
+// Requests submitted to limiterC must follow the C rate limits.
+```
 
 ##Execution guarantee
 

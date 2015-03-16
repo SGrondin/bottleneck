@@ -10,6 +10,8 @@ class Bottleneck
 		@penalty = (15 * @minTime) or 5000
 		@interrupt = false
 		@reservoir = null
+		@limiter = null
+	chain: (@limiter) -> @
 	check: -> (@_nbRunning < @maxNb or @maxNb <= 0) and (@_nextRequest-Date.now()) <= 0 and (not @reservoir? or @reservoir > 0)
 	_tryToRun: ->
 		if (@_nbRunning < @maxNb or @maxNb <= 0) and @_queue.length > 0 and (not @reservoir? or @reservoir > 0)
@@ -20,13 +22,15 @@ class Bottleneck
 			next = @_queue.shift()
 			done = false
 			index = -1 + @_timeouts.push setTimeout =>
-				next.task.apply {}, next.args.concat =>
+				completed = =>
 					if not done
 						done = true
 						delete @_timeouts[index]
 						@_nbRunning--
 						@_tryToRun()
 						if not @interrupt then next.cb?.apply {}, Array::slice.call arguments, 0
+				if @limiter? then @limiter.submit.apply @limiter, Array::concat.call next.task, next.args, completed
+				else next.task.apply {}, next.args.concat completed
 			, wait
 			true
 		else false
