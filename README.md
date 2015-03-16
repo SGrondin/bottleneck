@@ -171,9 +171,7 @@ Bottleneck will execute every submitted request in order. They will **all** *eve
 
 # Cluster
 
-The main design goal for Bottleneck is to be extremely small and transparent to use. It's meant to add the least possible complexity to the code.
-
-Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse. Bottleneck is so tiny, it's not unreasonable to create one limiter of it for each origin IP, even if it means creating thousands of limiters. The `Cluster` mode is perfect for this use case.
+Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse. Bottleneck is so tiny, it's not unreasonable to create one limiter for each origin IP, even if it means creating thousands of limiters. The `Cluster` mode is perfect for this use case.
 
 The `Cluster` feature of Bottleneck manages limiters automatically for you. It is created exactly like a limiter:
 
@@ -181,7 +179,7 @@ The `Cluster` feature of Bottleneck manages limiters automatically for you. It i
 var cluster = Bottleneck.Cluster(maxConcurrent, minTime, highWater, strategy);
 ```
 
-Those arguments are exactly the same as for a basic limiter. The cluster is then used with the `.key(str)` method:
+Those arguments are the same as for a basic limiter. The cluster is then used with the `.key(str)` method:
 
 ```javascript
 cluster.key("somestring").submit(someAsyncCall, arg1, arg2, cb);
@@ -208,7 +206,6 @@ cluster.all(function(limiter){
 ###keys()
 
 Returns an array containing all the keys in the cluster.
-
 
 # Rate-limiting synchronous functions
 
