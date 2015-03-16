@@ -82,6 +82,7 @@ It returns `true` if the strategy was executed.
 
 * Make sure that all the requests will eventually complete by calling their callback! Again, even if you submitted your request with a `null` callback , it still needs to call its callback. This is very important if you are using a `maxConcurrent` value that isn't `0` (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. It's safe to call the callback more than once, subsequent calls are ignored.
 
+* If you want to rate limit a synchronous function (console.log(), for example), you must wrap it in a closure to make it asynchronous. See [this](https://github.com/SGrondin/bottleneck#rate-limiting-synchronous-functions) example.
 
 ###strategies
 
@@ -153,15 +154,48 @@ Bottleneck will execute every submitted request in order. They will **all** *eve
 * `reservoir` is `null` (default).
 
 
-# Thoughts
+# Cluster
 
 The main design goal for Bottleneck is to be extremely small and transparent to use. It's meant to add the least possible complexity to the code.
 
-Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse. Bottleneck is so tiny, it's not unreasonable to create one instance of it for each origin IP, even if it means creating thousands of instances. The `BLOCK` strategy will then easily lock out abusers and prevent the server from being used for a [DNS amplification attack](http://blog.cloudflare.com/65gbps-ddos-no-problem).
+Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse. Bottleneck is so tiny, it's not unreasonable to create one limiter of it for each origin IP, even if it means creating thousands of limiters. The `Cluster` mode is perfect for this use case.
 
-Other times, the application acts as a client and Bottleneck is used to not overload the server. In those cases, it's often better to not set any `highWater` mark so that no request is ever lost.
+The `Cluster` feature of Bottleneck manages limiters automatically for you. It is created exactly like a limiter:
 
------
+```javascript
+var cluster = Bottleneck.Cluster(maxConcurrent, minTime, highWater, strategy);
+```
+
+Those arguments are exactly the same as for a basic limiter. The cluster is then used with the `.key(str)` method:
+
+```javascript
+cluster.key("somestring").submit(someAsyncCall, arg1, arg2, cb);
+```
+
+###key()
+
+* `str` : The key to use. All calls submitted with the same key will use the same limiter. *Default: `""`*
+
+The return value of `.key(str)` is a limiter. If it doesn't already exist, it is created on the fly. Limiters that have been idle for a long time are deleted to avoid memory leaks.
+
+###all()
+
+* `cb` : A function to be executed on every limiter in the cluster.
+
+For example, this will call `stopAll()` on every limiter in the cluster:
+
+```javasript
+cluster.all(function(limiter){
+	limiter.stopAll();
+});
+```
+
+###keys()
+
+Returns an array containing all the keys in the cluster.
+
+
+# Rate-limiting synchronous functions
 
 Most of the time, using Bottleneck is as simple as the first example above. However, when Bottleneck is used on a synchronous call, it (obviously) becomes asynchronous, so the returned value of that call can't be used directly. The following example should make it clear why.
 

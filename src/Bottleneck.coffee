@@ -1,5 +1,6 @@
 class Bottleneck
 	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2, BLOCK:3}
+	Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
 	constructor: (@maxNb=0, @minTime=0, @highWater=0, @strategy=Bottleneck::strategy.LEAK) ->
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
