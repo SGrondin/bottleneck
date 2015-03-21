@@ -1,8 +1,9 @@
-bottleneck
-==========
-[npm-downloads]: https://img.shields.io/npm/dm/bottleneck.svg?style=flat
-[![Join the chat at https://gitter.im/SGrondin/bottleneck](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/SGrondin/bottleneck?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-![Downloads][npm-downloads]
+# bottleneck
+
+[![Downloads][npm-downloads]][npm-url]
+[![version][npm-version]][npm-url]
+[![License][npm-license]][license-url]
+[![Gitter][gitter-image]][gitter-url]
 
 Bottleneck is a tiny and efficient Asynchronous Rate Limiter for Node.JS and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded.
 
@@ -11,7 +12,7 @@ Bottleneck is the easiest solution as it doesn't add any complexity to the code.
 It's battle-hardened, reliable and production-ready. [Unblock.us.org](http://unblock.us.org) uses it to serve millions of queries per day.
 
 
-#Install
+## Install
 
 __Node__
 ```
@@ -26,11 +27,11 @@ or
 <script type="text/javascript" src="bottleneck.min.js"></script>
 ```
 
-#Example
+###### Example
 
 Most APIs have a rate limit. For example, the Reddit.com API limits programs to 1 request every 2 seconds.
 
-```javascript
+```js
 var Bottleneck = require("bottleneck"); //Node only
 
 // Never more than 1 request running at a time.
@@ -39,11 +40,11 @@ var limiter = new Bottleneck(1, 2000);
 ```
 
 Instead of doing
-```javascript
+```js
 someAsyncCall(arg1, arg2, argN, callback);
 ```
 You do
-```javascript
+```js
 limiter.submit(someAsyncCall, arg1, arg2, argN, callback);
 ```
 And now you can be assured that someAsyncCall will abide by your rate guidelines!
@@ -53,10 +54,11 @@ Bottleneck builds a queue of requests and executes them as soon as possible. All
 This is sufficient for the vast majority of applications. **Read the [Gotchas](https://github.com/SGrondin/bottleneck#gotchas) section** and you're good to go. Or keep reading to learn about all the fine tuning available for the more complex cases.
 
 
-#Docs
+## Docs
 
-###Constructor
-```javascript
+### Constructor
+
+```js
 var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
 ```
 
@@ -66,17 +68,17 @@ var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
 * `strategy` : Which strategy to use if the queue gets longer than the high water mark. *Default: `Bottleneck.strategy.LEAK`.*
 
 
-###submit()
+### submit()
 
 Adds a request to the queue.
 
-```javascript
+```js
 limiter.submit(someAsyncCall, arg1, arg2, argN, callback);
 ```
 
 It returns `true` if the strategy was executed.
 
-####Gotchas
+#### Gotchas
 
 * If a callback isn't necessary, you must pass `null` or an empty function instead. It will not work if you forget to do this.
 
@@ -84,29 +86,31 @@ It returns `true` if the strategy was executed.
 
 * If you want to rate limit a synchronous function (console.log(), for example), you must wrap it in a closure to make it asynchronous. See [this](https://github.com/SGrondin/bottleneck#rate-limiting-synchronous-functions) example.
 
-###strategies
+### strategies
 
 A strategy is a simple algorithm that is executed every time `submit` would cause the queue to exceed `highWater`.
 
-#####Bottleneck.strategy.LEAK
+#### Bottleneck.strategy.LEAK
 When submitting a new request, if the queue length reaches `highWater`, drop the oldest request in the queue. This is useful when requests that have been waiting for too long are not important anymore.
 
-#####Bottleneck.strategy.OVERFLOW
+#### Bottleneck.strategy.OVERFLOW
 When submitting a new request, if the queue length reaches `highWater`, do not add the new request.
 
-#####Bottleneck.strategy.BLOCK
+#### Bottleneck.strategy.BLOCK
 When submitting a new request, if the queue length reaches `highWater`, the limiter falls into "blocked mode". All queued requests are dropped and no new requests will be accepted into the queue until the limiter unblocks. It will unblock after `penalty` milliseconds have passed without receiving a new request. `penalty` is equal to `15 * minTime` (or `5000` if `minTime` is `0`) by default and can be changed by calling `changePenalty()`. This strategy is ideal when bruteforce attacks are to be expected.
 
 
-###check()
-```javascript
+### check()
+
+```js
 limiter.check();
 ```
 If a request was submitted right now, would it be run immediately? Returns a boolean.
 
 
-###stopAll()
-```javascript
+### stopAll()
+
+```js
 limiter.stopAll(interrupt);
 ```
 Cancels all *queued up* requests and prevents additonal requests from being submitted.
@@ -114,8 +118,9 @@ Cancels all *queued up* requests and prevents additonal requests from being subm
 * `interrupt` : If true, prevent the requests currently running from calling their callback when they're done. *Default: `false`*
 
 
-###changeSettings()
-```javascript
+### changeSettings()
+
+```js
 limiter.changeSettings(maxConcurrent, minTime, highWater, strategy);
 ```
 Same parameters as the constructor, pass ```null``` to skip a parameter and keep it to its current value.
@@ -127,15 +132,17 @@ For example, imagine that 3 60-second requests are submitted at time T+0 with `m
 This is by design, as Bottleneck made a promise to execute those requests according to the settings valid at the time. Changing settings afterwards should not break previous assumptions, as that would make code very error-prone and Bottleneck a tool that cannot be relied upon.
 
 
-###changePenalty()
-```javascript
+### changePenalty()
+
+```js
 limiter.changePenalty(penalty);
 ```
 This changes the `penalty` value used by the `BLOCK` strategy.
 
 
-###changeReservoir(), incrementReservoir()
-```javascript
+### changeReservoir(), incrementReservoir()
+
+```js
 limiter.changeReservoir(reservoir);
 
 limiter.incrementReservoir(incrementBy);
@@ -144,12 +151,12 @@ limiter.incrementReservoir(incrementBy);
 
 If `reservoir` reaches `0`, no new requests will be executed until it is no more `0`
 
-###chain()
+### chain()
 
 * `limiter` : If another limiter is passed, tasks that are ready to be executed will be submitted to that other limiter. *Default: `null` (none)*
 
 Suppose you have 2 types of tasks, A and B. They both have their own limiter with their own settings, but both must also follow a global limiter C:
-```javascript
+```js
 var limiterA = new Bottleneck(...some settings...);
 var limiterB = new Bottleneck(...some different settings...);
 var limiterC = new Bottleneck(...some global settings...);
@@ -160,7 +167,7 @@ limiterB.chain(limiterC);
 // Requests submitted to limiterC must follow the C rate limits.
 ```
 
-##Execution guarantee
+## Execution guarantee
 
 Bottleneck will execute every submitted request in order. They will **all** *eventually* be executed as long as:
 
@@ -169,29 +176,29 @@ Bottleneck will execute every submitted request in order. They will **all** *eve
 * `reservoir` is `null` (default).
 
 
-# Cluster
+## Cluster
 
 Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse. Bottleneck is so tiny, it's not unreasonable to create one limiter for each origin IP, even if it means creating thousands of limiters. The `Cluster` mode is perfect for this use case.
 
 The `Cluster` feature of Bottleneck manages limiters automatically for you. It is created exactly like a limiter:
 
-```javascript
+```js
 var cluster = Bottleneck.Cluster(maxConcurrent, minTime, highWater, strategy);
 ```
 
 Those arguments are the same as for a basic limiter. The cluster is then used with the `.key(str)` method:
 
-```javascript
+```js
 cluster.key("somestring").submit(someAsyncCall, arg1, arg2, cb);
 ```
 
-###key()
+### key()
 
 * `str` : The key to use. All calls submitted with the same key will use the same limiter. *Default: `""`*
 
 The return value of `.key(str)` is a limiter. If it doesn't already exist, it is created on the fly. Limiters that have been idle for a long time are deleted to avoid memory leaks.
 
-###all()
+### all()
 
 * `cb` : A function to be executed on every limiter in the cluster.
 
@@ -199,51 +206,61 @@ For example, this will call `stopAll()` on every limiter in the cluster:
 
 ```javasript
 cluster.all(function(limiter){
-	limiter.stopAll();
+  limiter.stopAll();
 });
 ```
 
-###keys()
+### keys()
 
 Returns an array containing all the keys in the cluster.
 
-# Rate-limiting synchronous functions
+## Rate-limiting synchronous functions
 
 Most of the time, using Bottleneck is as simple as the first example above. However, when Bottleneck is used on a synchronous call, it (obviously) becomes asynchronous, so the returned value of that call can't be used directly. The following example should make it clear why.
 
 This is the original code that we want to rate-limit:
-```javascript
+```js
 var req = http.request(options, function(res){
-	//do stuff with res
+  //do stuff with res
 });
 req.write("some string", "utf8");
 req.end();
 ```
 
 The following code snippet will **NOT** work, because `http.request` is not executed synchronously therefore `req` doesn't contain the expected request object.
-```javascript
+```js
 // DOES NOT WORK
 var req = limiter.submit(http.request, options, function(res){
-	//do stuff with res
+  //do stuff with res
 });
 req.write("some string", "utf8");
 req.end();
 ```
 
 This is the right way to do it:
-```javascript
+```js
 limiter.submit(function(cb){
-	var req = http.request(options, function(res){
-		//do stuff with res
-		cb();
-	});
-	req.write("some string", "utf8");
-	req.end();
+  var req = http.request(options, function(res){
+    //do stuff with res
+    cb();
+  });
+  req.write("some string", "utf8");
+  req.end();
 }, null);
 ```
 
-# Contributing
+## Contributing
 
 This README file is always in need of better explanations and examples. If things can be clearer and simpler, please consider forking this repo and submitting a Pull Request.
 
 Suggestions and bug reports are also welcome.
+
+[license-url]: https://github.com/SGrondin/bottleneck/blob/master/LICENSE
+
+[npm-url]: https://www.npmjs.com/package/bottleneck
+[npm-license]: https://img.shields.io/npm/l/bottleneck.svg?style=flat
+[npm-version]: https://img.shields.io/npm/v/bottleneck.svg?style=flat
+[npm-downloads]: https://img.shields.io/npm/dm/bottleneck.svg?style=flat
+
+[gitter-url]: https://gitter.im/SGrondin/bottleneck
+[gitter-image]: https://img.shields.io/badge/Gitter-Join%20Chat-blue.svg?style=flat
