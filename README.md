@@ -107,6 +107,13 @@ limiter.check();
 ```
 If a request was submitted right now, would it be run immediately? Returns a boolean.
 
+### isBlocked()
+
+```js
+limiter.isBlocked();
+```
+Is the limiter currently in "blocked mode"? Returns a boolean.
+
 
 ### stopAll()
 

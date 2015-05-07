@@ -12,6 +12,7 @@ class Bottleneck
 		@reservoir = null
 		@limiter = null
 	chain: (@limiter) -> @
+	isBlocked: -> @_unblockTime >= Date.now()
 	check: -> (@_nbRunning < @maxNb or @maxNb <= 0) and (@_nextRequest-Date.now()) <= 0 and (not @reservoir? or @reservoir > 0)
 	_tryToRun: ->
 		if (@_nbRunning < @maxNb or @maxNb <= 0) and @_queue.length > 0 and (not @reservoir? or @reservoir > 0)
@@ -36,7 +37,7 @@ class Bottleneck
 		else false
 	submit: (task, args..., cb) ->
 		reachedHighWaterMark = @highWater > 0 and @_queue.length == @highWater
-		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @_unblockTime >= Date.now())
+		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @isBlocked())
 			@_unblockTime = Date.now() + @penalty
 			@_nextRequest = @_unblockTime + @minTime
 			@_queue = []
