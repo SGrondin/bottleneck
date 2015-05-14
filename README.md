@@ -190,7 +190,7 @@ Let's take a DNS server as an example of how Bottleneck can be used. It's a serv
 The `Cluster` feature of Bottleneck manages limiters automatically for you. It is created exactly like a limiter:
 
 ```js
-var cluster = Bottleneck.Cluster(maxConcurrent, minTime, highWater, strategy);
+var cluster = new Bottleneck.Cluster(maxConcurrent, minTime, highWater, strategy);
 ```
 
 Those arguments are the same as for a basic limiter. The cluster is then used with the `.key(str)` method:
