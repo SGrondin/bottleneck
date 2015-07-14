@@ -35,7 +35,7 @@ class Bottleneck
 			, wait
 			true
 		else false
-	submit: (task, args..., cb) ->
+	submit: (task, args..., cb) =>
 		reachedHighWaterMark = @highWater > 0 and @_queue.length == @highWater
 		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @isBlocked())
 			@_unblockTime = Date.now() + @penalty
@@ -48,6 +48,14 @@ class Bottleneck
 		@_queue.push {task, args, cb}
 		@_tryToRun()
 		reachedHighWaterMark
+	schedule: (task, args...) ->
+		wrapped = (cb) ->
+			(task.apply {}, args)
+			.then (args...) -> cb.apply {}, Array::concat.call [], null, args
+			.catch (args...) -> cb.apply {}, Array::concat.call {}, args
+		new Promise (resolve, reject) =>
+			@submit.apply {}, Array::concat.call wrapped, (error, args...) ->
+				(if error? then reject else resolve).apply {}, args
 	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) ->
 		while @_tryToRun() then
 		@

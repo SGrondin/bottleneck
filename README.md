@@ -9,7 +9,7 @@ Bottleneck is a tiny and efficient Asynchronous Rate Limiter for Node.JS and the
 
 Bottleneck is the easiest solution as it doesn't add any complexity to the code.
 
-It's battle-hardened, reliable and production-ready. [Unblock.us.org](http://unblock.us.org) uses it to serve millions of queries per day.
+It's battle-hardened, reliable and production-ready. [DNSChain](https://github.com/okTurtles/dnschain) uses it to serve millions of queries per day.
 
 
 ## Install
@@ -49,6 +49,8 @@ limiter.submit(someAsyncCall, arg1, arg2, argN, callback);
 ```
 And now you can be assured that someAsyncCall will abide by your rate guidelines!
 
+Promise users can use [`schedule()`](https://github.com/SGrondin/bottleneck#schedule).
+
 Bottleneck builds a queue of requests and executes them as soon as possible. All the requests will be executed *in order*.
 
 This is sufficient for the vast majority of applications. **Read the [Gotchas](https://github.com/SGrondin/bottleneck#gotchas) section** and you're good to go. Or keep reading to learn about all the fine tuning available for the more complex cases.
@@ -78,17 +80,31 @@ limiter.submit(someAsyncCall, arg1, arg2, argN, callback);
 
 It returns `true` if the strategy was executed.
 
+### schedule()
+
+Adds a request to the queue. This is the Promise version of `submit`. It uses the built-in [Promise](http://caniuse.com/#feat=promises) object.
+
+```js
+var fn = function(arg1, arg2, argN) {
+	return httpGet(arg1, arg2, argN); # Here httpGet() returns a promise
+};
+
+limiter.schedule(fn, arg1, arg2, argN);
+```
+
+In plain language, `schedule` takes a function fn and a list of arguments. Fn must return a promise. `schedule` returns a promise that will be executed according to the rate limits. It's safe to mix `submit` and `schedule` in the same limiter.
+
 #### Gotchas
 
-* If a callback isn't necessary, you must pass `null` or an empty function instead. It will not work if you forget to do this.
+* When using `submit`, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work if you forget to do this.
 
-* Make sure that all the requests will eventually complete by calling their callback! Again, even if you submitted your request with a `null` callback , it still needs to call its callback. This is very important if you are using a `maxConcurrent` value that isn't `0` (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. It's safe to call the callback more than once, subsequent calls are ignored.
+* Make sure that all the requests will eventually complete by calling their callback or resolving/rejecting (in the case of promises). Again, even if you `submit`ted your request with a `null` callback , it still needs to call its callback. This is very important if you are using a `maxConcurrent` value that isn't `0` (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. It's safe to call the callback more than once, subsequent calls are ignored.
 
 * If you want to rate limit a synchronous function (console.log(), for example), you must wrap it in a closure to make it asynchronous. See [this](https://github.com/SGrondin/bottleneck#rate-limiting-synchronous-functions) example.
 
 ### strategies
 
-A strategy is a simple algorithm that is executed every time `submit` would cause the queue to exceed `highWater`.
+A strategy is a simple algorithm that is executed every time adding a request would cause the queue to exceed `highWater`.
 
 #### Bottleneck.strategy.LEAK
 When submitting a new request, if the queue length reaches `highWater`, drop the oldest request in the queue. This is useful when requests that have been waiting for too long are not important anymore.
@@ -105,7 +121,7 @@ When submitting a new request, if the queue length reaches `highWater`, the limi
 ```js
 limiter.check();
 ```
-If a request was submitted right now, would it be run immediately? Returns a boolean.
+If a request was added right now, would it be run immediately? Returns a boolean.
 
 ### isBlocked()
 
@@ -120,7 +136,7 @@ Is the limiter currently in "blocked mode"? Returns a boolean.
 ```js
 limiter.stopAll(interrupt);
 ```
-Cancels all *queued up* requests and prevents additonal requests from being submitted.
+Cancels all *queued up* requests and prevents additonal requests from being added.
 
 * `interrupt` : If true, prevent the requests currently running from calling their callback when they're done. *Default: `false`*
 
@@ -134,7 +150,7 @@ Same parameters as the constructor, pass ```null``` to skip a parameter and keep
 
 **Note:** Changing `maxConcurrent` and `minTime` will not affect requests that have already been scheduled for execution.
 
-For example, imagine that 3 60-second requests are submitted at time T+0 with `maxConcurrent = 0` and `minTime = 2000`. The requests will be launched at T+0 seconds, T+2 seconds and T+4 seconds respectively. If right after adding the requests to Bottleneck, you were to call `limiter.changeSettings(1);`, it won't change the fact that there will be 3 requests running at the same time for roughly 60 seconds. Once again, `changeSettings` only affects requests that have not yet been *submitted*.
+For example, imagine that 3 60-second requests are submitted at time T+0 with `maxConcurrent = 0` and `minTime = 2000`. The requests will be launched at T+0 seconds, T+2 seconds and T+4 seconds respectively. If right after adding the requests to Bottleneck, you were to call `limiter.changeSettings(1);`, it won't change the fact that there will be 3 requests running at the same time for roughly 60 seconds. Once again, `changeSettings` only affects requests that have not yet been added.
 
 This is by design, as Bottleneck made a promise to execute those requests according to the settings valid at the time. Changing settings afterwards should not break previous assumptions, as that would make code very error-prone and Bottleneck a tool that cannot be relied upon.
 
@@ -160,7 +176,7 @@ If `reservoir` reaches `0`, no new requests will be executed until it is no more
 
 ### chain()
 
-* `limiter` : If another limiter is passed, tasks that are ready to be executed will be submitted to that other limiter. *Default: `null` (none)*
+* `limiter` : If another limiter is passed, tasks that are ready to be executed will be added to that other limiter. *Default: `null` (none)*
 
 Suppose you have 2 types of tasks, A and B. They both have their own limiter with their own settings, but both must also follow a global limiter C:
 ```js
@@ -169,17 +185,17 @@ var limiterB = new Bottleneck(...some different settings...);
 var limiterC = new Bottleneck(...some global settings...);
 limiterA.chain(limiterC);
 limiterB.chain(limiterC);
-// Requests submitted to limiterA must follow the A and C rate limits.
-// Requests submitted to limiterB must follow the B and C rate limits.
-// Requests submitted to limiterC must follow the C rate limits.
+// Requests added to limiterA must follow the A and C rate limits.
+// Requests added to limiterB must follow the B and C rate limits.
+// Requests added to limiterC must follow the C rate limits.
 ```
 
 ## Execution guarantee
 
-Bottleneck will execute every submitted request in order. They will **all** *eventually* be executed as long as:
+Bottleneck will execute every request in order. They will **all** *eventually* be executed as long as:
 
 * `highWater` is set to `0` (default), which prevents the strategy from ever being run.
-* `maxConcurrent` is set to `0` (default) **OR** all requests call the callback *eventually*.
+* `maxConcurrent` is set to `0` (default) **OR** all requests call the callback *eventually* (in the case of promises, they must be resolved or rejected eventually).
 * `reservoir` is `null` (default).
 
 
@@ -187,13 +203,13 @@ Bottleneck will execute every submitted request in order. They will **all** *eve
 
 Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse. Bottleneck is so tiny, it's not unreasonable to create one limiter for each origin IP, even if it means creating thousands of limiters. The `Cluster` mode is perfect for this use case.
 
-The `Cluster` feature of Bottleneck manages limiters automatically for you. It is created exactly like a limiter:
+The `Cluster` feature of Bottleneck manages limiters automatically for you. It creates limiters dynamically and transparently. A cluster is created exactly like a limiter:
 
 ```js
 var cluster = new Bottleneck.Cluster(maxConcurrent, minTime, highWater, strategy);
 ```
 
-Those arguments are the same as for a basic limiter. The cluster is then used with the `.key(str)` method:
+The cluster is then used with the `.key(str)` method:
 
 ```js
 cluster.key("somestring").submit(someAsyncCall, arg1, arg2, cb);
