@@ -1,6 +1,7 @@
 class Bottleneck
 	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2, BLOCK:3}
 	Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
+	Bottleneck.Promise = Bottleneck::Promise = try require "bluebird" catch e then Promise
 	constructor: (@maxNb=0, @minTime=0, @highWater=0, @strategy=Bottleneck::strategy.LEAK) ->
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
@@ -53,7 +54,7 @@ class Bottleneck
 			(task.apply {}, args)
 			.then (args...) -> cb.apply {}, Array::concat.call [], null, args
 			.catch (args...) -> cb.apply {}, Array::concat.call {}, args
-		new Promise (resolve, reject) =>
+		new Bottleneck::Promise (resolve, reject) =>
 			@submit.apply {}, Array::concat.call wrapped, (error, args...) ->
 				(if error? then reject else resolve).apply {}, args
 	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) ->

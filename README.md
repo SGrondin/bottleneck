@@ -82,7 +82,7 @@ It returns `true` if the strategy was executed.
 
 ### schedule()
 
-Adds a request to the queue. This is the Promise version of `submit`. It uses the built-in [Promise](http://caniuse.com/#feat=promises) object.
+Adds a request to the queue. This is the Promise version of `submit`. It uses the [bluebird](https://github.com/petkaantonov/bluebird) package if available and otherwise uses the built-in [Promise](http://caniuse.com/#feat=promises) object.
 
 ```js
 var fn = function(arg1, arg2, argN) {
@@ -93,6 +93,15 @@ limiter.schedule(fn, arg1, arg2, argN);
 ```
 
 In plain language, `schedule` takes a function fn and a list of arguments. Fn must return a promise. `schedule` returns a promise that will be executed according to the rate limits. It's safe to mix `submit` and `schedule` in the same limiter.
+
+It's also possible to replace the Promise library used.
+
+```js
+var Bottleneck = require("bottleneck");
+Bottleneck.Promise = myPromiseLibrary;
+
+var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
+```
 
 #### Gotchas
 
