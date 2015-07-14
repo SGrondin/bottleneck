@@ -86,7 +86,7 @@ Adds a request to the queue. This is the Promise version of `submit`. It uses th
 
 ```js
 var fn = function(arg1, arg2, argN) {
-	return httpGet(arg1, arg2, argN); # Here httpGet() returns a promise
+	return httpGet(arg1, arg2, argN); // Here httpGet() returns a promise
 };
 
 limiter.schedule(fn, arg1, arg2, argN);
