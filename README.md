@@ -53,7 +53,7 @@ Promise users can use [`schedule()`](https://github.com/SGrondin/bottleneck#sche
 
 Bottleneck builds a queue of requests and executes them as soon as possible. All the requests will be executed *in order*.
 
-This is sufficient for the vast majority of applications. **Read the [Gotchas](https://github.com/SGrondin/bottleneck#gotchas) section** and you're good to go. Or keep reading to learn about all the fine tuning available for the more complex cases.
+This is sufficient for the vast majority of applications. **Read the [Gotchas](https://github.com/SGrondin/bottleneck#gotchas) section** and you're good to go. Or keep reading to learn about all the fine tuning available for the more complex use cases.
 
 
 ## Docs
@@ -94,7 +94,18 @@ limiter.schedule(fn, arg1, arg2, argN);
 
 In plain language, `schedule` takes a function fn and a list of arguments. Fn must return a promise. `schedule` returns a promise that will be executed according to the rate limits. It's safe to mix `submit` and `schedule` in the same limiter.
 
-It's also possible to replace the Promise library used.
+Here's another example, this time using the ECMAScript 7 syntax:
+
+```js
+// fn returns a promise
+function fn (url) {
+    return http.get(url).then(response => console.log(response.body));
+}
+
+limiter.schedule(fn, url);
+```
+
+It's also possible to replace the Promise library used:
 
 ```js
 var Bottleneck = require("bottleneck");
@@ -103,17 +114,17 @@ Bottleneck.Promise = myPromiseLibrary;
 var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
 ```
 
-#### Gotchas
+## Gotchas
 
 * When using `submit`, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work if you forget to do this.
 
-* Make sure that all the requests will eventually complete by calling their callback or resolving/rejecting (in the case of promises). Again, even if you `submit`ted your request with a `null` callback , it still needs to call its callback. This is very important if you are using a `maxConcurrent` value that isn't `0` (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. It's safe to call the callback more than once, subsequent calls are ignored.
+* Make sure that all the requests will eventually complete by calling their callback (or resolving/rejecting in the case of promises). Again, even if you `submit`ted your request with a `null` callback , it still needs to call its callback. This is very important if you are using a `maxConcurrent` value that isn't `0` (unlimited), otherwise those uncompleted requests will be clogging up the limiter and no new requests will be getting through. It's safe to call the callback more than once, subsequent calls are ignored.
 
 * If you want to rate limit a synchronous function (console.log(), for example), you must wrap it in a closure to make it asynchronous. See [this](https://github.com/SGrondin/bottleneck#rate-limiting-synchronous-functions) example.
 
 ### strategies
 
-A strategy is a simple algorithm that is executed every time adding a request would cause the queue to exceed `highWater`.
+A strategy is a simple algorithm that is executed every time adding a request would cause the queue's length to exceed `highWater`.
 
 #### Bottleneck.strategy.LEAK
 When submitting a new request, if the queue length reaches `highWater`, drop the oldest request in the queue. This is useful when requests that have been waiting for too long are not important anymore.
@@ -210,9 +221,10 @@ Bottleneck will execute every request in order. They will **all** *eventually* b
 
 ## Cluster
 
-Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse. Bottleneck is so tiny, it's not unreasonable to create one limiter for each origin IP, even if it means creating thousands of limiters. The `Cluster` mode is perfect for this use case.
+The `Cluster` feature of Bottleneck manages many limiters automatically for you. It creates limiters dynamically and transparently.
 
-The `Cluster` feature of Bottleneck manages limiters automatically for you. It creates limiters dynamically and transparently. A cluster is created exactly like a limiter:
+Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse and where incoming DNS requests need to be rate limited. Bottleneck is so tiny, it's perfectly fine to create one limiter for each origin IP, even if it means creating thousands and thousands of limiters. The `Cluster` mode is perfect for this use case. We can create one cluster and then use the origin IP to rate limit each IP independently. Each call with the same key will be routed to the same underlying limiter. A cluster is created exactly like a limiter:
+
 
 ```js
 var cluster = new Bottleneck.Cluster(maxConcurrent, minTime, highWater, strategy);
@@ -221,7 +233,8 @@ var cluster = new Bottleneck.Cluster(maxConcurrent, minTime, highWater, strategy
 The cluster is then used with the `.key(str)` method:
 
 ```js
-cluster.key("somestring").submit(someAsyncCall, arg1, arg2, cb);
+// In this example, the key is an IP
+cluster.key("77.66.54.32").submit(someAsyncCall, arg1, arg2, cb);
 ```
 
 ### key()
@@ -229,6 +242,20 @@ cluster.key("somestring").submit(someAsyncCall, arg1, arg2, cb);
 * `str` : The key to use. All calls submitted with the same key will use the same limiter. *Default: `""`*
 
 The return value of `.key(str)` is a limiter. If it doesn't already exist, it is created on the fly. Limiters that have been idle for a long time are deleted to avoid memory leaks.
+
+### stopAutoCleanup()
+
+Calling `stopAutoCleanup()` on a limiter will turn off its garbage collection, so limiters for keys that have not been used in over **5 minutes** will NOT be deleted anymore. It can be reenabled by calling `startAutoCleanup()`.
+
+### startAutoCleanup()
+
+Reactivate the cluster's garbage collection for limiters (in the cluster) that have been inactive for over 5 minutes.
+
+### deleteKey()
+
+* `str`: The key for the limiter to delete.
+
+Manually deletes the limiter at the specified key. This can be useful when the auto cleanup is turned off.
 
 ### all()
 
