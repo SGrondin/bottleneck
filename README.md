@@ -245,7 +245,7 @@ The return value of `.key(str)` is a limiter. If it doesn't already exist, it is
 
 ### stopAutoCleanup()
 
-Calling `stopAutoCleanup()` on a limiter will turn off its garbage collection, so limiters for keys that have not been used in over **5 minutes** will NOT be deleted anymore. It can be reenabled by calling `startAutoCleanup()`.
+Calling `stopAutoCleanup()` on a cluster will turn off its garbage collection, so limiters for keys that have not been used in over **5 minutes** will NOT be deleted anymore. It can be reenabled by calling `startAutoCleanup()`.
 
 ### startAutoCleanup()
 
