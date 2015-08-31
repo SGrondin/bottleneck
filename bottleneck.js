@@ -21,7 +21,9 @@
         return require("bluebird");
       } catch (_error) {
         e = _error;
-        return Promise;
+        return typeof Promise !== "undefined" && Promise !== null ? Promise : function() {
+          throw new Error("Bottleneck: install 'bluebird' or use Node 0.12 or higher for Promise support");
+        };
       }
     })();
 
