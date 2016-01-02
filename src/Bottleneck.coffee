@@ -1,12 +1,11 @@
 NB_PRIORITIES = 10
 MIDDLE_PRIORITY = 5
 class Bottleneck
-	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2, BLOCK:3}
+	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3}
 	Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
 	Bottleneck.Promise = Bottleneck::Promise = try require "bluebird" catch e then Promise ? ->
 		throw new Error "Bottleneck: install 'bluebird' or use Node 0.12 or higher for Promise support"
 	constructor: (@maxNb=0, @minTime=0, @highWater=0, @strategy=Bottleneck::strategy.LEAK) ->
-		console.log "\n===== BETA =====\n"
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
 		@_queues = @_makeQueues()
@@ -19,14 +18,17 @@ class Bottleneck
 	_makeQueues: -> [] for i in [1..NB_PRIORITIES]
 	chain: (@limiter) -> @
 	isBlocked: -> @_unblockTime >= Date.now()
-	_find: (arr, fn) -> for x, i in arr then if fn x then return x
-	_hasJobs: -> @_queues.some (x) -> x.length > 0
+	_sanitizePriority: (priority) ->
+		sProperty = if ~~priority != priority then MIDDLE_PRIORITY else priority
+		if sProperty < 0 then 0 else if sProperty > NB_PRIORITIES-1 then NB_PRIORITIES-1 else sProperty
+	_find: (arr, fn) -> (for x, i in arr then if fn x then return x); []
+	hasJobs: (priority) -> if priority? then @_queues[@_sanitizePriority priority].length > 0 else @_queues.some (x) -> x.length > 0
 	_getNbJobs: -> @_queues.reduce ((a, b) -> a+b.length), 0
 	_getFirst: (arr) -> @_find arr, (x) -> x.length > 0
 	_conditionsCheck: -> (@_nbRunning < @maxNb or @maxNb <= 0) and (not @reservoir? or @reservoir > 0)
 	check: -> @_conditionsCheck() and (@_nextRequest-Date.now()) <= 0
 	_tryToRun: ->
-		if @_conditionsCheck() and @_hasJobs()
+		if @_conditionsCheck() and @hasJobs()
 			@_nbRunning++
 			if @reservoir? then @reservoir--
 			wait = Math.max @_nextRequest-Date.now(), 0
@@ -48,8 +50,7 @@ class Bottleneck
 		else false
 	submit: (args...) => @submitPriority.apply {}, Array::concat MIDDLE_PRIORITY, args
 	submitPriority: (priority, task, args..., cb) =>
-		priority = Math.round priority
-		priority = if priority < 0 then 0 else if priority > NB_PRIORITIES-1 then NB_PRIORITIES-1 else priority
+		priority = @_sanitizePriority priority
 		reachedHighWaterMark = @highWater > 0 and @_getNbJobs() == @highWater
 		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @isBlocked())
 			@_unblockTime = Date.now() + @penalty
@@ -57,22 +58,22 @@ class Bottleneck
 			@_queues = @_makeQueues()
 			return true
 		else if reachedHighWaterMark
-			if @strategy == Bottleneck::strategy.LEAK
-				shifted = (@_getFirst @_queues[priority..].reverse()).shift()
-				if not shifted? then return reachedHighWaterMark
-			else if @strategy == Bottleneck::strategy.OVERFLOW
-				shifted = (@_getFirst @_queues[priority+1..].reverse()).shift()
-				if not shifted? then return reachedHighWaterMark
+			shifted = if @strategy == Bottleneck::strategy.LEAK then (@_getFirst @_queues[priority..].reverse()).shift()
+			else if @strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then (@_getFirst @_queues[(priority+1)..].reverse()).shift()
+			else if @strategy == Bottleneck::strategy.OVERFLOW then null
+			if not shifted? then return reachedHighWaterMark
 		@_queues[priority].push {task, args, cb}
 		@_tryToRun()
 		reachedHighWaterMark
-	schedule: (task, args...) ->
+	schedule: (args...) -> @schedulePriority.apply {}, Array::concat MIDDLE_PRIORITY, args
+	schedulePriority: (priority, task, args...) =>
+		priority = @_sanitizePriority priority
 		wrapped = (cb) ->
 			(task.apply {}, args)
 			.then (args...) -> cb.apply {}, Array::concat.call [], null, args
 			.catch (args...) -> cb.apply {}, Array::concat.call {}, args
 		new Bottleneck::Promise (resolve, reject) =>
-			@submit.apply {}, Array::concat.call wrapped, (error, args...) ->
+			@submitPriority.apply {}, Array::concat.call priority, wrapped, (error, args...) ->
 				(if error? then reject else resolve).apply {}, args
 	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) ->
 		while @_tryToRun() then
@@ -88,6 +89,7 @@ class Bottleneck
 		(clearTimeout a for a in @_timeouts)
 		@_tryToRun = ->
 		@submit = -> false
+		# schedule, submitPriority, schedulePriority
 		@check = -> false
 
 module.exports = Bottleneck

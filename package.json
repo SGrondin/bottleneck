@@ -4,7 +4,7 @@
   "description": "Async rate limiter",
   "main": "lib/index.js",
   "scripts": {
-    "test": "echo \"No test specified\" && exit 1",
+    "test": "./node_modules/mocha/bin/mocha test/index.js",
     "make": "./scripts/recompile.sh"
   },
   "repository": {
@@ -34,6 +34,7 @@
   "devDependencies": {
     "coffee-script": "1.10.x",
     "browserify": "*",
+    "mocha":"*",
     "uglify-js": "*"
   }
 }

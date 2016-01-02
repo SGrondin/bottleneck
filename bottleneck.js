@@ -15,6 +15,7 @@
     Bottleneck.strategy = Bottleneck.prototype.strategy = {
       LEAK: 1,
       OVERFLOW: 2,
+      OVERFLOW_PRIORITY: 4,
       BLOCK: 3
     };
 
@@ -37,9 +38,9 @@
       this.minTime = minTime != null ? minTime : 0;
       this.highWater = highWater != null ? highWater : 0;
       this.strategy = strategy != null ? strategy : Bottleneck.prototype.strategy.LEAK;
+      this.schedulePriority = bind(this.schedulePriority, this);
       this.submitPriority = bind(this.submitPriority, this);
       this.submit = bind(this.submit, this);
-      console.log("\n===== BETA =====\n");
       this._nextRequest = Date.now();
       this._nbRunning = 0;
       this._queues = this._makeQueues();
@@ -69,6 +70,18 @@
       return this._unblockTime >= Date.now();
     };
 
+    Bottleneck.prototype._sanitizePriority = function(priority) {
+      var sProperty;
+      sProperty = ~~priority !== priority ? MIDDLE_PRIORITY : priority;
+      if (sProperty < 0) {
+        return 0;
+      } else if (sProperty > NB_PRIORITIES - 1) {
+        return NB_PRIORITIES - 1;
+      } else {
+        return sProperty;
+      }
+    };
+
     Bottleneck.prototype._find = function(arr, fn) {
       var i, j, len, x;
       for (i = j = 0, len = arr.length; j < len; i = ++j) {
@@ -77,12 +90,17 @@
           return x;
         }
       }
+      return [];
     };
 
-    Bottleneck.prototype._hasJobs = function() {
-      return this._queues.some(function(x) {
-        return x.length > 0;
-      });
+    Bottleneck.prototype.hasJobs = function(priority) {
+      if (priority != null) {
+        return this._queues[this._sanitizePriority(priority)].length > 0;
+      } else {
+        return this._queues.some(function(x) {
+          return x.length > 0;
+        });
+      }
     };
 
     Bottleneck.prototype._getNbJobs = function() {
@@ -107,7 +125,7 @@
 
     Bottleneck.prototype._tryToRun = function() {
       var done, index, next, wait;
-      if (this._conditionsCheck() && this._hasJobs()) {
+      if (this._conditionsCheck() && this.hasJobs()) {
         this._nbRunning++;
         if (this.reservoir != null) {
           this.reservoir--;
@@ -153,8 +171,7 @@
     Bottleneck.prototype.submitPriority = function() {
       var args, cb, j, priority, reachedHighWaterMark, shifted, task;
       priority = arguments[0], task = arguments[1], args = 4 <= arguments.length ? slice.call(arguments, 2, j = arguments.length - 1) : (j = 2, []), cb = arguments[j++];
-      priority = Math.round(priority);
-      priority = priority < 0 ? 0 : priority > NB_PRIORITIES - 1 ? NB_PRIORITIES - 1 : priority;
+      priority = this._sanitizePriority(priority);
       reachedHighWaterMark = this.highWater > 0 && this._getNbJobs() === this.highWater;
       if (this.strategy === Bottleneck.prototype.strategy.BLOCK && (reachedHighWaterMark || this.isBlocked())) {
         this._unblockTime = Date.now() + this.penalty;
@@ -162,16 +179,9 @@
         this._queues = this._makeQueues();
         return true;
       } else if (reachedHighWaterMark) {
-        if (this.strategy === Bottleneck.prototype.strategy.LEAK) {
-          shifted = (this._getFirst(this._queues.slice(priority).reverse())).shift();
-          if (shifted == null) {
-            return reachedHighWaterMark;
-          }
-        } else if (this.strategy === Bottleneck.prototype.strategy.OVERFLOW) {
-          shifted = (this._getFirst(this._queues.slice(priority + 1).reverse())).shift();
-          if (shifted == null) {
-            return reachedHighWaterMark;
-          }
+        shifted = this.strategy === Bottleneck.prototype.strategy.LEAK ? (this._getFirst(this._queues.slice(priority).reverse())).shift() : this.strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? (this._getFirst(this._queues.slice(priority + 1).reverse())).shift() : this.strategy === Bottleneck.prototype.strategy.OVERFLOW ? null : void 0;
+        if (shifted == null) {
+          return reachedHighWaterMark;
         }
       }
       this._queues[priority].push({
@@ -184,8 +194,15 @@
     };
 
     Bottleneck.prototype.schedule = function() {
-      var args, task, wrapped;
-      task = arguments[0], args = 2 <= arguments.length ? slice.call(arguments, 1) : [];
+      var args;
+      args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+      return this.schedulePriority.apply({}, Array.prototype.concat(MIDDLE_PRIORITY, args));
+    };
+
+    Bottleneck.prototype.schedulePriority = function() {
+      var args, priority, task, wrapped;
+      priority = arguments[0], task = arguments[1], args = 3 <= arguments.length ? slice.call(arguments, 2) : [];
+      priority = this._sanitizePriority(priority);
       wrapped = function(cb) {
         return (task.apply({}, args)).then(function() {
           var args;
@@ -199,7 +216,7 @@
       };
       return new Bottleneck.prototype.Promise((function(_this) {
         return function(resolve, reject) {
-          return _this.submit.apply({}, Array.prototype.concat.call(wrapped, function() {
+          return _this.submitPriority.apply({}, Array.prototype.concat.call(priority, wrapped, function() {
             var args, error;
             error = arguments[0], args = 2 <= arguments.length ? slice.call(arguments, 1) : [];
             return (error != null ? reject : resolve).apply({}, args);
