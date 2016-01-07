@@ -3,6 +3,7 @@ MIDDLE_PRIORITY = 5
 class Bottleneck
 	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3}
 	Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
+	Bottleneck.DLList = Bottleneck::DLList = require "./DLList"
 	Bottleneck.Promise = Bottleneck::Promise = try require "bluebird" catch e then Promise ? ->
 		throw new Error "Bottleneck: install 'bluebird' or use Node 0.12 or higher for Promise support"
 	constructor: (@maxNb=0, @minTime=0, @highWater=0, @strategy=Bottleneck::strategy.LEAK) ->
@@ -15,7 +16,7 @@ class Bottleneck
 		@interrupt = false
 		@reservoir = null
 		@limiter = null
-	_makeQueues: -> [] for i in [1..NB_PRIORITIES]
+	_makeQueues: -> new Bottleneck::DLList() for i in [1..NB_PRIORITIES]
 	chain: (@limiter) -> @
 	isBlocked: -> @_unblockTime >= Date.now()
 	_sanitizePriority: (priority) ->
@@ -89,7 +90,6 @@ class Bottleneck
 		(clearTimeout a for a in @_timeouts)
 		@_tryToRun = ->
 		@submit = -> false
-		# schedule, submitPriority, schedulePriority
 		@check = -> false
 
 module.exports = Bottleneck

@@ -1,5 +1,6 @@
 global.TEST = true
 global.Bottleneck = require('../lib/index.js')
+global.DLList = require('../lib/DLList.js')
 global.makeTest = function (arg1, arg2, arg3, arg4) {
   // ASSERTION
   var asserts = 0
@@ -66,8 +67,10 @@ global.makeTest = function (arg1, arg2, arg3, arg4) {
         console.assert(order[i] === calls[i].result)
       }
     },
-    checkDuration: function (min, max) {
+    checkDuration: function (shouldBe) {
       var results = getResults()
+      var min = shouldBe - 10
+      var max = shouldBe + 50
       console.assert(results.callsDuration > min)
       console.assert(results.callsDuration < max)
     }

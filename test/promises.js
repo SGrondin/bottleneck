@@ -8,7 +8,7 @@ describe('Promises', function () {
     c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
     c.last(function (err, results) {
       c.checkResultsOrder([1,2,3,4])
-      c.checkDuration(740, 800)
+      c.checkDuration(750)
       console.assert(c.asserts() === 7)
       done()
     })
