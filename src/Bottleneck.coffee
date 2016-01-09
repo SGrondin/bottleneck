@@ -23,13 +23,12 @@ class Bottleneck
 		sProperty = if ~~priority != priority then MIDDLE_PRIORITY else priority
 		if sProperty < 0 then 0 else if sProperty > NB_PRIORITIES-1 then NB_PRIORITIES-1 else sProperty
 	_find: (arr, fn) -> (for x, i in arr then if fn x then return x); []
-	hasJobs: (priority) -> if priority? then @_queues[@_sanitizePriority priority].length > 0 else @_queues.some (x) -> x.length > 0
-	_getNbJobs: -> @_queues.reduce ((a, b) -> a+b.length), 0
+	nbQueued: (priority) -> if priority? then @_queues[@_sanitizePriority priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
 	_getFirst: (arr) -> @_find arr, (x) -> x.length > 0
 	_conditionsCheck: -> (@_nbRunning < @maxNb or @maxNb <= 0) and (not @reservoir? or @reservoir > 0)
 	check: -> @_conditionsCheck() and (@_nextRequest-Date.now()) <= 0
 	_tryToRun: ->
-		if @_conditionsCheck() and @hasJobs()
+		if @_conditionsCheck() and @nbQueued() > 0
 			@_nbRunning++
 			if @reservoir? then @reservoir--
 			wait = Math.max @_nextRequest-Date.now(), 0
@@ -52,7 +51,7 @@ class Bottleneck
 	submit: (args...) => @submitPriority.apply {}, Array::concat MIDDLE_PRIORITY, args
 	submitPriority: (priority, task, args..., cb) =>
 		priority = @_sanitizePriority priority
-		reachedHighWaterMark = @highWater > 0 and @_getNbJobs() == @highWater
+		reachedHighWaterMark = @highWater > 0 and @nbQueued() == @highWater
 		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @isBlocked())
 			@_unblockTime = Date.now() + @penalty
 			@_nextRequest = @_unblockTime + @minTime
@@ -89,7 +88,6 @@ class Bottleneck
 	stopAll: (@interrupt=@interrupt) ->
 		(clearTimeout a for a in @_timeouts)
 		@_tryToRun = ->
-		@submit = -> false
-		@check = -> false
+		@check = @submit = @submitPriority = @schedule = @schedulePriority = -> false
 
 module.exports = Bottleneck

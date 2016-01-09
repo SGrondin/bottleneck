@@ -95,20 +95,14 @@
       return [];
     };
 
-    Bottleneck.prototype.hasJobs = function(priority) {
+    Bottleneck.prototype.nbQueued = function(priority) {
       if (priority != null) {
-        return this._queues[this._sanitizePriority(priority)].length > 0;
+        return this._queues[this._sanitizePriority(priority)].length;
       } else {
-        return this._queues.some(function(x) {
-          return x.length > 0;
-        });
+        return this._queues.reduce((function(a, b) {
+          return a + b.length;
+        }), 0);
       }
-    };
-
-    Bottleneck.prototype._getNbJobs = function() {
-      return this._queues.reduce((function(a, b) {
-        return a + b.length;
-      }), 0);
     };
 
     Bottleneck.prototype._getFirst = function(arr) {
@@ -127,7 +121,7 @@
 
     Bottleneck.prototype._tryToRun = function() {
       var done, index, next, wait;
-      if (this._conditionsCheck() && this.hasJobs()) {
+      if (this._conditionsCheck() && this.nbQueued() > 0) {
         this._nbRunning++;
         if (this.reservoir != null) {
           this.reservoir--;
@@ -174,7 +168,7 @@
       var args, cb, j, priority, reachedHighWaterMark, shifted, task;
       priority = arguments[0], task = arguments[1], args = 4 <= arguments.length ? slice.call(arguments, 2, j = arguments.length - 1) : (j = 2, []), cb = arguments[j++];
       priority = this._sanitizePriority(priority);
-      reachedHighWaterMark = this.highWater > 0 && this._getNbJobs() === this.highWater;
+      reachedHighWaterMark = this.highWater > 0 && this.nbQueued() === this.highWater;
       if (this.strategy === Bottleneck.prototype.strategy.BLOCK && (reachedHighWaterMark || this.isBlocked())) {
         this._unblockTime = Date.now() + this.penalty;
         this._nextRequest = this._unblockTime + this.minTime;
@@ -264,10 +258,7 @@
         clearTimeout(a);
       }
       this._tryToRun = function() {};
-      this.submit = function() {
-        return false;
-      };
-      return this.check = function() {
+      return this.check = this.submit = this.submitPriority = this.schedule = this.schedulePriority = function() {
         return false;
       };
     };
