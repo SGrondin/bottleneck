@@ -43,7 +43,7 @@ class Bottleneck
 						@_nbRunning--
 						@_tryToRun()
 						if not @interrupt then next.cb?.apply {}, Array::slice.call arguments, 0
-				if @limiter? then @limiter.submit.apply @limiter, Array::concat.call next.task, next.args, completed
+				if @limiter? then @limiter.submit.apply @limiter, Array::concat next.task, next.args, completed
 				else next.task.apply {}, next.args.concat completed
 			, wait
 			true
@@ -67,13 +67,12 @@ class Bottleneck
 		reachedHighWaterMark
 	schedule: (args...) -> @schedulePriority.apply {}, Array::concat MIDDLE_PRIORITY, args
 	schedulePriority: (priority, task, args...) =>
-		priority = @_sanitizePriority priority
 		wrapped = (cb) ->
 			(task.apply {}, args)
-			.then (args...) -> cb.apply {}, Array::concat.call [], null, args
-			.catch (args...) -> cb.apply {}, Array::concat.call {}, args
+			.then (args...) -> cb.apply {}, Array::concat null, args
+			.catch (args...) -> cb.apply {}, Array::concat {}, args
 		new Bottleneck::Promise (resolve, reject) =>
-			@submitPriority.apply {}, Array::concat.call priority, wrapped, (error, args...) ->
+			@submitPriority.apply {}, Array::concat priority, wrapped, (error, args...) ->
 				(if error? then reject else resolve).apply {}, args
 	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) ->
 		while @_tryToRun() then

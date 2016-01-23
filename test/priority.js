@@ -91,4 +91,20 @@ describe('Priority', function () {
       done()
     })
   })
+
+  it('Should have the right priority', function (done) {
+    var c = makeTest(1, 250)
+
+    c.pNoErrVal(c.limiter.schedulePriority(6, c.promise, null, 1), 1)
+    c.pNoErrVal(c.limiter.schedulePriority(5, c.promise, null, 2), 2)
+    c.pNoErrVal(c.limiter.schedulePriority(4, c.promise, null, 3), 3)
+    c.pNoErrVal(c.limiter.schedulePriority(3, c.promise, null, 4), 4)
+    c.last(function (err, results) {
+      c.checkDuration(750)
+      c.checkResultsOrder([1,4,3,2])
+      console.assert(c.asserts() === 4)
+      done()
+    })
+  })
+
 })
