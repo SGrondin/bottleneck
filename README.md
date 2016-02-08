@@ -111,7 +111,7 @@ It's also possible to replace the Promise library used:
 
 ```js
 var Bottleneck = require("bottleneck");
-Bottleneck.Promise = myPromiseLibrary;
+Bottleneck.prototype.Promise = myPromiseLibrary;
 
 var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
 ```
