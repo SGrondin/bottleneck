@@ -52,7 +52,19 @@
       this.interrupt = false;
       this.reservoir = null;
       this.limiter = null;
+      this.events = {};
     }
+
+    Bottleneck.prototype._trigger = function(name, args) {
+      return setTimeout(((function(_this) {
+        return function() {
+          var ref;
+          return (ref = _this.events[name]) != null ? ref.forEach(function(e) {
+            return e.apply({}, args);
+          }) : void 0;
+        };
+      })(this)), 0);
+    };
 
     Bottleneck.prototype._makeQueues = function() {
       var i, j, ref, results;
@@ -120,8 +132,8 @@
     };
 
     Bottleneck.prototype._tryToRun = function() {
-      var done, index, next, wait;
-      if (this._conditionsCheck() && this.nbQueued() > 0) {
+      var done, index, next, queued, wait;
+      if (this._conditionsCheck() && (queued = this.nbQueued()) > 0) {
         this._nbRunning++;
         if (this.reservoir != null) {
           this.reservoir--;
@@ -129,6 +141,9 @@
         wait = Math.max(this._nextRequest - Date.now(), 0);
         this._nextRequest = Date.now() + wait + this.minTime;
         next = (this._getFirst(this._queues)).shift();
+        if (queued === 1) {
+          this._trigger('empty', []);
+        }
         done = false;
         index = -1 + this._timeouts.push(setTimeout((function(_this) {
           return function() {
@@ -165,26 +180,31 @@
     };
 
     Bottleneck.prototype.submitPriority = function() {
-      var args, cb, j, priority, reachedHighWaterMark, shifted, task;
+      var args, cb, j, job, priority, reachedHighWaterMark, shifted, task;
       priority = arguments[0], task = arguments[1], args = 4 <= arguments.length ? slice.call(arguments, 2, j = arguments.length - 1) : (j = 2, []), cb = arguments[j++];
+      job = {
+        task: task,
+        args: args,
+        cb: cb
+      };
       priority = this._sanitizePriority(priority);
       reachedHighWaterMark = this.highWater > 0 && this.nbQueued() === this.highWater;
       if (this.strategy === Bottleneck.prototype.strategy.BLOCK && (reachedHighWaterMark || this.isBlocked())) {
         this._unblockTime = Date.now() + this.penalty;
         this._nextRequest = this._unblockTime + this.minTime;
         this._queues = this._makeQueues();
+        this._trigger('dropped', [job]);
         return true;
       } else if (reachedHighWaterMark) {
-        shifted = this.strategy === Bottleneck.prototype.strategy.LEAK ? (this._getFirst(this._queues.slice(priority).reverse())).shift() : this.strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? (this._getFirst(this._queues.slice(priority + 1).reverse())).shift() : this.strategy === Bottleneck.prototype.strategy.OVERFLOW ? null : void 0;
-        if (shifted == null) {
+        shifted = this.strategy === Bottleneck.prototype.strategy.LEAK ? (this._getFirst(this._queues.slice(priority).reverse())).shift() : this.strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? (this._getFirst(this._queues.slice(priority + 1).reverse())).shift() : this.strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
+        if (shifted != null) {
+          this._trigger('dropped', [shifted]);
+        }
+        if ((shifted == null) || this.strategy === Bottleneck.prototype.strategy.OVERFLOW) {
           return reachedHighWaterMark;
         }
       }
-      this._queues[priority].push({
-        task: task,
-        args: args,
-        cb: cb
-      });
+      this._queues[priority].push(job);
       this._tryToRun();
       return reachedHighWaterMark;
     };
@@ -245,6 +265,15 @@
         incr = 0;
       }
       this.changeReservoir(this.reservoir + incr);
+      return this;
+    };
+
+    Bottleneck.prototype.on = function(name, cb) {
+      if (this.events[name] != null) {
+        this.events[name].push(cb);
+      } else {
+        this.events[name] = [cb];
+      }
       return this;
     };
 

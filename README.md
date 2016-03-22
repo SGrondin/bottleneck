@@ -149,7 +149,7 @@ limiter.schedulePriority(priority, fn, arg1, arg2, argN);
 
 ### Strategies
 
-A strategy is a simple algorithm that is executed every time adding a request would cause the number of queued requests to exceed `highWater`.
+A strategy is a simple algorithm that is executed every time adding a request would cause the number of queued requests to exceed `highWater`. See [Events](https://github.com/SGrondin/bottleneck#events).
 
 #### Bottleneck.strategy.LEAK
 When submitting a new request, if the queue length reaches `highWater`, drop the oldest request with the lowest priority. This is useful when requests that have been waiting for too long are not important anymore. If all the queued up requests are more important than the one being added, it won't be added.
@@ -197,6 +197,26 @@ limiter.stopAll(interrupt);
 Cancels all *queued up* requests and prevents additonal requests from being added.
 
 * `interrupt` : If true, prevent the requests currently running from calling their callback when they're done. *Default: `false`*
+
+
+### Events
+
+Event names: `empty`, `dropped`.
+
+```js
+limiter.on('empty', function () {
+  // This will be called when the nbQueued() drops to 0.
+})
+```
+
+```js
+limiter.on('dropped', function (dropped) {
+  // This will be called when a strategy was triggered.
+  // The dropped request is passed to this callback.
+})
+```
+
+**Note:** It's possible to set multiple callbacks to the same event name.
 
 
 ### changeSettings()

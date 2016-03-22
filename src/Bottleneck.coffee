@@ -16,6 +16,8 @@ class Bottleneck
 		@interrupt = false
 		@reservoir = null
 		@limiter = null
+		@events = {}
+	_trigger: (name, args) -> setTimeout (=> @events[name]?.forEach (e) -> e.apply {}, args), 0
 	_makeQueues: -> new Bottleneck::DLList() for i in [1..NB_PRIORITIES]
 	chain: (@limiter) -> @
 	isBlocked: -> @_unblockTime >= Date.now()
@@ -28,12 +30,13 @@ class Bottleneck
 	_conditionsCheck: -> (@_nbRunning < @maxNb or @maxNb <= 0) and (not @reservoir? or @reservoir > 0)
 	check: -> @_conditionsCheck() and (@_nextRequest-Date.now()) <= 0
 	_tryToRun: ->
-		if @_conditionsCheck() and @nbQueued() > 0
+		if @_conditionsCheck() and (queued = @nbQueued()) > 0
 			@_nbRunning++
 			if @reservoir? then @reservoir--
 			wait = Math.max @_nextRequest-Date.now(), 0
 			@_nextRequest = Date.now() + wait + @minTime
 			next = (@_getFirst @_queues).shift()
+			if queued == 1 then @_trigger 'empty', []
 			done = false
 			index = -1 + @_timeouts.push setTimeout =>
 				completed = =>
@@ -50,19 +53,22 @@ class Bottleneck
 		else false
 	submit: (args...) => @submitPriority.apply {}, Array::concat MIDDLE_PRIORITY, args
 	submitPriority: (priority, task, args..., cb) =>
+		job = {task, args, cb}
 		priority = @_sanitizePriority priority
 		reachedHighWaterMark = @highWater > 0 and @nbQueued() == @highWater
 		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @isBlocked())
 			@_unblockTime = Date.now() + @penalty
 			@_nextRequest = @_unblockTime + @minTime
 			@_queues = @_makeQueues()
+			@_trigger 'dropped', [job]
 			return true
 		else if reachedHighWaterMark
 			shifted = if @strategy == Bottleneck::strategy.LEAK then (@_getFirst @_queues[priority..].reverse()).shift()
 			else if @strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then (@_getFirst @_queues[(priority+1)..].reverse()).shift()
-			else if @strategy == Bottleneck::strategy.OVERFLOW then null
-			if not shifted? then return reachedHighWaterMark
-		@_queues[priority].push {task, args, cb}
+			else if @strategy == Bottleneck::strategy.OVERFLOW then job
+			if shifted? then @_trigger 'dropped', [shifted]
+			if not shifted? or @strategy == Bottleneck::strategy.OVERFLOW then return reachedHighWaterMark
+		@_queues[priority].push job
 		@_tryToRun()
 		reachedHighWaterMark
 	schedule: (args...) -> @schedulePriority.apply {}, Array::concat MIDDLE_PRIORITY, args
@@ -83,6 +89,9 @@ class Bottleneck
 		@
 	incrementReservoir: (incr=0) ->
 		@changeReservoir @reservoir+incr
+		@
+	on: (name, cb) ->
+		if @events[name]? then @events[name].push cb else @events[name] = [cb]
 		@
 	stopAll: (@interrupt=@interrupt) ->
 		(clearTimeout a for a in @_timeouts)
