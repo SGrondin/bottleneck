@@ -42,9 +42,9 @@ describe('General', function () {
   describe('Events', function () {
     it('Should fire callback on empty queue', function (done) {
       var c = makeTest(1, 250)
-      var called = false
+      var called = 0
 
-      c.limiter.on('empty', function () { called = true })
+      c.limiter.on('empty', function () { called++ })
 
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
@@ -52,8 +52,42 @@ describe('General', function () {
       c.last(function (err, results) {
         c.checkResultsOrder([1,2,3])
         c.checkDuration(500)
-        console.assert(c.asserts() == 3)
-        console.assert(called)
+        console.assert(c.asserts() === 3)
+        console.assert(called === 2)
+        done()
+      })
+    })
+  })
+
+  describe('High water limit', function () {
+    it('Should support highWater set to 0', function (done) {
+      var c = makeTest(1, 250, 0)
+
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
+      c.limiter.changeSettings(null, null, -1)
+      c.last(function (err, results) {
+        c.checkDuration(0)
+        c.checkResultsOrder([1])
+        console.assert(c.asserts() === 1)
+        done()
+      })
+    })
+
+    it('Should support highWater set to 1', function (done) {
+      var c = makeTest(1, 250, 1)
+
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
+      c.limiter.changeSettings(null, null, -1)
+      c.last(function (err, results) {
+        c.checkDuration(250)
+        c.checkResultsOrder([1,4])
+        console.assert(c.asserts() === 2)
         done()
       })
     })

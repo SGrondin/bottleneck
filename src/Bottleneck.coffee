@@ -6,7 +6,7 @@ class Bottleneck
 	Bottleneck.DLList = Bottleneck::DLList = require "./DLList"
 	Bottleneck.Promise = Bottleneck::Promise = try require "bluebird" catch e then Promise ? ->
 		throw new Error "Bottleneck: install 'bluebird' or use Node 0.12 or higher for Promise support"
-	constructor: (@maxNb=0, @minTime=0, @highWater=0, @strategy=Bottleneck::strategy.LEAK) ->
+	constructor: (@maxNb=0, @minTime=0, @highWater=-1, @strategy=Bottleneck::strategy.LEAK) ->
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
 		@_queues = @_makeQueues()
@@ -55,7 +55,7 @@ class Bottleneck
 	submitPriority: (priority, task, args..., cb) =>
 		job = {task, args, cb}
 		priority = @_sanitizePriority priority
-		reachedHighWaterMark = @highWater > 0 and @nbQueued() == @highWater
+		reachedHighWaterMark = @highWater >= 0 and @nbQueued() == @highWater and not @check()
 		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @isBlocked())
 			@_unblockTime = Date.now() + @penalty
 			@_nextRequest = @_unblockTime + @minTime

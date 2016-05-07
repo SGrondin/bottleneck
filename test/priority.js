@@ -39,7 +39,7 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(1, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(9, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(null, null, 0)
+    c.limiter.changeSettings(null, null, -1)
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,6,5])
@@ -67,7 +67,7 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(1, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(9, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(null, null, 0)
+    c.limiter.changeSettings(null, null, -1)
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,2,3])
@@ -94,7 +94,7 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(2, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(2, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(null, null, 0)
+    c.limiter.changeSettings(null, null, -1)
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,5,6])
@@ -120,7 +120,7 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(2, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(2, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(null, null, 0)
+    c.limiter.changeSettings(null, null, -1)
     c.limiter._unblockTime = 0
     c.limiter._nextRequest = 0
     c.last(function (err, results) {

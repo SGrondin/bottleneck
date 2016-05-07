@@ -67,7 +67,7 @@ var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
 
 * `maxConcurrent` : How many requests can be running at the same time. *Default: `0` (unlimited)*
 * `minTime` : How long to wait after launching a request before launching another one. *Default: `0`ms*
-* `highWater` : How long can the queue get? *Default: `0` (unlimited)*
+* `highWater` : How long can the queue get? *Default: `-1` (unlimited)*
 * `strategy` : Which strategy to use if the queue gets longer than the high water mark. *Default: `Bottleneck.strategy.LEAK`.*
 
 
@@ -274,7 +274,7 @@ limiterB.chain(limiterC);
 
 Bottleneck will execute every request in order of priority first, oldest to youngest within each priority level. You can be certain that they will **all** *eventually* be executed as long as:
 
-* `highWater` is set to `0` (default), which prevents the strategy from ever being run **OR** you never exceed the `highWater`.
+* `highWater` is set to `-1` (default), which prevents the strategy from ever being run **OR** you never exceed the `highWater`.
 * `maxConcurrent` is set to `0` (default) **OR** all requests call the callback *eventually* (in the case of promises, they must be resolved or rejected eventually).
 * `reservoir` is `null` (default).
 
