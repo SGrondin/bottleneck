@@ -5,7 +5,8 @@
   "main": "lib/index.js",
   "scripts": {
     "test": "./node_modules/mocha/bin/mocha test/index.js",
-    "make": "./scripts/recompile.sh"
+    "build": "./scripts/build.sh",
+    "compile": "./scripts/build.sh compile"
   },
   "repository": {
     "type": "git",
