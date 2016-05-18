@@ -79,7 +79,10 @@ class Bottleneck
 			.catch (args...) -> cb.apply {}, Array::concat {}, args
 		new Bottleneck::Promise (resolve, reject) =>
 			@submitPriority.apply {}, Array::concat priority, wrapped, (error, args...) ->
-				(if error? then reject else resolve).apply {}, args
+				if error?
+					reject.apply {}, [error].concat(args)
+				else
+					resolve.apply {}, args
 	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) ->
 		while @_tryToRun() then
 		@
