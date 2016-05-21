@@ -10,7 +10,7 @@ class Bottleneck
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
 		@_queues = @_makeQueues()
-		@_timeouts = []
+		@_running = []
 		@_unblockTime = 0
 		@penalty = (15 * @minTime) or 5000
 		@interrupt = false
@@ -38,17 +38,19 @@ class Bottleneck
 			next = (@_getFirst @_queues).shift()
 			if queued == 1 then @_trigger 'empty', []
 			done = false
-			index = -1 + @_timeouts.push setTimeout =>
-				completed = =>
-					if not done
-						done = true
-						delete @_timeouts[index]
-						@_nbRunning--
-						@_tryToRun()
-						if not @interrupt then next.cb?.apply {}, Array::slice.call arguments, 0
-				if @limiter? then @limiter.submit.apply @limiter, Array::concat next.task, next.args, completed
-				else next.task.apply {}, next.args.concat completed
-			, wait
+			index = -1 + @_running.push
+				timeout: setTimeout =>
+					completed = =>
+						if not done
+							done = true
+							delete @_running[index]
+							@_nbRunning--
+							@_tryToRun()
+							if not @interrupt then next.cb?.apply {}, Array::slice.call arguments, 0
+					if @limiter? then @limiter.submit.apply @limiter, Array::concat next.task, next.args, completed
+					else next.task.apply {}, next.args.concat completed
+				, wait
+				job: next
 			true
 		else false
 	submit: (args...) => @submitPriority.apply {}, Array::concat MIDDLE_PRIORITY, args
@@ -94,8 +96,17 @@ class Bottleneck
 		if @events[name]? then @events[name].push cb else @events[name] = [cb]
 		@
 	stopAll: (@interrupt=@interrupt) ->
-		(clearTimeout a for a in @_timeouts)
+		(clearTimeout a.timeout for a in @_running)
 		@_tryToRun = ->
 		@check = @submit = @submitPriority = @schedule = @schedulePriority = -> false
+	
+		if @interrupt
+			(@_trigger 'dropped', [a.job] for a in @_running)
+
+		job = null
+		while job = (@_getFirst @_queues).shift()
+			@_trigger 'dropped', [job]
+
+		@_trigger 'empty', []
 
 module.exports = Bottleneck
