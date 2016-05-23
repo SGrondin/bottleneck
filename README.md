@@ -62,13 +62,14 @@ This is sufficient for the vast majority of applications. **Read the [Gotchas](h
 ### Constructor
 
 ```js
-var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
+var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy, rejectOnDrop);
 ```
 
 * `maxConcurrent` : How many requests can be running at the same time. *Default: `0` (unlimited)*
 * `minTime` : How long to wait after launching a request before launching another one. *Default: `0`ms*
 * `highWater` : How long can the queue get? *Default: `-1` (unlimited)*
 * `strategy` : Which strategy to use if the queue gets longer than the high water mark. *Default: `Bottleneck.strategy.LEAK`.*
+* `rejectOnDrop` : When `true` if a job is dropped its callback will be called with the first argument set to an `Error` object. If the job was a promise it will be rejected. *Default: `false`*
 
 
 ### submit()

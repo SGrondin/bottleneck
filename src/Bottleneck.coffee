@@ -6,7 +6,7 @@ class Bottleneck
 	Bottleneck.DLList = Bottleneck::DLList = require "./DLList"
 	Bottleneck.Promise = Bottleneck::Promise = try require "bluebird" catch e then Promise ? ->
 		throw new Error "Bottleneck: install 'bluebird' or use Node 0.12 or higher for Promise support"
-	constructor: (@maxNb=0, @minTime=0, @highWater=-1, @strategy=Bottleneck::strategy.LEAK) ->
+	constructor: (@maxNb=0, @minTime=0, @highWater=-1, @strategy=Bottleneck::strategy.LEAK, @rejectOnDrop=false) ->
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
 		@_queues = @_makeQueues()
@@ -17,7 +17,11 @@ class Bottleneck
 		@reservoir = null
 		@limiter = null
 		@events = {}
-	_trigger: (name, args) -> setTimeout (=> @events[name]?.forEach (e) -> e.apply {}, args), 0
+	_trigger: (name, args) ->
+		if name == "dropped" && @rejectOnDrop
+			dropped = args[0]
+			dropped.cb new Error("This job has been dropped.")
+		setTimeout (=> @events[name]?.forEach (e) -> e.apply {}, args), 0
 	_makeQueues: -> new Bottleneck::DLList() for i in [1..NB_PRIORITIES]
 	chain: (@limiter) -> @
 	isBlocked: -> @_unblockTime >= Date.now()
