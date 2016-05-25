@@ -7,7 +7,7 @@
 
 Bottleneck is a tiny and efficient Task Scheduler and Rate Limiter for Node.JS and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded.
 
-Bottleneck is the easiest solution as it doesn't much complexity to the code.
+Bottleneck is the easiest solution as it doesn't add much complexity to the code.
 
 It's battle-hardened, reliable and production-ready. It's used on a large scale in both private companies and open source software.
 
