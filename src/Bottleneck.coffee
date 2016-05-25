@@ -78,7 +78,7 @@ class Bottleneck
 		wrapped = (cb) ->
 			(task.apply {}, args)
 			.then (args...) -> cb.apply {}, Array::concat null, args
-			.catch (args...) -> cb.apply {}, Array::concat {}, args
+			.catch (args...) -> cb.apply {}, args
 		new Bottleneck::Promise (resolve, reject) =>
 			@submitPriority.apply {}, Array::concat priority, wrapped, (error, args...) ->
 				(if error? then reject else resolve).apply {}, args
