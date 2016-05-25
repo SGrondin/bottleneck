@@ -1,9 +1,9 @@
 class Cluster
-	constructor: (@maxNb, @minTime, @highWater, @strategy) ->
+	constructor: (@maxNb, @minTime, @highWater, @strategy, @rejectOnDrop) ->
 		@limiters = {}
 		@Bottleneck = require "./Bottleneck"
 		@startAutoCleanup()
-	key: (key="") -> @limiters[key] ? (@limiters[key] = new @Bottleneck @maxNb, @minTime, @highWater, @strategy)
+	key: (key="") -> @limiters[key] ? (@limiters[key] = new @Bottleneck @maxNb, @minTime, @highWater, @strategy, @rejectOnDrop)
 	deleteKey: (key="") -> delete @limiters[key]
 	all: (cb) -> for own k,v of @limiters then cb v
 	keys: -> Object.keys @limiters
