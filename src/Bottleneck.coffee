@@ -18,7 +18,7 @@ class Bottleneck
 		@limiter = null
 		@events = {}
 	_trigger: (name, args) ->
-		if @rejectOnDrop && name == "dropped" then args[0].cb.apply {}, [{}, new Error("This job has been dropped by Bottleneck")]
+		if @rejectOnDrop && name == "dropped" then args[0].cb.apply {}, [new Error("This job has been dropped by Bottleneck")]
 		setTimeout (=> @events[name]?.forEach (e) -> e.apply {}, args), 0
 	_makeQueues: -> new Bottleneck::DLList() for i in [1..NB_PRIORITIES]
 	chain: (@limiter) -> @
@@ -80,10 +80,10 @@ class Bottleneck
 		wrapped = (cb) ->
 			(task.apply {}, args)
 			.then (args...) -> cb.apply {}, Array::concat null, args
-			.catch (args...) -> cb.apply {}, Array::concat {}, args
+			.catch (args...) -> cb.apply {}, args
 		new Bottleneck::Promise (resolve, reject) =>
-			@submitPriority.apply {}, Array::concat priority, wrapped, (failed, args...) ->
-				(if failed? then reject else resolve).apply {}, args
+			@submitPriority.apply {}, Array::concat priority, wrapped, (args...) ->
+				(if args[0]? then reject else args.shift(); resolve).apply {}, args
 	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy, @rejectOnDrop=@rejectOnDrop) ->
 		while @_tryToRun() then
 		@

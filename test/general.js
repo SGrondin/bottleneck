@@ -77,6 +77,31 @@ describe('General', function () {
         done()
       }, 20)
     })
+
+    it('Should fail when rejectOnDrop is true', function (done) {
+      var c = makeTest(1, 250, 1, null, true)
+      var dropped = false
+      var checkedError = false
+
+      c.limiter.on('dropped', function () {
+        dropped = true
+        if (dropped && checkedError) {
+          done()
+        }
+      })
+
+      c.limiter.submit(c.job, null, 1, c.noErrVal(1))
+
+      c.limiter.submit(c.job, null, 2, function (err) {
+        console.assert(err.message == 'This job has been dropped by Bottleneck')
+        checkedError = true
+        if (dropped && checkedError) {
+          done()
+        }
+      })
+
+      c.limiter.submit(c.job, null, 3, c.noErrVal(3))
+    })
   })
 
   describe('High water limit', function () {
