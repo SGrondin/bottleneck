@@ -33,7 +33,7 @@ or
 Most APIs have a rate limit. For example, the Reddit.com API limits programs to 1 request every 2 seconds.
 
 ```js
-var Bottleneck = require("bottleneck"); //Node only
+var Bottleneck = require("bottleneck"); // Skip when browser side
 
 // Never more than 1 request running at a time.
 // Wait at least 2000ms between each request.
@@ -114,7 +114,7 @@ It's also possible to replace the Promise library used:
 var Bottleneck = require("bottleneck");
 Bottleneck.prototype.Promise = myPromiseLibrary;
 
-var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy);
+var limiter = new Bottleneck(maxConcurrent, minTime, highWater, strategy, rejectOnDrop);
 ```
 
 

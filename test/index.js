@@ -1,7 +1,7 @@
 global.TEST = true
 global.Bottleneck = require('../lib/index.js')
 global.DLList = require('../lib/DLList.js')
-global.makeTest = function (arg1, arg2, arg3, arg4) {
+global.makeTest = function (arg1, arg2, arg3, arg4, arg5) {
   // ASSERTION
   var asserts = 0
   var getAsserts = function () {
@@ -15,7 +15,7 @@ global.makeTest = function (arg1, arg2, arg3, arg4) {
   // OTHERS
   var start = Date.now()
   var calls = []
-  var limiter = new Bottleneck(arg1, arg2, arg3, arg4)
+  var limiter = new Bottleneck(arg1, arg2, arg3, arg4, arg5)
   var getResults = function () {
     return {
       elapsed: Date.now() - start,
@@ -38,7 +38,7 @@ global.makeTest = function (arg1, arg2, arg3, arg4) {
         if (err == null) {
           return resolve(result)
         } else {
-          return reject(result)
+          return reject(err)
         }
       })
     },

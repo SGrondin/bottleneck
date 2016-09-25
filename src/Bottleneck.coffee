@@ -18,9 +18,7 @@ class Bottleneck
 		@limiter = null
 		@events = {}
 	_trigger: (name, args) ->
-		if name == "dropped" && @rejectOnDrop
-			dropped = args[0]
-			dropped.cb new Error("This job has been dropped.")
+		if @rejectOnDrop && name == "dropped" then args[0].cb.apply {}, [{}, new Error("This job has been dropped by Bottleneck")]
 		setTimeout (=> @events[name]?.forEach (e) -> e.apply {}, args), 0
 	_makeQueues: -> new Bottleneck::DLList() for i in [1..NB_PRIORITIES]
 	chain: (@limiter) -> @
@@ -40,7 +38,7 @@ class Bottleneck
 			wait = Math.max @_nextRequest-Date.now(), 0
 			@_nextRequest = Date.now() + wait + @minTime
 			next = (@_getFirst @_queues).shift()
-			if queued == 1 then @_trigger 'empty', []
+			if queued == 1 then @_trigger "empty", []
 			done = false
 			index = -1 + @_running.push
 				timeout: setTimeout =>
@@ -66,13 +64,13 @@ class Bottleneck
 			@_unblockTime = Date.now() + @penalty
 			@_nextRequest = @_unblockTime + @minTime
 			@_queues = @_makeQueues()
-			@_trigger 'dropped', [job]
+			@_trigger "dropped", [job]
 			return true
 		else if reachedHighWaterMark
 			shifted = if @strategy == Bottleneck::strategy.LEAK then (@_getFirst @_queues[priority..].reverse()).shift()
 			else if @strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then (@_getFirst @_queues[(priority+1)..].reverse()).shift()
 			else if @strategy == Bottleneck::strategy.OVERFLOW then job
-			if shifted? then @_trigger 'dropped', [shifted]
+			if shifted? then @_trigger "dropped", [shifted]
 			if not shifted? or @strategy == Bottleneck::strategy.OVERFLOW then return reachedHighWaterMark
 		@_queues[priority].push job
 		@_tryToRun()
@@ -84,12 +82,9 @@ class Bottleneck
 			.then (args...) -> cb.apply {}, Array::concat null, args
 			.catch (args...) -> cb.apply {}, Array::concat {}, args
 		new Bottleneck::Promise (resolve, reject) =>
-			@submitPriority.apply {}, Array::concat priority, wrapped, (error, args...) ->
-				if error?
-					reject.apply {}, [error].concat(args)
-				else
-					resolve.apply {}, args
-	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy) ->
+			@submitPriority.apply {}, Array::concat priority, wrapped, (failed, args...) ->
+				(if failed? then reject else resolve).apply {}, args
+	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy, @rejectOnDrop=@rejectOnDrop) ->
 		while @_tryToRun() then
 		@
 	changePenalty: (@penalty=@penalty) -> @
@@ -106,14 +101,8 @@ class Bottleneck
 		(clearTimeout a.timeout for a in @_running)
 		@_tryToRun = ->
 		@check = @submit = @submitPriority = @schedule = @schedulePriority = -> false
-	
-		if @interrupt
-			(@_trigger 'dropped', [a.job] for a in @_running)
-
-		job = null
-		while job = (@_getFirst @_queues).shift()
-			@_trigger 'dropped', [job]
-
-		@_trigger 'empty', []
+		if @interrupt then (@_trigger "dropped", [a.job] for a in @_running)
+		while job = (@_getFirst @_queues).shift() then @_trigger "dropped", [job]
+		@_trigger "empty", []
 
 module.exports = Bottleneck

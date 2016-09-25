@@ -57,6 +57,26 @@ describe('General', function () {
         done()
       })
     })
+
+    it('Should fire events when calling stopAll()', function (done) {
+      var c = makeTest(1, 250)
+      var calledEmpty = 0
+      var calledDropped = 0
+
+      c.limiter.on('empty', function () { calledEmpty++ })
+      c.limiter.on('dropped', function () { calledDropped++ })
+
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+
+      c.limiter.stopAll()
+      setTimeout(function () {
+        console.assert(calledEmpty === 2)
+        console.assert(calledDropped === 2)
+        done()
+      }, 20)
+    })
   })
 
   describe('High water limit', function () {
