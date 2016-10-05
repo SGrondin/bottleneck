@@ -28,8 +28,9 @@ class Bottleneck
 		if sProperty < 0 then 0 else if sProperty > NB_PRIORITIES-1 then NB_PRIORITIES-1 else sProperty
 	_find: (arr, fn) -> (for x, i in arr then if fn x then return x); []
 	nbQueued: (priority) -> if priority? then @_queues[@_sanitizePriority priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
+	nbRunning: () -> @_nbRunning
 	_getFirst: (arr) -> @_find arr, (x) -> x.length > 0
-	_conditionsCheck: -> (@_nbRunning < @maxNb or @maxNb <= 0) and (not @reservoir? or @reservoir > 0)
+	_conditionsCheck: -> (@nbRunning() < @maxNb or @maxNb <= 0) and (not @reservoir? or @reservoir > 0)
 	check: -> @_conditionsCheck() and (@_nextRequest-Date.now()) <= 0
 	_tryToRun: ->
 		if @_conditionsCheck() and (queued = @nbQueued()) > 0
@@ -48,6 +49,7 @@ class Bottleneck
 							delete @_running[index]
 							@_nbRunning--
 							@_tryToRun()
+							if @nbRunning() == 0 and @nbQueued() == 0 then @_trigger "idle", []
 							if not @interrupt then next.cb?.apply {}, Array::slice.call arguments, 0
 					if @limiter? then @limiter.submit.apply @limiter, Array::concat next.task, next.args, completed
 					else next.task.apply {}, next.args.concat completed
@@ -97,6 +99,9 @@ class Bottleneck
 	on: (name, cb) ->
 		if @events[name]? then @events[name].push cb else @events[name] = [cb]
 		@
+	removeAllListeners: (name=null) ->
+		if name? then delete @events[name] else @events = {}
+		@
 	stopAll: (@interrupt=@interrupt) ->
 		(clearTimeout a.timeout for a in @_running)
 		@_tryToRun = ->
@@ -104,5 +109,7 @@ class Bottleneck
 		if @interrupt then (@_trigger "dropped", [a.job] for a in @_running)
 		while job = (@_getFirst @_queues).shift() then @_trigger "dropped", [job]
 		@_trigger "empty", []
+		if @nbRunning() == 0 then @_trigger "idle", []
+		@
 
 module.exports = Bottleneck

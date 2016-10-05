@@ -173,6 +173,13 @@ limiter.nbQueued(priority);
 
 `priority` is optional. Without that argument, it'll return the total number of requests waiting to be executed, otherwise it'll only count the number of requests with that specific priority.
 
+### nbRunning()
+
+```js
+limiter.nbRunning();
+```
+
+Returns the number of requests currently running in the limiter.
 
 ### check()
 
@@ -202,11 +209,17 @@ Cancels all *queued up* requests and prevents additonal requests from being adde
 
 ### Events
 
-Event names: `empty`, `dropped`.
+Event names: `empty`, `idle`, `dropped`.
 
 ```js
 limiter.on('empty', function () {
   // This will be called when the nbQueued() drops to 0.
+})
+```
+
+```js
+limiter.on('idle', function () {
+  // This will be called when the nbQueued() drops to 0 AND there is nothing currently running in the limiter.
 })
 ```
 
@@ -216,6 +229,8 @@ limiter.on('dropped', function (dropped) {
   // The dropped request is passed to this callback.
 })
 ```
+
+Use `removeAllListeners()` with an optional event name as first argument to remove listeners.
 
 **Note:** It's possible to set multiple callbacks to the same event name.
 

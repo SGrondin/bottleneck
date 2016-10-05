@@ -120,6 +120,10 @@
       }
     };
 
+    Bottleneck.prototype.nbRunning = function() {
+      return this._nbRunning;
+    };
+
     Bottleneck.prototype._getFirst = function(arr) {
       return this._find(arr, function(x) {
         return x.length > 0;
@@ -127,7 +131,7 @@
     };
 
     Bottleneck.prototype._conditionsCheck = function() {
-      return (this._nbRunning < this.maxNb || this.maxNb <= 0) && ((this.reservoir == null) || this.reservoir > 0);
+      return (this.nbRunning() < this.maxNb || this.maxNb <= 0) && ((this.reservoir == null) || this.reservoir > 0);
     };
 
     Bottleneck.prototype.check = function() {
@@ -159,6 +163,9 @@
                   delete _this._running[index];
                   _this._nbRunning--;
                   _this._tryToRun();
+                  if (_this.nbRunning() === 0 && _this.nbQueued() === 0) {
+                    _this._trigger("idle", []);
+                  }
                   if (!_this.interrupt) {
                     return (ref = next.cb) != null ? ref.apply({}, Array.prototype.slice.call(arguments, 0)) : void 0;
                   }
@@ -284,6 +291,18 @@
       return this;
     };
 
+    Bottleneck.prototype.removeAllListeners = function(name) {
+      if (name == null) {
+        name = null;
+      }
+      if (name != null) {
+        delete this.events[name];
+      } else {
+        this.events = {};
+      }
+      return this;
+    };
+
     Bottleneck.prototype.stopAll = function(interrupt) {
       var a, j, job, k, len, len1, ref, ref1;
       this.interrupt = interrupt != null ? interrupt : this.interrupt;
@@ -306,7 +325,11 @@
       while (job = (this._getFirst(this._queues)).shift()) {
         this._trigger("dropped", [job]);
       }
-      return this._trigger("empty", []);
+      this._trigger("empty", []);
+      if (this.nbRunning() === 0) {
+        this._trigger("idle", []);
+      }
+      return this;
     };
 
     return Bottleneck;
