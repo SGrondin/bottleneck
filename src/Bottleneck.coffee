@@ -10,7 +10,8 @@ class Bottleneck
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
 		@_queues = @_makeQueues()
-		@_running = []
+		@_running = {}
+		@_nextIndex = 0
 		@_unblockTime = 0
 		@penalty = (15 * @minTime) or 5000
 		@interrupt = false
@@ -41,7 +42,8 @@ class Bottleneck
 			next = (@_getFirst @_queues).shift()
 			if queued == 1 then @_trigger "empty", []
 			done = false
-			index = -1 + @_running.push
+			index = @_nextIndex++
+			@_running[index] =
 				timeout: setTimeout =>
 					completed = =>
 						if not done
@@ -103,10 +105,13 @@ class Bottleneck
 		if name? then delete @events[name] else @events = {}
 		@
 	stopAll: (@interrupt=@interrupt) ->
-		(clearTimeout a.timeout for a in @_running)
+		keys = Object.keys @_running
+		(clearTimeout @_running[k].timeout for k in keys)
 		@_tryToRun = ->
-		@check = @submit = @submitPriority = @schedule = @schedulePriority = -> false
-		if @interrupt then (@_trigger "dropped", [a.job] for a in @_running)
+		@check = -> false
+		@submit = @submitPriority = (args..., cb) -> cb new Error "This limiter is stopped"
+		@schedule = @schedulePriority = -> Promise.reject(new Error "This limiter is stopped")
+		if @interrupt then (@_trigger "dropped", [@_running[k].job] for k in keys)
 		while job = (@_getFirst @_queues).shift() then @_trigger "dropped", [job]
 		@_trigger "empty", []
 		if @nbRunning() == 0 then @_trigger "idle", []

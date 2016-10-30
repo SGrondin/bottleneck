@@ -202,7 +202,7 @@ Is the limiter currently in "blocked mode"? Returns a boolean.
 ```js
 limiter.stopAll(interrupt);
 ```
-Cancels all *queued up* requests and prevents additonal requests from being added.
+Cancels all *queued up* requests and every added request will be automatically rejected.
 
 * `interrupt` : If true, prevent the requests currently running from calling their callback when they're done. *Default: `false`*
 

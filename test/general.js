@@ -110,6 +110,8 @@ describe('General', function () {
       var calledEmpty = 0
       var calledIdle = 0
       var calledDropped = 0
+      var failedPromise = 0
+      var failedCb = 0
 
       c.limiter.on('empty', function () { calledEmpty++ })
       c.limiter.on('idle', function () { calledIdle++ })
@@ -121,13 +123,25 @@ describe('General', function () {
 
       setTimeout(function () {
         c.limiter.stopAll()
+        c.limiter.schedule(c.promise, null, 4)
+        .then(() => assert(false))
+        .catch(function (err) {
+          console.assert(err.message === 'This limiter is stopped')
+          failedPromise++
+        })
+        c.limiter.submit(c.job, null, 5, function (err) {
+          console.assert(err.message === 'This limiter is stopped')
+          failedCb++
+        })
       }, 0)
       setTimeout(function () {
         console.assert(calledEmpty === 2)
         console.assert(calledDropped === 2)
         console.assert(calledIdle === 1)
+        console.assert(failedPromise === 1)
+        console.assert(failedCb === 1)
         done()
-      }, 30)
+      }, 50)
     })
 
     it('Should fail when rejectOnDrop is true', function (done) {
