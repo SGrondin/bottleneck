@@ -1,6 +1,6 @@
 /// <reference path="bottleneck.d.ts" />
 
-import * as Bottleneck from "bottleneck";
+import Bottleneck from "bottleneck";
 
 function withCb(foo: number, bar: () => void, cb: (err: any, result: string) => void) {
     cb(undefined, "foo");

@@ -1,6 +1,7 @@
 NB_PRIORITIES = 10
 MIDDLE_PRIORITY = 5
 class Bottleneck
+	Bottleneck.default = Bottleneck
 	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3}
 	Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
 	Bottleneck.DLList = Bottleneck::DLList = require "./DLList"
