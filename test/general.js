@@ -108,36 +108,39 @@ describe('General', function () {
     it('Should fire events when calling stopAll() (async)', function (done) {
       var c = makeTest(1, 250)
       var calledEmpty = 0
-      var calledIdle = 0
       var calledDropped = 0
       var failedPromise = 0
       var failedCb = 0
 
       c.limiter.on('empty', function () { calledEmpty++ })
-      c.limiter.on('idle', function () { calledIdle++ })
-      c.limiter.on('dropped', function () { calledDropped++ })
+      c.limiter.on('dropped', function (dropped) {
+        console.assert(dropped.args.length === 2)
+        calledDropped++
+      })
 
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
 
       setTimeout(function () {
-        c.limiter.stopAll()
+        c.limiter.stopAll(true)
+
         c.limiter.schedule(c.promise, null, 4)
         .then(() => assert(false))
         .catch(function (err) {
           console.assert(err.message === 'This limiter is stopped')
           failedPromise++
         })
+
         c.limiter.submit(c.job, null, 5, function (err) {
           console.assert(err.message === 'This limiter is stopped')
           failedCb++
         })
       }, 0)
+
       setTimeout(function () {
         console.assert(calledEmpty === 2)
-        console.assert(calledDropped === 2)
-        console.assert(calledIdle === 1)
+        console.assert(calledDropped >= 2)
         console.assert(failedPromise === 1)
         console.assert(failedCb === 1)
         done()

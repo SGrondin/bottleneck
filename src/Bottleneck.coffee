@@ -81,12 +81,12 @@ class Bottleneck
 		reachedHighWaterMark
 	schedule: (args...) -> @schedulePriority.apply {}, Array::concat MIDDLE_PRIORITY, args
 	schedulePriority: (priority, task, args...) =>
-		wrapped = (cb) ->
+		wrapped = (args..., cb) ->
 			(task.apply {}, args)
 			.then (args...) -> cb.apply {}, Array::concat null, args
 			.catch (args...) -> cb.apply {}, args
 		new Bottleneck::Promise (resolve, reject) =>
-			@submitPriority.apply {}, Array::concat priority, wrapped, (args...) ->
+			@submitPriority.apply {}, Array::concat priority, wrapped, args, (args...) ->
 				(if args[0]? then reject else args.shift(); resolve).apply {}, args
 	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy, @rejectOnDrop=@rejectOnDrop) ->
 		while @_tryToRun() then
