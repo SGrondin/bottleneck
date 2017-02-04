@@ -106,17 +106,17 @@ declare module "bottleneck" {
          * Cancels all queued up requests and every added request will be automatically rejected.
          * @param interrupt - If true, prevent the requests currently running from calling their callback when they're done. Default: false.
          */
-        stopAll(interrupt?: boolean): void;
+        stopAll(interrupt?: boolean): Bottleneck;
 
         /**
          * Register an event listener.
          * @param name - The event name.
          * @param fn - The callback function.
          */
-        on(name: string, fn: Function): void;
-        on(name: "empty", fn: () => void): void;
-        on(name: "idle", fn: () => void): void;
-        on(name: "dropped", fn: (dropped: any) => void): void;
+        on(name: string, fn: Function): Bottleneck;
+        on(name: "empty", fn: () => void): Bottleneck;
+        on(name: "idle", fn: () => void): Bottleneck;
+        on(name: "dropped", fn: (dropped: any) => void): Bottleneck;
         
         /**
          * Removes all registered event listeners.
@@ -132,28 +132,28 @@ declare module "bottleneck" {
          * @param strategy - Which strategy to use if the queue gets longer than the high water mark. Default: Bottleneck.strategy.LEAK
          * @param rejectOnDrop - When true if a job is dropped its callback will be called with the first argument set to an Error object. If the job was a promise it will be rejected. Default: false
          */
-        changeSettings(maxConcurrent?: number, minTime?: number, highWater?: number, strategy?: Bottleneck.Strategy, rejectOnDrop?: boolean): void;
+        changeSettings(maxConcurrent?: number, minTime?: number, highWater?: number, strategy?: Bottleneck.Strategy, rejectOnDrop?: boolean): Bottleneck;
 
         /**
          * Changes the penalty value used by the BLOCK strategy.
          */
-        changePenalty(penalty: number): void;
+        changePenalty(penalty: number): Bottleneck;
 
         /**
          * Changes the reservoir count.
          */
-        changeReservoir(reservoir: number): void;
+        changeReservoir(reservoir: number): Bottleneck;
 
         /**
          * Adds to the reservoir count.
          */
-        incrementReservoir(incrementBy: number): void;
+        incrementReservoir(incrementBy: number): Bottleneck;
         
         /**
          * Chain this limiter to another.
          * @param other - The limiter that requests to this limiter must also follow.
          */
-        chain(other: Bottleneck): void;
+        chain(other: Bottleneck): Bottleneck;
 
         <%_ for (var count of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) { _%>
         submit<R<%_ for (var idx = 1; idx <= count; idx++) { _%>, A<%= idx %><%_ } _%>>(fn: (<%_ for (var idx = 1; idx <= count; idx++) { _%>arg<%= idx %>: A<%= idx %>, <% } _%>callback: Bottleneck.Callback<R>) => void<%_ for (var idx = 1; idx <= count; idx++) { _%>, arg<%= idx %>: A<%= idx %><% } _%>, callback: Bottleneck.Callback<R>): void;
