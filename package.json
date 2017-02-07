@@ -3,6 +3,7 @@
   "version": "1.15.1",
   "description": "Async rate limiter",
   "main": "lib/index.js",
+  "typings": "bottleneck.d.ts",
   "scripts": {
     "test": "./node_modules/mocha/bin/mocha test/index.js",
     "build": "./scripts/build.sh",

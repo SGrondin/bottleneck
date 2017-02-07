@@ -12,6 +12,8 @@
   Bottleneck = (function() {
     var e;
 
+    Bottleneck["default"] = Bottleneck;
+
     Bottleneck.strategy = Bottleneck.prototype.strategy = {
       LEAK: 1,
       OVERFLOW: 2,
