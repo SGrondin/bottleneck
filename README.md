@@ -323,12 +323,18 @@ The return value of `.key(str)` is a limiter. If it doesn't already exist, it is
 
 ### stopAutoCleanup()
 
-Calling `stopAutoCleanup()` on a cluster will turn off its garbage collection, so limiters for keys that have not been used in over **5 minutes** will NOT be deleted anymore. It can be reenabled by calling `startAutoCleanup()`.
+Calling `stopAutoCleanup()` on a cluster will turn off its garbage collection, so limiters for keys that have not been used in over **5 minutes** will NOT be deleted anymore. It can be reenabled by calling `startAutoCleanup()`. The `5 minutes` figure can be modified by calling `changeTimeout()`.
 
 
 ### startAutoCleanup()
 
 Reactivate the cluster's garbage collection for limiters (in the cluster) that have been inactive for over 5 minutes.
+
+### changeTimeout()
+
+* `timeout`: The expiration time for unused limiters, in milliseconds. By default it is `300000` (5 minutes).
+
+When autocleanup is enabled, limiters having not been used in the last `timeout` milliseconds will be deleted to avoid memory leaks.
 
 
 ### deleteKey()

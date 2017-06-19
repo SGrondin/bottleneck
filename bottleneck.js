@@ -368,6 +368,7 @@
       this.rejectOnDrop = rejectOnDrop;
       this.limiters = {};
       this.Bottleneck = require("./Bottleneck");
+      this.timeout = 1000 * 60 * 5;
       this.startAutoCleanup();
     }
 
@@ -413,7 +414,7 @@
           results = [];
           for (k in ref) {
             v = ref[k];
-            if ((v._nextRequest + (1000 * 60 * 5)) < time) {
+            if ((v._nextRequest + _this.timeout) < time) {
               results.push(_this.deleteKey(k));
             } else {
               results.push(void 0);
@@ -421,11 +422,16 @@
           }
           return results;
         };
-      })(this), 1000 * 30))).unref === "function" ? base.unref() : void 0;
+      })(this), this.timeout / 10))).unref === "function" ? base.unref() : void 0;
     };
 
     Cluster.prototype.stopAutoCleanup = function() {
       return clearInterval(this.interval);
+    };
+
+    Cluster.prototype.changeTimeout = function(timeout) {
+      this.timeout = timeout;
+      return this.startAutoCleanup();
     };
 
     return Cluster;
