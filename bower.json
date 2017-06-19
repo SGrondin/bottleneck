@@ -1,7 +1,7 @@
 {
   "name": "bottleneck",
   "main": "bottleneck.js",
-  "version": "1.15.1",
+  "version": "1.16.0",
   "homepage": "https://github.com/SGrondin/bottleneck",
   "authors": [
     "SGrondin <github@simongrondin.name>"
