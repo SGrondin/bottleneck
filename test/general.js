@@ -1,38 +1,42 @@
+var makeTest = require('./context')
+var Bottleneck = require('../lib/index.js')
+var assert = require('assert')
+
 describe('General', function () {
 
   it('Should return the nbQueued with and without a priority value', function (done) {
     var c = makeTest(1, 250)
 
-    console.assert(c.limiter.nbQueued() === 0)
+    assert(c.limiter.nbQueued() === 0)
 
     c.limiter.submit(c.job, null, 1, c.noErrVal(1))
-    console.assert(c.limiter.nbQueued() === 0) // It's already running
+    assert(c.limiter.nbQueued() === 0) // It's already running
 
     c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-    console.assert(c.limiter.nbQueued() === 1)
-    console.assert(c.limiter.nbQueued(1) === 0)
-    console.assert(c.limiter.nbQueued(5) === 1)
+    assert(c.limiter.nbQueued() === 1)
+    assert(c.limiter.nbQueued(1) === 0)
+    assert(c.limiter.nbQueued(5) === 1)
 
     c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-    console.assert(c.limiter.nbQueued() === 2)
-    console.assert(c.limiter.nbQueued(1) === 0)
-    console.assert(c.limiter.nbQueued(5) === 2)
+    assert(c.limiter.nbQueued() === 2)
+    assert(c.limiter.nbQueued(1) === 0)
+    assert(c.limiter.nbQueued(5) === 2)
 
     c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-    console.assert(c.limiter.nbQueued() === 3)
-    console.assert(c.limiter.nbQueued(1) === 0)
-    console.assert(c.limiter.nbQueued(5) === 3)
+    assert(c.limiter.nbQueued() === 3)
+    assert(c.limiter.nbQueued(1) === 0)
+    assert(c.limiter.nbQueued(5) === 3)
 
     c.limiter.submitPriority(1, c.job, null, 5, c.noErrVal(5))
-    console.assert(c.limiter.nbQueued() === 4)
-    console.assert(c.limiter.nbQueued(1) === 1)
-    console.assert(c.limiter.nbQueued(5) === 3)
+    assert(c.limiter.nbQueued() === 4)
+    assert(c.limiter.nbQueued(1) === 1)
+    assert(c.limiter.nbQueued(5) === 3)
 
     c.last(function (err, results) {
-      console.assert(c.limiter.nbQueued() === 0)
+      assert(c.limiter.nbQueued() === 0)
       c.checkResultsOrder([1,5,2,3,4])
       c.checkDuration(1000)
-      console.assert(c.asserts() === 10)
+      assert(c.asserts() === 10)
       done()
     })
   })
@@ -40,19 +44,19 @@ describe('General', function () {
   it('Should return the nbRunning', function (done) {
     var c = makeTest(2, 250)
 
-    console.assert(c.limiter.nbRunning() === 0)
+    assert(c.limiter.nbRunning() === 0)
 
     c.limiter.submit(c.job, null, 1, c.noErrVal(1))
-    console.assert(c.limiter.nbRunning() === 1)
+    assert(c.limiter.nbRunning() === 1)
 
     setTimeout(function () {
-      console.assert(c.limiter.nbRunning() === 0)
+      assert(c.limiter.nbRunning() === 0)
       setTimeout(function () {
         c.limiter.submit(c.job, null, 1, c.noErrVal(1))
         c.limiter.submit(c.job, null, 2, c.noErrVal(2))
         c.limiter.submit(c.job, null, 3, c.noErrVal(3))
         c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-        console.assert(c.limiter.nbRunning() === 2)
+        assert(c.limiter.nbRunning() === 2)
         done()
       }, 0)
     }, 0)
@@ -75,8 +79,8 @@ describe('General', function () {
         c.last(function (err, results) {
           c.checkResultsOrder([1,2,3])
           c.checkDuration(500)
-          console.assert(calledEmpty === 2)
-          console.assert(calledIdle === 1)
+          assert(calledEmpty === 2)
+          assert(calledIdle === 1)
           done()
         })
       })
@@ -98,9 +102,9 @@ describe('General', function () {
 
       c.limiter.stopAll()
       setTimeout(function () {
-        console.assert(calledEmpty === 2)
-        console.assert(calledDropped === 2)
-        console.assert(calledIdle === 0)
+        assert(calledEmpty === 2)
+        assert(calledDropped === 2)
+        assert(calledIdle === 0)
         done()
       }, 30)
     })
@@ -114,7 +118,7 @@ describe('General', function () {
 
       c.limiter.on('empty', function () { calledEmpty++ })
       c.limiter.on('dropped', function (dropped) {
-        console.assert(dropped.args.length === 2)
+        assert(dropped.args.length === 2)
         calledDropped++
       })
 
@@ -128,27 +132,27 @@ describe('General', function () {
         c.limiter.schedule(c.promise, null, 4)
         .then(() => assert(false))
         .catch(function (err) {
-          console.assert(err.message === 'This limiter is stopped')
+          assert(err.message === 'This limiter is stopped')
           failedPromise++
         })
 
         c.limiter.submit(c.job, null, 5, function (err) {
-          console.assert(err.message === 'This limiter is stopped')
+          assert(err.message === 'This limiter is stopped')
           failedCb++
         })
       }, 0)
 
       setTimeout(function () {
-        console.assert(calledEmpty === 2)
-        console.assert(calledDropped >= 2)
-        console.assert(failedPromise === 1)
-        console.assert(failedCb === 1)
+        assert(calledEmpty === 2)
+        assert(calledDropped >= 2)
+        assert(failedPromise === 1)
+        assert(failedCb === 1)
         done()
       }, 50)
     })
 
-    it('Should fail when rejectOnDrop is true', function (done) {
-      var c = makeTest(1, 250, 1, null, true)
+    it('Should fail (with BottleneckError) when rejectOnDrop is true', function (done) {
+      var c = makeTest(1, 250, 1, undefined, true)
       var dropped = false
       var checkedError = false
 
@@ -162,7 +166,8 @@ describe('General', function () {
       c.limiter.submit(c.job, null, 1, c.noErrVal(1))
 
       c.limiter.submit(c.job, null, 2, function (err) {
-        console.assert(err.message == 'This job has been dropped by Bottleneck')
+        assert(err instanceof Bottleneck.BottleneckError)
+        assert(err.message == 'This job has been dropped by Bottleneck')
         checkedError = true
         if (dropped && checkedError) {
           done()
@@ -185,7 +190,7 @@ describe('General', function () {
       c.last(function (err, results) {
         c.checkDuration(0)
         c.checkResultsOrder([1])
-        console.assert(c.asserts() === 1)
+        assert(c.asserts() === 1)
         done()
       })
     })
@@ -197,11 +202,11 @@ describe('General', function () {
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
-      c.limiter.changeSettings(null, null, -1)
+      c.limiter.changeSettings(undefined, undefined, -1)
       c.last(function (err, results) {
         c.checkDuration(250)
         c.checkResultsOrder([1,4])
-        console.assert(c.asserts() === 2)
+        assert(c.asserts() === 2)
         done()
       })
     })

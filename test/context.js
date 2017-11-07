@@ -1,7 +1,8 @@
 global.TEST = true
-global.Bottleneck = require('../lib/index.js')
-global.DLList = require('../lib/DLList.js')
-global.makeTest = function (arg1, arg2, arg3, arg4, arg5) {
+var Bottleneck = require('../lib/index.js')
+var assert = require('assert')
+
+module.exports = function (arg1, arg2, arg3, arg4, arg5) {
   // ASSERTION
   var asserts = 0
   var getAsserts = function () {
@@ -9,7 +10,7 @@ global.makeTest = function (arg1, arg2, arg3, arg4, arg5) {
   }
   var assertWrapped = function (eq) {
       asserts++
-      console.assert(eq)
+      assert(eq)
     }
 
   // OTHERS
@@ -64,30 +65,17 @@ global.makeTest = function (arg1, arg2, arg3, arg4, arg5) {
     results: getResults,
     checkResultsOrder: function (order) {
       for (var i = 0; i < Math.max(calls.length, order.length); i++) {
-        console.assert(order[i] === calls[i].result)
+        assert(order[i] === calls[i].result)
       }
     },
     checkDuration: function (shouldBe) {
       var results = getResults()
       var min = shouldBe - 10
       var max = shouldBe + 50
-      console.assert(results.callsDuration > min)
-      console.assert(results.callsDuration < max)
+      assert(results.callsDuration > min)
+      assert(results.callsDuration < max)
     }
   }
 
   return context
-}
-
-var fs = require('fs')
-var files = fs.readdirSync('./test')
-for (var f in files) {
-  var stat = fs.statSync('./test/' + files[f])
-  if (!stat.isDirectory()) {
-    try {
-      require('./' + files[f])
-    } catch (e) {
-      console.error(e.toString())
-    }
-  }
 }

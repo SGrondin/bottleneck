@@ -3,10 +3,11 @@ MIDDLE_PRIORITY = 5
 class Bottleneck
 	Bottleneck.default = Bottleneck
 	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3}
+	Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
 	Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
 	Bottleneck.DLList = Bottleneck::DLList = require "./DLList"
 	Bottleneck.Promise = Bottleneck::Promise = try require "bluebird" catch e then Promise ? ->
-		throw new Error "Bottleneck: install 'bluebird' or use Node 0.12 or higher for Promise support"
+		throw new Bottleneck::BottleneckError "Bottleneck: install 'bluebird' or use Node 0.12 or higher for Promise support"
 	constructor: (@maxNb=0, @minTime=0, @highWater=-1, @strategy=Bottleneck::strategy.LEAK, @rejectOnDrop=false) ->
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
@@ -20,7 +21,7 @@ class Bottleneck
 		@limiter = null
 		@events = {}
 	_trigger: (name, args) ->
-		if @rejectOnDrop && name == "dropped" then args[0].cb.apply {}, [new Error("This job has been dropped by Bottleneck")]
+		if @rejectOnDrop && name == "dropped" then args[0].cb.apply {}, [new Bottleneck::BottleneckError("This job has been dropped by Bottleneck")]
 		setTimeout (=> @events[name]?.forEach (e) -> e.apply {}, args), 0
 	_makeQueues: -> new Bottleneck::DLList() for i in [1..NB_PRIORITIES]
 	chain: (@limiter) -> @
@@ -28,7 +29,7 @@ class Bottleneck
 	_sanitizePriority: (priority) ->
 		sProperty = if ~~priority != priority then MIDDLE_PRIORITY else priority
 		if sProperty < 0 then 0 else if sProperty > NB_PRIORITIES-1 then NB_PRIORITIES-1 else sProperty
-	_find: (arr, fn) -> (for x, i in arr then if fn x then return x); []
+	_find: (arr, fn) -> (do -> for x, i in arr then if fn x then return x) ? []
 	nbQueued: (priority) -> if priority? then @_queues[@_sanitizePriority priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
 	nbRunning: () -> @_nbRunning
 	_getFirst: (arr) -> @_find arr, (x) -> x.length > 0
@@ -46,14 +47,14 @@ class Bottleneck
 			index = @_nextIndex++
 			@_running[index] =
 				timeout: setTimeout =>
-					completed = =>
+					completed = (args...) =>
 						if not done
 							done = true
 							delete @_running[index]
 							@_nbRunning--
 							@_tryToRun()
 							if @nbRunning() == 0 and @nbQueued() == 0 then @_trigger "idle", []
-							if not @interrupt then next.cb?.apply {}, Array::slice.call arguments, 0
+							if not @interrupt then next.cb?.apply {}, args
 					if @limiter? then @limiter.submit.apply @limiter, Array::concat next.task, next.args, completed
 					else next.task.apply {}, next.args.concat completed
 				, wait
@@ -110,8 +111,8 @@ class Bottleneck
 		(clearTimeout @_running[k].timeout for k in keys)
 		@_tryToRun = ->
 		@check = -> false
-		@submit = @submitPriority = (args..., cb) -> cb new Error "This limiter is stopped"
-		@schedule = @schedulePriority = -> Promise.reject(new Error "This limiter is stopped")
+		@submit = @submitPriority = (args..., cb) -> cb new Bottleneck::BottleneckError "This limiter is stopped"
+		@schedule = @schedulePriority = -> Promise.reject(new Bottleneck::BottleneckError "This limiter is stopped")
 		if @interrupt then (@_trigger "dropped", [@_running[k].job] for k in keys)
 		while job = (@_getFirst @_queues).shift() then @_trigger "dropped", [job]
 		@_trigger "empty", []

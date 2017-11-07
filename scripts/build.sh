@@ -6,7 +6,7 @@ if [ ! -d node_modules ]; then
 	npm install
 fi
 
-node_modules/coffee-script/bin/coffee -c src/*.coffee
+node_modules/coffeescript/bin/coffee -c src/*.coffee
 rm lib/*.js
 mv src/*.js lib/
 
@@ -15,6 +15,6 @@ if [[ $1 = 'compile' ]]; then
 else
   echo 'Building bottleneck...'
   node_modules/browserify/bin/cmd.js -u bluebird lib/index.js > bottleneck.js
-  node_modules/uglify-js/bin/uglifyjs bottleneck.js -o bottleneck.min.js
+  node_modules/uglify-es/bin/uglifyjs bottleneck.js -o bottleneck.min.js
 fi
 echo 'Done!'

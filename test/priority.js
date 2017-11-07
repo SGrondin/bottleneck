@@ -1,3 +1,7 @@
+var makeTest = require('./context')
+var Bottleneck = require('../lib/index.js')
+var assert = require('assert')
+
 describe('Priority', function () {
   it('Should do basic ordering', function (done) {
     var c = makeTest(1, 250)
@@ -10,7 +14,7 @@ describe('Priority', function () {
     c.last(function (err, results) {
       c.checkResultsOrder([1,5,2,3,4])
       c.checkDuration(1000)
-      console.assert(c.asserts() === 10)
+      assert(c.asserts() === 10)
       done()
     })
   })
@@ -20,15 +24,15 @@ describe('Priority', function () {
     var called = false
     var called2 = false
     c.limiter.on('dropped', function (dropped) {
-      console.assert(dropped.task != null)
-      console.assert(dropped.args != null)
-      console.assert(dropped.cb != null)
+      assert(dropped.task != null)
+      assert(dropped.args != null)
+      assert(dropped.cb != null)
       called = true
     })
     c.limiter.on('dropped', function (dropped) {
-      console.assert(dropped.task != null)
-      console.assert(dropped.args != null)
-      console.assert(dropped.cb != null)
+      assert(dropped.task != null)
+      assert(dropped.args != null)
+      assert(dropped.cb != null)
       called2 = true
     })
 
@@ -39,13 +43,13 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(1, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(9, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(null, null, -1)
+    c.limiter.changeSettings(undefined, undefined, -1)
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,6,5])
-      console.assert(c.asserts() === 6)
-      console.assert(called)
-      console.assert(called2)
+      assert(c.asserts() === 6)
+      assert(called)
+      assert(called2)
       done()
     })
   })
@@ -54,9 +58,9 @@ describe('Priority', function () {
     var c = makeTest(1, 250, 2, Bottleneck.strategy.OVERFLOW)
     var called = false
     c.limiter.on('dropped', function (dropped) {
-      console.assert(dropped.task != null)
-      console.assert(dropped.args != null)
-      console.assert(dropped.cb != null)
+      assert(dropped.task != null)
+      assert(dropped.args != null)
+      assert(dropped.cb != null)
       called = true
     })
 
@@ -67,12 +71,12 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(1, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(9, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(null, null, -1)
+    c.limiter.changeSettings(undefined, undefined, -1)
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,2,3])
-      console.assert(c.asserts() === 6)
-      console.assert(called)
+      assert(c.asserts() === 6)
+      assert(called)
       done()
     })
   })
@@ -81,9 +85,9 @@ describe('Priority', function () {
     var c = makeTest(1, 250, 2, Bottleneck.strategy.OVERFLOW_PRIORITY)
     var called = false
     c.limiter.on('dropped', function (dropped) {
-      console.assert(dropped.task != null)
-      console.assert(dropped.args != null)
-      console.assert(dropped.cb != null)
+      assert(dropped.task != null)
+      assert(dropped.args != null)
+      assert(dropped.cb != null)
       called = true
     })
 
@@ -94,12 +98,12 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(2, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(2, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(null, null, -1)
+    c.limiter.changeSettings(undefined, undefined, -1)
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,5,6])
-      console.assert(c.asserts() === 6)
-      console.assert(called)
+      assert(c.asserts() === 6)
+      assert(called)
       done()
     })
   })
@@ -108,9 +112,9 @@ describe('Priority', function () {
     var c = makeTest(1, 250, 2, Bottleneck.strategy.BLOCK)
     var called = false
     c.limiter.on('dropped', function (dropped) {
-      console.assert(dropped.task != null)
-      console.assert(dropped.args != null)
-      console.assert(dropped.cb != null)
+      assert(dropped.task != null)
+      assert(dropped.args != null)
+      assert(dropped.cb != null)
       called = true
     })
 
@@ -120,14 +124,14 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(2, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(2, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(null, null, -1)
+    c.limiter.changeSettings(undefined, undefined, -1)
     c.limiter._unblockTime = 0
     c.limiter._nextRequest = 0
     c.last(function (err, results) {
       c.checkDuration(0)
       c.checkResultsOrder([1])
-      console.assert(c.asserts() === 2)
-      console.assert(called)
+      assert(c.asserts() === 2)
+      assert(called)
       done()
     })
   })
@@ -142,7 +146,7 @@ describe('Priority', function () {
     c.last(function (err, results) {
       c.checkDuration(750)
       c.checkResultsOrder([1,4,3,2])
-      console.assert(c.asserts() === 4)
+      assert(c.asserts() === 4)
       done()
     })
   })

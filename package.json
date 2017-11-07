@@ -5,7 +5,7 @@
   "main": "lib/index.js",
   "typings": "bottleneck.d.ts",
   "scripts": {
-    "test": "./node_modules/mocha/bin/mocha test/index.js",
+    "test": "./node_modules/mocha/bin/mocha test",
     "build": "./scripts/build.sh",
     "compile": "./scripts/build.sh compile"
   },
@@ -34,9 +34,13 @@
     "url": "https://github.com/SGrondin/bottleneck/issues"
   },
   "devDependencies": {
-    "coffee-script": "1.11.x",
+    "coffeescript": "2.0.x",
     "browserify": "*",
-    "mocha":"*",
-    "uglify-js": "*"
+    "mocha": "4.x",
+    "assert": "1.4.x",
+    "uglify-es": "3.x"
+  },
+  "dependencies": {
+    "bluebird": "^3.5.1"
   }
 }
