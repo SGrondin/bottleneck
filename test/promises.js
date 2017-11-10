@@ -1,6 +1,5 @@
 var makeTest = require('./context')
 var Bottleneck = require('../lib/index.js')
-var assert = require('assert')
 
 describe('Promises', function () {
   it('Should support promises', function (done) {
@@ -13,7 +12,6 @@ describe('Promises', function () {
     c.last(function (err, results) {
       c.checkResultsOrder([1,2,3,4])
       c.checkDuration(750)
-      assert(c.asserts() === 7)
       done()
     })
   })
@@ -24,7 +22,7 @@ describe('Promises', function () {
 
     c.limiter.schedule(c.promise, new Error(failureMessage))
     .catch(function (err) {
-      assert(err.message === failureMessage)
+      c.mustEqual(err.message, failureMessage)
       done()
     })
   })
@@ -45,7 +43,7 @@ describe('Promises', function () {
 
     c.limiter.schedule(c.promise, null, 2)
     .catch(function (err) {
-      assert(err.message === 'This job has been dropped by Bottleneck')
+      c.mustEqual(err.message, 'This job has been dropped by Bottleneck')
       checkedError = true
       if (dropped && checkedError) {
         done()
@@ -53,5 +51,41 @@ describe('Promises', function () {
     })
 
     c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+  })
+
+  it('Should wrap', function (done) {
+    var c = makeTest({maxConcurrent: 1, minTime: 250})
+
+    c.limiter.submit(c.job, null, 1, c.noErrVal(1))
+    c.limiter.submit(c.job, null, 2, c.noErrVal(2))
+    c.limiter.submit(c.job, null, 3, c.noErrVal(3))
+
+    var wrapped = c.limiter.wrap(c.promise)
+    c.pNoErrVal(wrapped(null, 4), 4)
+
+    c.last(function (err, results) {
+      c.checkResultsOrder([1,2,3,4])
+      c.checkDuration(750)
+      done()
+    })
+  })
+
+  it('Should pass errors when wrapped', function (done) {
+    var failureMessage = 'BLEW UP!!!'
+    var c = makeTest({maxConcurrent: 1, minTime: 250})
+
+    var wrapped = c.limiter.wrap(c.promise)
+    c.pNoErrVal(wrapped(null, 1), 1)
+    c.pNoErrVal(wrapped(null, 2), 2)
+
+    wrapped(new Error(failureMessage), 3)
+    .catch(function (err) {
+      c.mustEqual(err.message, failureMessage)
+      c.last(function (err, results) {
+        c.checkResultsOrder([1,2,3])
+        c.checkDuration(500)
+        done()
+      })
+    })
   })
 })

@@ -3,14 +3,11 @@ var Bottleneck = require('../lib/index.js')
 var assert = require('assert')
 
 module.exports = function (options) {
-  // ASSERTION
-  var asserts = 0
-  var getAsserts = function () {
-    return asserts
-  }
-  var assertWrapped = function (eq) {
-      asserts++
-      assert(eq)
+  var mustEqual = function (a, b) {
+      if (a !== b) {
+        console.log('Tried to assert', a, '===', b)
+      }
+      assert(a === b)
     }
 
   // OTHERS
@@ -21,8 +18,7 @@ module.exports = function (options) {
     return {
       elapsed: Date.now() - start,
       callsDuration: calls[calls.length - 1].time,
-      calls: calls,
-      asserts: asserts
+      calls: calls
     }
   }
 
@@ -45,27 +41,27 @@ module.exports = function (options) {
     },
     pNoErrVal: function (promise, expected) {
       promise.then(function (actual) {
-        assertWrapped(actual === expected)
+        mustEqual(actual, expected)
       }).catch(function () {
-        assertWrapped(false === "The promise failed")
+        mustEqual(false, "The promise failed")
       })
     },
     noErrVal: function (expected) {
       return function (err, actual) {
-        assertWrapped(err === null)
-        assertWrapped(actual === expected)
+        mustEqual(err, null)
+        mustEqual(actual, expected)
       }
     },
     last: function (cb) {
       limiter.submit(function (cb) {cb(null, getResults())}, cb)
     },
     limiter: limiter,
-    assert: assertWrapped,
-    asserts: getAsserts,
+    mustEqual: mustEqual,
+    mustExist: function (a) { assert(a != null) },
     results: getResults,
     checkResultsOrder: function (order) {
       for (var i = 0; i < Math.max(calls.length, order.length); i++) {
-        assert(order[i] === calls[i].result)
+        mustEqual(order[i], calls[i].result)
       }
     },
     checkDuration: function (shouldBe) {

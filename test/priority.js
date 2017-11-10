@@ -1,6 +1,5 @@
 var makeTest = require('./context')
 var Bottleneck = require('../lib/index.js')
-var assert = require('assert')
 
 describe('Priority', function () {
   it('Should do basic ordering', function (done) {
@@ -14,7 +13,6 @@ describe('Priority', function () {
     c.last(function (err, results) {
       c.checkResultsOrder([1,5,2,3,4])
       c.checkDuration(1000)
-      assert(c.asserts() === 10)
       done()
     })
   })
@@ -24,15 +22,15 @@ describe('Priority', function () {
     var called = false
     var called2 = false
     c.limiter.on('dropped', function (dropped) {
-      assert(dropped.task != null)
-      assert(dropped.args != null)
-      assert(dropped.cb != null)
+      c.mustExist(dropped.task)
+      c.mustExist(dropped.args)
+      c.mustExist(dropped.cb)
       called = true
     })
     c.limiter.on('dropped', function (dropped) {
-      assert(dropped.task != null)
-      assert(dropped.args != null)
-      assert(dropped.cb != null)
+      c.mustExist(dropped.task)
+      c.mustExist(dropped.args)
+      c.mustExist(dropped.cb)
       called2 = true
     })
 
@@ -47,9 +45,8 @@ describe('Priority', function () {
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,6,5])
-      assert(c.asserts() === 6)
-      assert(called)
-      assert(called2)
+      c.mustEqual(called, true)
+      c.mustEqual(called2, true)
       done()
     })
   })
@@ -58,9 +55,9 @@ describe('Priority', function () {
     var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 2, strategy: Bottleneck.strategy.OVERFLOW})
     var called = false
     c.limiter.on('dropped', function (dropped) {
-      assert(dropped.task != null)
-      assert(dropped.args != null)
-      assert(dropped.cb != null)
+      c.mustExist(dropped.task)
+      c.mustExist(dropped.args)
+      c.mustExist(dropped.cb)
       called = true
     })
 
@@ -75,8 +72,7 @@ describe('Priority', function () {
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,2,3])
-      assert(c.asserts() === 6)
-      assert(called)
+      c.mustEqual(called, true)
       done()
     })
   })
@@ -85,9 +81,9 @@ describe('Priority', function () {
     var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 2, strategy: Bottleneck.strategy.OVERFLOW_PRIORITY})
     var called = false
     c.limiter.on('dropped', function (dropped) {
-      assert(dropped.task != null)
-      assert(dropped.args != null)
-      assert(dropped.cb != null)
+      c.mustExist(dropped.task)
+      c.mustExist(dropped.args)
+      c.mustExist(dropped.cb)
       called = true
     })
 
@@ -102,8 +98,7 @@ describe('Priority', function () {
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,5,6])
-      assert(c.asserts() === 6)
-      assert(called)
+      c.mustEqual(called, true)
       done()
     })
   })
@@ -112,9 +107,9 @@ describe('Priority', function () {
     var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 2, strategy: Bottleneck.strategy.BLOCK})
     var called = false
     c.limiter.on('dropped', function (dropped) {
-      assert(dropped.task != null)
-      assert(dropped.args != null)
-      assert(dropped.cb != null)
+      c.mustExist(dropped.task)
+      c.mustExist(dropped.args)
+      c.mustExist(dropped.cb)
       called = true
     })
 
@@ -130,8 +125,7 @@ describe('Priority', function () {
     c.last(function (err, results) {
       c.checkDuration(0)
       c.checkResultsOrder([1])
-      assert(c.asserts() === 2)
-      assert(called)
+      c.mustEqual(called, true)
       done()
     })
   })
@@ -146,7 +140,6 @@ describe('Priority', function () {
     c.last(function (err, results) {
       c.checkDuration(750)
       c.checkResultsOrder([1,4,3,2])
-      assert(c.asserts() === 4)
       done()
     })
   })

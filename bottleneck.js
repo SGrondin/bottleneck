@@ -16,7 +16,7 @@
     var e;
 
     class Bottleneck {
-      constructor(options) {
+      constructor(options = {}) {
         var ref;
         this.submitPriority = this.submitPriority.bind(this);
         this.schedulePriority = this.schedulePriority.bind(this);
@@ -227,7 +227,13 @@
         });
       }
 
-      updateSettings(options) {
+      wrap(fn) {
+        return (...args) => {
+          return this.schedulePriority.apply({}, Array.prototype.concat(MIDDLE_PRIORITY, fn, args));
+        };
+      }
+
+      updateSettings(options = {}) {
         parser.overwrite(options, this.defaults, this);
         while (this._tryToRun()) {}
         return this;

@@ -18,7 +18,7 @@ class Bottleneck
 		reservoir: null,
 		interrupt: false
 	}
-	constructor: (options) ->
+	constructor: (options={}) ->
 		parser.load options, @defaults, @
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
@@ -106,7 +106,8 @@ class Bottleneck
 		new Bottleneck::Promise (resolve, reject) =>
 			@submitPriority.apply {}, Array::concat priority, wrapped, args, (args...) ->
 				(if args[0]? then reject else args.shift(); resolve).apply {}, args
-	updateSettings: (options) ->
+	wrap: (fn) -> (args...) => @schedulePriority.apply {}, Array::concat MIDDLE_PRIORITY, fn, args
+	updateSettings: (options={}) ->
 		parser.overwrite options, @defaults, @
 		while @_tryToRun() then
 		@
