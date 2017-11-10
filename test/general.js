@@ -5,7 +5,7 @@ var assert = require('assert')
 describe('General', function () {
 
   it('Should return the nbQueued with and without a priority value', function (done) {
-    var c = makeTest(1, 250)
+    var c = makeTest({maxConcurrent: 1, minTime: 250})
 
     assert(c.limiter.nbQueued() === 0)
 
@@ -42,7 +42,7 @@ describe('General', function () {
   })
 
   it('Should return the nbRunning', function (done) {
-    var c = makeTest(2, 250)
+    var c = makeTest({maxConcurrent: 2, minTime: 250})
 
     assert(c.limiter.nbRunning() === 0)
 
@@ -64,7 +64,7 @@ describe('General', function () {
 
   describe('Events', function () {
     it('Should fire events on empty queue', function (done) {
-      var c = makeTest(1, 250)
+      var c = makeTest({maxConcurrent: 1, minTime: 250})
       var calledEmpty = 0
       var calledIdle = 0
 
@@ -86,8 +86,31 @@ describe('General', function () {
       })
     })
 
+    it('Should fire events once', function (done) {
+      var c = makeTest({maxConcurrent: 1, minTime: 250})
+      var calledEmpty = 0
+      var calledIdle = 0
+
+      c.limiter.once('empty', function () { calledEmpty++ })
+      c.limiter.once('idle', function () { calledIdle++ })
+
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+      c.limiter.on('idle', function () {
+        c.limiter.removeAllListeners()
+        c.last(function (err, results) {
+          c.checkResultsOrder([1,2,3])
+          c.checkDuration(500)
+          assert(calledEmpty === 1)
+          assert(calledIdle === 1)
+          done()
+        })
+      })
+    })
+
     it('Should fire events when calling stopAll() (sync)', function (done) {
-      var c = makeTest(1, 250)
+      var c = makeTest({maxConcurrent: 1, minTime: 250})
       var calledEmpty = 0
       var calledIdle = 0
       var calledDropped = 0
@@ -110,7 +133,7 @@ describe('General', function () {
     })
 
     it('Should fire events when calling stopAll() (async)', function (done) {
-      var c = makeTest(1, 250)
+      var c = makeTest({maxConcurrent: 1, minTime: 250})
       var calledEmpty = 0
       var calledDropped = 0
       var failedPromise = 0
@@ -152,7 +175,7 @@ describe('General', function () {
     })
 
     it('Should fail (with BottleneckError) when rejectOnDrop is true', function (done) {
-      var c = makeTest(1, 250, 1, undefined, true)
+      var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 1, rejectOnDrop: true})
       var dropped = false
       var checkedError = false
 
@@ -180,13 +203,13 @@ describe('General', function () {
 
   describe('High water limit', function () {
     it('Should support highWater set to 0', function (done) {
-      var c = makeTest(1, 250, 0)
+      var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 0})
 
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
-      c.limiter.changeSettings(null, null, -1)
+      c.limiter.updateSettings({highWater: -1})
       c.last(function (err, results) {
         c.checkDuration(0)
         c.checkResultsOrder([1])
@@ -196,13 +219,13 @@ describe('General', function () {
     })
 
     it('Should support highWater set to 1', function (done) {
-      var c = makeTest(1, 250, 1)
+      var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 1})
 
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
-      c.limiter.changeSettings(undefined, undefined, -1)
+      c.limiter.updateSettings({highWater: -1})
       c.last(function (err, results) {
         c.checkDuration(250)
         c.checkResultsOrder([1,4])

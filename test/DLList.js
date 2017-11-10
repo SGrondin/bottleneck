@@ -1,6 +1,5 @@
 var makeTest = require('./context')
-var Bottleneck = require('../lib/index.js')
-var DLList = Bottleneck.DLList
+var DLList = require('../lib/DLList')
 var assert = require('assert')
 
 describe('DLList', function () {

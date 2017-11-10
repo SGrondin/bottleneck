@@ -4,7 +4,7 @@ var assert = require('assert')
 
 describe('Priority', function () {
   it('Should do basic ordering', function (done) {
-    var c = makeTest(1, 250)
+    var c = makeTest({maxConcurrent: 1, minTime: 250})
 
     c.limiter.submit(c.job, null, 1, c.noErrVal(1))
     c.limiter.submit(c.job, null, 2, c.noErrVal(2))
@@ -20,7 +20,7 @@ describe('Priority', function () {
   })
 
   it('Should support LEAK', function (done) {
-    var c = makeTest(1, 250, 2, Bottleneck.strategy.LEAK)
+    var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 2, strategy: Bottleneck.strategy.LEAK})
     var called = false
     var called2 = false
     c.limiter.on('dropped', function (dropped) {
@@ -43,7 +43,7 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(1, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(9, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(undefined, undefined, -1)
+    c.limiter.updateSettings({highWater: -1})
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,6,5])
@@ -55,7 +55,7 @@ describe('Priority', function () {
   })
 
   it('Should support OVERFLOW', function (done) {
-    var c = makeTest(1, 250, 2, Bottleneck.strategy.OVERFLOW)
+    var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 2, strategy: Bottleneck.strategy.OVERFLOW})
     var called = false
     c.limiter.on('dropped', function (dropped) {
       assert(dropped.task != null)
@@ -71,7 +71,7 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(1, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(9, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(undefined, undefined, -1)
+    c.limiter.updateSettings({highWater: -1})
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,2,3])
@@ -82,7 +82,7 @@ describe('Priority', function () {
   })
 
   it('Should support OVERFLOW_PRIORITY', function (done) {
-    var c = makeTest(1, 250, 2, Bottleneck.strategy.OVERFLOW_PRIORITY)
+    var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 2, strategy: Bottleneck.strategy.OVERFLOW_PRIORITY})
     var called = false
     c.limiter.on('dropped', function (dropped) {
       assert(dropped.task != null)
@@ -98,7 +98,7 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(2, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(2, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(undefined, undefined, -1)
+    c.limiter.updateSettings({highWater: -1})
     c.last(function (err, results) {
       c.checkDuration(500)
       c.checkResultsOrder([1,5,6])
@@ -109,7 +109,7 @@ describe('Priority', function () {
   })
 
   it('Should support BLOCK', function (done) {
-    var c = makeTest(1, 250, 2, Bottleneck.strategy.BLOCK)
+    var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 2, strategy: Bottleneck.strategy.BLOCK})
     var called = false
     c.limiter.on('dropped', function (dropped) {
       assert(dropped.task != null)
@@ -124,7 +124,7 @@ describe('Priority', function () {
     c.limiter.submitPriority(2, c.job, null, 5, c.noErrVal(5))
     c.limiter.submitPriority(2, c.job, null, 6, c.noErrVal(6))
     c.limiter.submitPriority(2, c.job, null, 7, c.noErrVal(7))
-    c.limiter.changeSettings(undefined, undefined, -1)
+    c.limiter.updateSettings({highWater: -1})
     c.limiter._unblockTime = 0
     c.limiter._nextRequest = 0
     c.last(function (err, results) {
@@ -137,7 +137,7 @@ describe('Priority', function () {
   })
 
   it('Should have the right priority', function (done) {
-    var c = makeTest(1, 250)
+    var c = makeTest({maxConcurrent: 1, minTime: 250})
 
     c.pNoErrVal(c.limiter.schedulePriority(6, c.promise, null, 1), 1)
     c.pNoErrVal(c.limiter.schedulePriority(5, c.promise, null, 2), 2)

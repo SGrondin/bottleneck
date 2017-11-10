@@ -2,7 +2,7 @@ global.TEST = true
 var Bottleneck = require('../lib/index.js')
 var assert = require('assert')
 
-module.exports = function (arg1, arg2, arg3, arg4, arg5) {
+module.exports = function (options) {
   // ASSERTION
   var asserts = 0
   var getAsserts = function () {
@@ -16,7 +16,7 @@ module.exports = function (arg1, arg2, arg3, arg4, arg5) {
   // OTHERS
   var start = Date.now()
   var calls = []
-  var limiter = new Bottleneck(arg1, arg2, arg3, arg4, arg5)
+  var limiter = new Bottleneck(options)
   var getResults = function () {
     return {
       elapsed: Date.now() - start,

@@ -4,7 +4,7 @@ var assert = require('assert')
 
 describe('Promises', function () {
   it('Should support promises', function (done) {
-    var c = makeTest(1, 250)
+    var c = makeTest({maxConcurrent: 1, minTime: 250})
 
     c.limiter.submit(c.job, null, 1, c.noErrVal(1))
     c.limiter.submit(c.job, null, 2, c.noErrVal(2))
@@ -20,7 +20,7 @@ describe('Promises', function () {
 
   it('Should pass error on failure', function (done) {
     var failureMessage = 'failed'
-    var c = makeTest(1, 250)
+    var c = makeTest({maxConcurrent: 1, minTime: 250})
 
     c.limiter.schedule(c.promise, new Error(failureMessage))
     .catch(function (err) {
@@ -30,7 +30,7 @@ describe('Promises', function () {
   })
 
   it('Should get rejected when rejectOnDrop is true', function (done) {
-    var c = makeTest(1, 250, 1, undefined, true)
+    var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 1, rejectOnDrop: true})
     var dropped = false
     var checkedError = false
 

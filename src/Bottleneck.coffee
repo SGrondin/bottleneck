@@ -1,29 +1,45 @@
 NB_PRIORITIES = 10
 MIDDLE_PRIORITY = 5
+parser = require "./parser"
+DLList = require "./DLList"
 class Bottleneck
 	Bottleneck.default = Bottleneck
 	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3}
 	Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
 	Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
-	Bottleneck.DLList = Bottleneck::DLList = require "./DLList"
 	Bottleneck.Promise = Bottleneck::Promise = try require "bluebird" catch e then Promise ? ->
 		throw new Bottleneck::BottleneckError "Bottleneck: install 'bluebird' or use Node 0.12 or higher for Promise support"
-	constructor: (@maxNb=0, @minTime=0, @highWater=-1, @strategy=Bottleneck::strategy.LEAK, @rejectOnDrop=false) ->
+	defaults: {
+		maxConcurrent: 0,
+		minTime: 0,
+		highWater: -1,
+		strategy: Bottleneck::strategy.LEAK,
+		rejectOnDrop: false,
+		reservoir: null,
+		interrupt: false
+	}
+	constructor: (options) ->
+		parser.load options, @defaults, @
 		@_nextRequest = Date.now()
 		@_nbRunning = 0
 		@_queues = @_makeQueues()
 		@_running = {}
 		@_nextIndex = 0
 		@_unblockTime = 0
-		@penalty = (15 * @minTime) or 5000
-		@interrupt = false
-		@reservoir = null
+		@penalty = options.penalty ? ((15 * @minTime) or 5000)
 		@limiter = null
 		@events = {}
 	_trigger: (name, args) ->
-		if @rejectOnDrop && name == "dropped" then args[0].cb.apply {}, [new Bottleneck::BottleneckError("This job has been dropped by Bottleneck")]
-		setTimeout (=> @events[name]?.forEach (e) -> e.apply {}, args), 0
-	_makeQueues: -> new Bottleneck::DLList() for i in [1..NB_PRIORITIES]
+		if @rejectOnDrop && name == "dropped"
+			args.forEach (job) -> job.cb.apply {}, [new Bottleneck::BottleneckError("This job has been dropped by Bottleneck")]
+		return unless @events[name]?
+		@events[name] = @events[name].filter (event) -> event.status != "none"
+		setTimeout (=> @events[name].forEach (event) ->
+			return if event.status == "none"
+			if event.status == "once" then event.status = "none"
+			event.cb.apply {}, args
+		), 0
+	_makeQueues: -> new DLList() for i in [1..NB_PRIORITIES]
 	chain: (@limiter) -> @
 	isBlocked: -> @_unblockTime >= Date.now()
 	_sanitizePriority: (priority) ->
@@ -33,7 +49,7 @@ class Bottleneck
 	nbQueued: (priority) -> if priority? then @_queues[@_sanitizePriority priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
 	nbRunning: () -> @_nbRunning
 	_getFirst: (arr) -> @_find arr, (x) -> x.length > 0
-	_conditionsCheck: -> (@nbRunning() < @maxNb or @maxNb <= 0) and (not @reservoir? or @reservoir > 0)
+	_conditionsCheck: -> (@nbRunning() < @maxConcurrent or @maxConcurrent <= 0) and (not @reservoir? or @reservoir > 0)
 	check: -> @_conditionsCheck() and (@_nextRequest-Date.now()) <= 0
 	_tryToRun: ->
 		if @_conditionsCheck() and (queued = @nbQueued()) > 0
@@ -61,7 +77,7 @@ class Bottleneck
 				job: next
 			true
 		else false
-	submit: (args...) => @submitPriority.apply {}, Array::concat MIDDLE_PRIORITY, args
+	submit: (args...) -> @submitPriority.apply {}, Array::concat MIDDLE_PRIORITY, args
 	submitPriority: (priority, task, args..., cb) =>
 		job = {task, args, cb}
 		priority = @_sanitizePriority priority
@@ -90,18 +106,20 @@ class Bottleneck
 		new Bottleneck::Promise (resolve, reject) =>
 			@submitPriority.apply {}, Array::concat priority, wrapped, args, (args...) ->
 				(if args[0]? then reject else args.shift(); resolve).apply {}, args
-	changeSettings: (@maxNb=@maxNb, @minTime=@minTime, @highWater=@highWater, @strategy=@strategy, @rejectOnDrop=@rejectOnDrop) ->
-		while @_tryToRun() then
-		@
-	changePenalty: (@penalty=@penalty) -> @
-	changeReservoir: (@reservoir) ->
+	updateSettings: (options) ->
+		parser.overwrite options, @defaults, @
 		while @_tryToRun() then
 		@
 	incrementReservoir: (incr=0) ->
-		@changeReservoir @reservoir+incr
+		@updateSettings {reservoir: @reservoir + incr}
 		@
 	on: (name, cb) ->
-		if @events[name]? then @events[name].push cb else @events[name] = [cb]
+		event = {cb, status: 'many'}
+		if @events[name]? then @events[name].push event else @events[name] = [event]
+		@
+	once: (name, cb) ->
+		event = {cb, status: 'once'}
+		if @events[name]? then @events[name].push event else @events[name] = [event]
 		@
 	removeAllListeners: (name=null) ->
 		if name? then delete @events[name] else @events = {}
