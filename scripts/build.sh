@@ -7,7 +7,7 @@ if [ ! -d node_modules ]; then
 fi
 
 node_modules/coffeescript/bin/coffee -c src/*.coffee
-rm lib/*.js
+rm -f lib/*.js
 mv src/*.js lib/
 
 if [[ $1 = 'compile' ]]; then

@@ -5,12 +5,12 @@ describe('Promises', function () {
   it('Should support promises', function (done) {
     var c = makeTest({maxConcurrent: 1, minTime: 250})
 
-    c.limiter.submit(c.job, null, 1, c.noErrVal(1))
+    c.limiter.submit(c.job, null, 1, 9, c.noErrVal(1, 9))
     c.limiter.submit(c.job, null, 2, c.noErrVal(2))
     c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-    c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
+    c.pNoErrVal(c.limiter.schedule(c.promise, null, 4, 5), 4, 5)
     c.last(function (err, results) {
-      c.checkResultsOrder([1,2,3,4])
+      c.checkResultsOrder([[1,9], [2], [3], [4,5]])
       c.checkDuration(750)
       done()
     })
@@ -64,7 +64,7 @@ describe('Promises', function () {
     c.pNoErrVal(wrapped(null, 4), 4)
 
     c.last(function (err, results) {
-      c.checkResultsOrder([1,2,3,4])
+      c.checkResultsOrder([[1], [2], [3], [4]])
       c.checkDuration(750)
       done()
     })
@@ -82,7 +82,7 @@ describe('Promises', function () {
     .catch(function (err) {
       c.mustEqual(err.message, failureMessage)
       c.last(function (err, results) {
-        c.checkResultsOrder([1,2,3])
+        c.checkResultsOrder([[1], [2], [3]])
         c.checkDuration(500)
         done()
       })

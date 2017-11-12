@@ -4,11 +4,25 @@ var assert = require('assert')
 
 module.exports = function (options) {
   var mustEqual = function (a, b) {
-      if (a !== b) {
-        console.log('Tried to assert', a, '===', b)
-      }
-      assert(a === b)
+    // if (Array.isArray(a)) {
+    //   assert(Array.isArray(b))
+    //   mustEqual(a.length, b.length)
+    //   a.forEach(function (x, i) {
+    //     mustEqual(x, b[i])
+    //   })
+    //   return true
+    // }
+    // if (a !== b) {
+    //   console.log('Tried to assert', JSON.stringify(a), '===', JSON.stringify(b))
+    // }
+    // assert(a === b)
+    var strA = JSON.stringify(a)
+    var strB = JSON.stringify(b)
+    if (strA !== strB) {
+      console.log(strA + ' !== ' + strB, (new Error('').stack))
+      assert(strA === strB)
     }
+  }
 
   // OTHERS
   var start = Date.now()
@@ -23,13 +37,15 @@ module.exports = function (options) {
   }
 
   var context = {
-    job: function (err, result, cb) {
+    job: function (err, ...result) {
+      var cb = result.pop()
       calls.push({err: err, result: result, time: Date.now()-start})
       if (process.env.DEBUG) console.log(result, calls)
-      cb(err, result)
+      cb.apply({}, [err].concat(result))
     },
-    promise: function (err, result) {
-      return new Bottleneck.Promise(function (resolve, reject) {
+    promise: function (err, ...result) {
+      return new Promise(function (resolve, reject) {
+        if (process.env.DEBUG) console.log('In c.promise. Result: ', result)
         calls.push({err: err, result: result, time: Date.now()-start})
         if (process.env.DEBUG) console.log(result, calls)
         if (err == null) {
@@ -39,15 +55,16 @@ module.exports = function (options) {
         }
       })
     },
-    pNoErrVal: function (promise, expected) {
+    pNoErrVal: function (promise, ...expected) {
+      if (process.env.DEBUG) console.log('In c.pNoErrVal. Expected:', expected)
       promise.then(function (actual) {
         mustEqual(actual, expected)
-      }).catch(function () {
-        mustEqual(false, "The promise failed")
+      }).catch(function (err) {
+        console.error(err)
       })
     },
-    noErrVal: function (expected) {
-      return function (err, actual) {
+    noErrVal: function (...expected) {
+      return function (err, ...actual) {
         mustEqual(err, null)
         mustEqual(actual, expected)
       }

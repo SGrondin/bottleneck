@@ -4,58 +4,58 @@ var assert = require('assert')
 
 describe('General', function () {
 
-  it('Should return the nbQueued with and without a priority value', function (done) {
+  it('Should return the queued count with and without a priority value', function (done) {
     var c = makeTest({maxConcurrent: 1, minTime: 250})
 
-    c.mustEqual(c.limiter.nbQueued(), 0)
+    c.mustEqual(c.limiter.queued(), 0)
 
     c.limiter.submit(c.job, null, 1, c.noErrVal(1))
-    c.mustEqual(c.limiter.nbQueued(), 0) // It's already running
+    c.mustEqual(c.limiter.queued(), 0) // It's already running
 
     c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-    c.mustEqual(c.limiter.nbQueued(), 1)
-    c.mustEqual(c.limiter.nbQueued(1), 0)
-    c.mustEqual(c.limiter.nbQueued(5), 1)
+    c.mustEqual(c.limiter.queued(), 1)
+    c.mustEqual(c.limiter.queued(1), 0)
+    c.mustEqual(c.limiter.queued(5), 1)
 
     c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-    c.mustEqual(c.limiter.nbQueued(), 2)
-    c.mustEqual(c.limiter.nbQueued(1), 0)
-    c.mustEqual(c.limiter.nbQueued(5), 2)
+    c.mustEqual(c.limiter.queued(), 2)
+    c.mustEqual(c.limiter.queued(1), 0)
+    c.mustEqual(c.limiter.queued(5), 2)
 
     c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-    c.mustEqual(c.limiter.nbQueued(), 3)
-    c.mustEqual(c.limiter.nbQueued(1), 0)
-    c.mustEqual(c.limiter.nbQueued(5), 3)
+    c.mustEqual(c.limiter.queued(), 3)
+    c.mustEqual(c.limiter.queued(1), 0)
+    c.mustEqual(c.limiter.queued(5), 3)
 
-    c.limiter.submitPriority(1, c.job, null, 5, c.noErrVal(5))
-    c.mustEqual(c.limiter.nbQueued(), 4)
-    c.mustEqual(c.limiter.nbQueued(1), 1)
-    c.mustEqual(c.limiter.nbQueued(5), 3)
+    c.limiter.submit({priority: 1}, c.job, null, 5, c.noErrVal(5))
+    c.mustEqual(c.limiter.queued(), 4)
+    c.mustEqual(c.limiter.queued(1), 1)
+    c.mustEqual(c.limiter.queued(5), 3)
 
     c.last(function (err, results) {
-      c.mustEqual(c.limiter.nbQueued(), 0)
-      c.checkResultsOrder([1,5,2,3,4])
+      c.mustEqual(c.limiter.queued(), 0)
+      c.checkResultsOrder([[1], [5], [2], [3], [4]])
       c.checkDuration(1000)
       done()
     })
   })
 
-  it('Should return the nbRunning', function (done) {
+  it('Should return the running count', function (done) {
     var c = makeTest({maxConcurrent: 2, minTime: 250})
 
-    c.mustEqual(c.limiter.nbRunning(), 0)
+    c.mustEqual(c.limiter.running(), 0)
 
     c.limiter.submit(c.job, null, 1, c.noErrVal(1))
-    c.mustEqual(c.limiter.nbRunning(), 1)
+    c.mustEqual(c.limiter.running(), 1)
 
     setTimeout(function () {
-      c.mustEqual(c.limiter.nbRunning(), 0)
+      c.mustEqual(c.limiter.running(), 0)
       setTimeout(function () {
         c.limiter.submit(c.job, null, 1, c.noErrVal(1))
         c.limiter.submit(c.job, null, 2, c.noErrVal(2))
         c.limiter.submit(c.job, null, 3, c.noErrVal(3))
         c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-        c.mustEqual(c.limiter.nbRunning(), 2)
+        c.mustEqual(c.limiter.running(), 2)
         done()
       }, 0)
     }, 0)
@@ -76,7 +76,7 @@ describe('General', function () {
       c.limiter.on('idle', function () {
         c.limiter.removeAllListeners()
         c.last(function (err, results) {
-          c.checkResultsOrder([1,2,3])
+          c.checkResultsOrder([[1], [2], [3]])
           c.checkDuration(500)
           c.mustEqual(calledEmpty, 2)
           c.mustEqual(calledIdle, 1)
@@ -99,7 +99,7 @@ describe('General', function () {
       c.limiter.on('idle', function () {
         c.limiter.removeAllListeners()
         c.last(function (err, results) {
-          c.checkResultsOrder([1,2,3])
+          c.checkResultsOrder([[1], [2], [3]])
           c.checkDuration(500)
           c.mustEqual(calledEmpty, 1)
           c.mustEqual(calledIdle, 1)
@@ -109,7 +109,7 @@ describe('General', function () {
     })
 
     it('Should fire events when calling stopAll() (sync)', function (done) {
-      var c = makeTest({maxConcurrent: 1, minTime: 250})
+      var c = makeTest({maxConcurrent: 1, minTime: 250, rejectOnDrop: false})
       var calledEmpty = 0
       var calledIdle = 0
       var calledDropped = 0
@@ -132,7 +132,7 @@ describe('General', function () {
     })
 
     it('Should fire events when calling stopAll() (async)', function (done) {
-      var c = makeTest({maxConcurrent: 1, minTime: 250})
+      var c = makeTest({maxConcurrent: 1, minTime: 250, rejectOnDrop: false})
       var calledEmpty = 0
       var calledDropped = 0
       var failedPromise = 0
@@ -202,7 +202,7 @@ describe('General', function () {
 
   describe('High water limit', function () {
     it('Should support highWater set to 0', function (done) {
-      var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 0})
+      var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 0, rejectOnDrop: false})
 
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
@@ -211,13 +211,13 @@ describe('General', function () {
       c.limiter.updateSettings({highWater: -1})
       c.last(function (err, results) {
         c.checkDuration(0)
-        c.checkResultsOrder([1])
+        c.checkResultsOrder([[1]])
         done()
       })
     })
 
     it('Should support highWater set to 1', function (done) {
-      var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 1})
+      var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 1, rejectOnDrop: false})
 
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
@@ -226,7 +226,7 @@ describe('General', function () {
       c.limiter.updateSettings({highWater: -1})
       c.last(function (err, results) {
         c.checkDuration(250)
-        c.checkResultsOrder([1,4])
+        c.checkResultsOrder([[1], [4]])
         done()
       })
     })
