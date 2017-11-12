@@ -4,18 +4,6 @@ var assert = require('assert')
 
 module.exports = function (options) {
   var mustEqual = function (a, b) {
-    // if (Array.isArray(a)) {
-    //   assert(Array.isArray(b))
-    //   mustEqual(a.length, b.length)
-    //   a.forEach(function (x, i) {
-    //     mustEqual(x, b[i])
-    //   })
-    //   return true
-    // }
-    // if (a !== b) {
-    //   console.log('Tried to assert', JSON.stringify(a), '===', JSON.stringify(b))
-    // }
-    // assert(a === b)
     var strA = JSON.stringify(a)
     var strB = JSON.stringify(b)
     if (strA !== strB) {
@@ -31,7 +19,7 @@ module.exports = function (options) {
   var getResults = function () {
     return {
       elapsed: Date.now() - start,
-      callsDuration: calls[calls.length - 1].time,
+      callsDuration: calls.length > 0 ? calls[calls.length - 1].time : null,
       calls: calls
     }
   }
@@ -55,6 +43,20 @@ module.exports = function (options) {
         }
       })
     },
+    slowPromise: function (duration, err, ...result) {
+      return new Promise(function (resolve, reject) {
+        setTimeout(function () {
+          if (process.env.DEBUG) console.log('In c.slowPromise. Result: ', result)
+          calls.push({err: err, result: result, time: Date.now()-start})
+          if (process.env.DEBUG) console.log(result, calls)
+          if (err == null) {
+            return resolve(result)
+          } else {
+            return reject(err)
+          }
+        }, duration)
+      })
+    },
     pNoErrVal: function (promise, ...expected) {
       if (process.env.DEBUG) console.log('In c.pNoErrVal. Expected:', expected)
       promise.then(function (actual) {
@@ -69,8 +71,9 @@ module.exports = function (options) {
         mustEqual(actual, expected)
       }
     },
-    last: function (cb) {
-      limiter.submit(function (cb) {cb(null, getResults())}, cb)
+    last: function (cb, options) {
+      var opt = options != null ? options : {}
+      limiter.submit(opt, function (cb) {cb(null, getResults())}, cb)
     },
     limiter: limiter,
     mustEqual: mustEqual,
@@ -85,8 +88,10 @@ module.exports = function (options) {
       var results = getResults()
       var min = shouldBe - 10
       var max = shouldBe + 50
-      assert(results.callsDuration > min)
-      assert(results.callsDuration < max)
+      if (!(results.callsDuration > min && results.callsDuration < max)) {
+        console.error('Duration not around ' + shouldBe + '. Was ' + results.callsDuration)
+      }
+      assert(results.callsDuration > min && results.callsDuration < max)
     }
   }
 

@@ -4,6 +4,15 @@ var assert = require('assert')
 
 describe('General', function () {
 
+  it('Should prompt to upgrade', function () {
+    var c = makeTest()
+    try {
+      var limiter = new Bottleneck(1, 250)
+    } catch (err) {
+      c.mustEqual(err.message, 'Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-from-v1 if you\'re upgrading from Bottleneck v1.')
+    }
+  })
+
   it('Should return the queued count with and without a priority value', function (done) {
     var c = makeTest({maxConcurrent: 1, minTime: 250})
 
@@ -208,7 +217,7 @@ describe('General', function () {
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
-      c.limiter.updateSettings({highWater: -1})
+      c.limiter.updateSettings({highWater: null})
       c.last(function (err, results) {
         c.checkDuration(0)
         c.checkResultsOrder([[1]])
@@ -223,12 +232,78 @@ describe('General', function () {
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
-      c.limiter.updateSettings({highWater: -1})
+      c.limiter.updateSettings({highWater: null})
       c.last(function (err, results) {
         c.checkDuration(250)
         c.checkResultsOrder([[1], [4]])
         done()
       })
     })
+  })
+
+  describe('Weight', function () {
+    it('Should not add jobs with a weight above the maxConcurrent', function (done) {
+      var c = makeTest({maxConcurrent: 2})
+
+      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.promise, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule({ weight: 2 }, c.promise, null, 2), 2)
+      try {
+        c.pNoErrVal(c.limiter.schedule({ weight: 3 }, c.promise, null, 3), 3)
+      } catch (err) {
+        c.mustEqual(err.message, 'Impossible to add a job having a weight of 3 to a limiter having a maxConcurrent setting of 2')
+      }
+
+      c.last(function (err, results) {
+        c.checkDuration(0)
+        c.checkResultsOrder([[1], [2]])
+        done()
+      })
+    })
+
+
+    it('Should support custom job weights', function (done) {
+      var c = makeTest({maxConcurrent: 2})
+
+      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule({ weight: 2 }, c.slowPromise, 200, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 3), 3)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 4), 4)
+      c.pNoErrVal(c.limiter.schedule({ weight: 0 }, c.slowPromise, 100, null, 5), 5)
+
+      c.last(function (err, results) {
+        c.checkDuration(400)
+        c.checkResultsOrder([[1], [2], [3], [4], [5]])
+        done()
+      })
+    })
+
+    it('Should overflow at the correct rate', function (done) {
+      var c = makeTest({
+        maxConcurrent: 2,
+        reservoir: 3
+      })
+
+      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 1), 1)
+
+      var promise2 = c.limiter.schedule({ weight: 2 }, c.slowPromise, 150, null, 2)
+      c.pNoErrVal(promise2, 2)
+      promise2.then(function () {
+        c.mustEqual(c.limiter.reservoir, 0)
+        c.mustEqual(c.limiter.queued(), 2)
+
+        c.last(function (err, results) {
+          c.mustEqual(c.limiter.reservoir, 0)
+          c.mustEqual(c.limiter.queued(), 2)
+          c.checkDuration(250)
+          c.checkResultsOrder([[1], [2]])
+          done()
+        }, { priority: 1, weight: 0 })
+      })
+
+      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 3), 3)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 4), 4)
+
+    })
+
   })
 })

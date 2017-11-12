@@ -37,17 +37,16 @@ describe('DLList', function () {
     c.mustEqual(arr[0], 5)
     c.mustEqual(arr[1], 6)
     c.mustEqual(arr[2], 10)
-
   })
 
   it('Should be possible to shift an empty list', function () {
     var list = new DLList()
     c.mustEqual(list.length, 0)
-    c.mustEqual(list.shift(), undefined)
+    assert(list.shift() === undefined)
     var arr = list.getArray()
     c.mustEqual(arr.length, 0)
     c.mustEqual(list.length, 0)
-    c.mustEqual(list.shift(), undefined)
+    assert(list.shift() === undefined)
     arr = list.getArray()
     c.mustEqual(arr.length, 0)
     c.mustEqual(list.length, 0)
@@ -97,6 +96,32 @@ describe('DLList', function () {
     c.mustEqual(arr[0], 12)
     c.mustEqual(arr[1], true)
     c.mustEqual(arr.length, 2)
+  })
+
+  it('Should return the first value without shifting', function () {
+    var list = new DLList()
+    assert(list.first() === undefined)
+    assert(list.first() === undefined)
+
+    list.push(1)
+    c.mustEqual(list.first(), 1)
+    c.mustEqual(list.first(), 1)
+
+    list.push(2)
+    c.mustEqual(list.first(), 1)
+    c.mustEqual(list.first(), 1)
+
+    c.mustEqual(list.shift(), 1)
+    c.mustEqual(list.first(), 2)
+    c.mustEqual(list.first(), 2)
+
+    c.mustEqual(list.shift(), 2)
+    assert(list.first() === undefined)
+    assert(list.first() === undefined)
+
+    assert(list.first() === undefined)
+    assert(list.shift() === undefined)
+    assert(list.first() === undefined)
   })
 
 })

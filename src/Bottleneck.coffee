@@ -4,23 +4,23 @@ parser = require "./parser"
 DLList = require "./DLList"
 class Bottleneck
 	Bottleneck.default = Bottleneck
-	Bottleneck.strategy = Bottleneck::strategy = {LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3}
+	Bottleneck.strategy = Bottleneck::strategy = { LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3 }
 	Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
 	Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
+	jobDefaults: { priority: MIDDLE_PRIORITY, weight: 1, id: "<none>" }
 	defaults: {
-		maxConcurrent: 0,
+		maxConcurrent: null,
 		minTime: 0,
-		highWater: -1,
+		highWater: null,
 		strategy: Bottleneck::strategy.LEAK,
 		rejectOnDrop: true,
 		reservoir: null,
 		interrupt: false,
 		Promise: Promise
 	}
-	jobDefaults: {
-		priority: MIDDLE_PRIORITY
-	}
-	constructor: (options={}) ->
+	constructor: (options={}, invalid...) ->
+		unless options? and typeof options == "object" and invalid.length == 0
+			throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-from-v1 if you're upgrading from Bottleneck v1."
 		parser.load options, @defaults, @
 		@_nextRequest = Date.now()
 		@_running = 0
@@ -31,6 +31,10 @@ class Bottleneck
 		@penalty = options.penalty ? ((15 * @minTime) or 5000)
 		@_limiter = null
 		@_events = {}
+	_addListener: (name, status, cb) ->
+		@_events[name] ?= []
+		@_events[name].push {cb, status}
+		@
 	_trigger: (name, args) ->
 		if @rejectOnDrop && name == "dropped"
 			args.forEach (job) -> job.cb.apply {}, [new Bottleneck::BottleneckError("This job has been dropped by Bottleneck")]
@@ -49,17 +53,22 @@ class Bottleneck
 		if sProperty < 0 then 0 else if sProperty > NB_PRIORITIES-1 then NB_PRIORITIES-1 else sProperty
 	_find: (arr, fn) -> (do -> for x, i in arr then if fn x then return x) ? []
 	queued: (priority) -> if priority? then @_queues[@_sanitizePriority priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
-	running: () -> @_running
+	running: -> @_running
 	_getFirst: (arr) -> @_find arr, (x) -> x.length > 0
-	_conditionsCheck: -> (@running() < @maxConcurrent or @maxConcurrent <= 0) and (not @reservoir? or @reservoir > 0)
-	check: -> @_conditionsCheck() and (@_nextRequest-Date.now()) <= 0
+	_conditionsCheck: (weight) ->
+		(
+			(not @maxConcurrent? or @running()+weight <= @maxConcurrent) and
+			(not @reservoir? or @reservoir-weight >= 0)
+		)
+	check: (weight=1) -> @_conditionsCheck(weight) and (@_nextRequest-Date.now()) <= 0
 	_tryToRun: ->
-		if @_conditionsCheck() and (queued = @queued()) > 0
-			@_running++
-			if @reservoir? then @reservoir--
+		if (queued = @queued()) == 0 then return false
+		if @_conditionsCheck(@_getFirst(@_queues).first().options.weight)
+			next = @_getFirst(@_queues).shift()
+			@_running += next.options.weight
+			if @reservoir? then @reservoir -= next.options.weight
 			wait = Math.max @_nextRequest-Date.now(), 0
 			@_nextRequest = Date.now() + wait + @minTime
-			next = (@_getFirst @_queues).shift()
 			if queued == 1 then @_trigger "empty", []
 			done = false
 			index = @_nextIndex++
@@ -69,8 +78,8 @@ class Bottleneck
 						if not done
 							done = true
 							delete @_executing[index]
-							@_running--
-							@_tryToRun()
+							@_running -= next.options.weight
+							while @_tryToRun() then
 							if @running() == 0 and @queued() == 0 then @_trigger "idle", []
 							if not @interrupt then next.cb?.apply {}, args
 					if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.task, next.args, completed
@@ -79,17 +88,21 @@ class Bottleneck
 				job: next
 			true
 		else false
+	_loadJobOptions: (options) ->
+		options = parser.load options, @jobDefaults
+		if @maxConcurrent? and options.weight > @maxConcurrent
+			throw new Bottleneck::BottleneckError("Impossible to add a job having a weight of " + options.weight + " to a limiter having a maxConcurrent setting of " + @maxConcurrent)
+		else options
 	submit: (args...) =>
 		if typeof args[0] == "function"
 			[task, args..., cb] = args
 			options = @jobDefaults
 		else
 			[options, task, args..., cb] = args
-			options = parser.load options, @jobDefaults
-
-		job = {task, args, cb}
+			options = @_loadJobOptions options
+		job = { options, task, args, cb }
 		options.priority = @_sanitizePriority options.priority
-		reachedHighWaterMark = @highWater >= 0 and @queued() == @highWater and not @check()
+		reachedHighWaterMark = @highWater? and @queued() == @highWater and not @check(options.weight)
 		if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @isBlocked())
 			@_unblockTime = Date.now() + @penalty
 			@_nextRequest = @_unblockTime + @minTime
@@ -97,8 +110,8 @@ class Bottleneck
 			@_trigger "dropped", [job]
 			return true
 		else if reachedHighWaterMark
-			shifted = if @strategy == Bottleneck::strategy.LEAK then (@_getFirst @_queues[options.priority..].reverse()).shift()
-			else if @strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then (@_getFirst @_queues[(options.priority+1)..].reverse()).shift()
+			shifted = if @strategy == Bottleneck::strategy.LEAK then @_getFirst(@_queues[options.priority..].reverse()).shift()
+			else if @strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_getFirst(@_queues[(options.priority+1)..].reverse()).shift()
 			else if @strategy == Bottleneck::strategy.OVERFLOW then job
 			if shifted? then @_trigger "dropped", [shifted]
 			if not shifted? or @strategy == Bottleneck::strategy.OVERFLOW then return reachedHighWaterMark
@@ -111,7 +124,7 @@ class Bottleneck
 			options = @jobDefaults
 		else
 			[options, task, args...] = args
-			options = parser.load options, @jobDefaults
+			options = @_loadJobOptions options
 		wrapped = (args..., cb) ->
 			(task.apply {}, args)
 			.then (args...) -> cb.apply {}, Array::concat null, args
@@ -127,14 +140,8 @@ class Bottleneck
 	incrementReservoir: (incr=0) ->
 		@updateSettings {reservoir: @reservoir + incr}
 		@
-	on: (name, cb) ->
-		@_events[name] ?= []
-		@_events[name].push {cb, status: "many"}
-		@
-	once: (name, cb) ->
-		@_events[name] ?= []
-		@_events[name].push {cb, status: "once"}
-		@
+	on: (name, cb) -> @_addListener name, "many", cb
+	once: (name, cb) -> @_addListener name, "once", cb
 	removeAllListeners: (name=null) ->
 		if name? then delete @_events[name] else @_events = {}
 		@
@@ -146,7 +153,7 @@ class Bottleneck
 		@submit = (args..., cb) -> cb new Bottleneck::BottleneckError "This limiter is stopped"
 		@schedule = -> @Promise.reject(new Bottleneck::BottleneckError "This limiter is stopped")
 		if @interrupt then (@_trigger "dropped", [@_executing[k].job] for k in keys)
-		while job = (@_getFirst @_queues).shift() then @_trigger "dropped", [job]
+		while job = @_getFirst(@_queues).shift() then @_trigger "dropped", [job]
 		@_trigger "empty", []
 		if @running() == 0 then @_trigger "idle", []
 		@

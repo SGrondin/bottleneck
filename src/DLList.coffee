@@ -16,6 +16,7 @@ class DLList
     value = @_first.value
     @_first = @_first.next ? (@_last = null)
     value
+  first: () -> if @_first? then @_first.value
   getArray: () ->
     node = @_first
     while node? then (ref = node; node = node.next; ref.value)

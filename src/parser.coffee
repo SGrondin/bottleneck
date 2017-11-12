@@ -5,6 +5,6 @@ exports.load = (received, defaults, onto={}) ->
 
 exports.overwrite = (received, defaults, onto={}) ->
   for k, v of received
-    if defaults[k]?
+    if defaults[k] != undefined
       onto[k] = v
   onto
