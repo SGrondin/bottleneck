@@ -1,10 +1,12 @@
+parser = require "./parser"
 class Cluster
-	constructor: (@maxNb, @minTime, @highWater, @strategy, @rejectOnDrop) ->
+	defaults: { timeout: 1000 * 60 * 5 }
+	constructor: (@limiterOptions={}, clusterOptions={}) ->
+		parser.load clusterOptions, @defaults, @
 		@limiters = {}
 		@Bottleneck = require "./Bottleneck"
-		@timeout = 1000 * 60 * 5
 		@startAutoCleanup()
-	key: (key="") -> @limiters[key] ? (@limiters[key] = new @Bottleneck @maxNb, @minTime, @highWater, @strategy, @rejectOnDrop)
+	key: (key="") -> @limiters[key] ? (@limiters[key] = new @Bottleneck @limiterOptions)
 	deleteKey: (key="") -> delete @limiters[key]
 	all: (cb) -> for own k,v of @limiters then cb v
 	keys: -> Object.keys @limiters
@@ -16,6 +18,8 @@ class Cluster
 				if (v._nextRequest + @timeout) < time then @deleteKey k
 		, (@timeout / 10)).unref?()
 	stopAutoCleanup: -> clearInterval @interval
-	changeTimeout: (@timeout) -> @startAutoCleanup()
+	updateSettings: (options={}) ->
+		parser.overwrite options, @defaults, @
+		@startAutoCleanup() if options.timeout?
 
 module.exports = Cluster

@@ -56,10 +56,8 @@ class Bottleneck
 	running: -> @_running
 	_getFirst: (arr) -> @_find arr, (x) -> x.length > 0
 	_conditionsCheck: (weight) ->
-		(
-			(not @maxConcurrent? or @running()+weight <= @maxConcurrent) and
-			(not @reservoir? or @reservoir-weight >= 0)
-		)
+		((not @maxConcurrent? or @running()+weight <= @maxConcurrent) and
+		(not @reservoir? or @reservoir-weight >= 0))
 	check: (weight=1) -> @_conditionsCheck(weight) and (@_nextRequest-Date.now()) <= 0
 	_tryToRun: ->
 		if (queued = @queued()) == 0 then return false
