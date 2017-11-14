@@ -1,6 +1,7 @@
 NB_PRIORITIES = 10
 MIDDLE_PRIORITY = 5
 parser = require "./parser"
+Local = require "./Local"
 DLList = require "./DLList"
 class Bottleneck
   Bottleneck.default = Bottleneck
@@ -22,15 +23,13 @@ class Bottleneck
     unless options? and typeof options == "object" and invalid.length == 0
       throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-from-v1 if you're upgrading from Bottleneck v1."
     parser.load options, @defaults, @
-    @_nextRequest = Date.now()
-    @_running = 0
     @_queues = @_makeQueues()
     @_executing = {}
     @_nextIndex = 0
-    @_unblockTime = 0
     @penalty = options.penalty ? ((15 * @minTime) or 5000)
     @_limiter = null
     @_events = {}
+    @_store = new Local @
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
     @_events[name].push {cb, status}
@@ -52,21 +51,18 @@ class Bottleneck
     sProperty = if ~~priority != priority then MIDDLE_PRIORITY else priority
     if sProperty < 0 then 0 else if sProperty > NB_PRIORITIES-1 then NB_PRIORITIES-1 else sProperty
   _find: (arr, fn) -> (do -> for x, i in arr then if fn x then return x) ? []
-  queued: (priority) -> if priority? then @_queues[@_sanitizePriority priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
-  running: -> @_running
+  queued: (priority) -> if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
+  running: -> @_store.__running__()
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
-  _conditionsCheck: (weight) ->
-    ((not @maxConcurrent? or @running()+weight <= @maxConcurrent) and
-    (not @reservoir? or @reservoir-weight >= 0))
-  check: (weight=1) -> @_conditionsCheck(weight) and (@_nextRequest-Date.now()) <= 0
+  check: (weight=1) -> @_store.__check__ weight, @reservoir?, Date.now(), @maxConcurrent
   _tryToRun: ->
     if (queued = @queued()) == 0 then return false
-    if @_conditionsCheck(@_getFirst(@_queues).first().options.weight)
+    weight = @_getFirst(@_queues).first().options.weight
+    { success, wait, reservoir } = @_store.__register__ weight, @reservoir?, Date.now(), @maxConcurrent, @minTime
+    if success
+      # Race condition: __register__ could come back out of order
+      @reservoir = reservoir
       next = @_getFirst(@_queues).shift()
-      @_running += next.options.weight
-      if @reservoir? then @reservoir -= next.options.weight
-      wait = Math.max @_nextRequest-Date.now(), 0
-      @_nextRequest = Date.now() + wait + @minTime
       if queued == 1 then @_trigger "empty", []
       done = false
       index = @_nextIndex++
@@ -76,16 +72,15 @@ class Bottleneck
             if not done
               done = true
               delete @_executing[index]
-              @_running -= next.options.weight
+              { running, queued } = @_store.__free__ next.options.weight
               while @_tryToRun() then
-              if @running() == 0 and @queued() == 0 then @_trigger "idle", []
+              if running == 0 and queued == 0 then @_trigger "idle", []
               if not @interrupt then next.cb?.apply {}, args
           if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.task, next.args, completed
           else next.task.apply {}, next.args.concat completed
         , wait
         job: next
-      true
-    else false
+    success
   _loadJobOptions: (options) ->
     options = parser.load options, @jobDefaults
     if @maxConcurrent? and options.weight > @maxConcurrent
@@ -101,6 +96,7 @@ class Bottleneck
     job = { options, task, args, cb }
     options.priority = @_sanitizePriority options.priority
     reachedHighWaterMark = @highWater? and @queued() == @highWater and not @check(options.weight)
+    # console.log 'reachedHighWaterMark', reachedHighWaterMark, '---', (@highWater?), (@queued() == @highWater), (not @check(options.weight))
     if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @isBlocked())
       @_unblockTime = Date.now() + @penalty
       @_nextRequest = @_unblockTime + @minTime
