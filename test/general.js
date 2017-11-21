@@ -288,11 +288,11 @@ describe('General', function () {
       var promise2 = c.limiter.schedule({ weight: 2 }, c.slowPromise, 150, null, 2)
       c.pNoErrVal(promise2, 2)
       promise2.then(function () {
-        c.mustEqual(c.limiter.reservoir, 0)
+        c.mustEqual(c.limiter.currentReservoir(), 0)
         c.mustEqual(c.limiter.queued(), 2)
 
         c.last(function (err, results) {
-          c.mustEqual(c.limiter.reservoir, 0)
+          c.mustEqual(c.limiter.currentReservoir(), 0)
           c.mustEqual(c.limiter.queued(), 2)
           c.checkDuration(250)
           c.checkResultsOrder([[1], [2]])

@@ -29,7 +29,7 @@ class Bottleneck
     @penalty = options.penalty ? ((15 * @minTime) or 5000)
     @_limiter = null
     @_events = {}
-    @_store = new Local @
+    @_store = new Local @reservoir
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
     @_events[name].push {cb, status}
@@ -54,7 +54,8 @@ class Bottleneck
   running: -> @_store.__running__()
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
   check: (weight=1) -> @_store.__check__ weight, @reservoir?, Date.now(), @maxConcurrent
-  _run: (queued, wait, reservoir) ->
+  currentReservoir: -> @_store.__currentReservoir__()
+  _run: (queued, wait) ->
     next = @_getFirst(@_queues).shift()
     if queued == 1 then @_trigger "empty", []
     done = false
@@ -65,9 +66,9 @@ class Bottleneck
           if not done
             done = true
             delete @_executing[index]
-            { running, queued } = @_store.__free__ next.options.weight
+            { running } = @_store.__free__ next.options.weight
             while @_tryToRun() then
-            if running == 0 and queued == 0 then @_trigger "idle", []
+            if running == 0 and @queued() == 0 then @_trigger "idle", []
             if not @interrupt then next.cb?.apply {}, args
         if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.task, next.args, completed
         else next.task.apply {}, next.args.concat completed
@@ -76,11 +77,10 @@ class Bottleneck
   _tryToRun: ->
     if (queued = @queued()) == 0 then return false
     weight = @_getFirst(@_queues).first().options.weight
-    { success, wait, reservoir } = @_store.__register__ weight, @reservoir?, Date.now(), @maxConcurrent, @minTime
+    { success, wait } = @_store.__register__ weight, @reservoir?, Date.now(), @maxConcurrent, @minTime
     if success
-      # Race condition: __register__ could come back out of order
-      @reservoir = reservoir
-      @_run queued, wait, reservoir
+      # Race condition: __register__ could come back out of order, pass the next job or synchronize
+      @_run queued, wait
     success
   _loadJobOptions: (options) ->
     options = parser.load options, @jobDefaults
@@ -142,7 +142,7 @@ class Bottleneck
     while @_tryToRun() then
     @
   incrementReservoir: (incr=0) ->
-    @updateSettings {reservoir: @reservoir + incr}
+    @_store.__incrementReservoir__ incr
     @
   on: (name, cb) -> @_addListener name, "many", cb
   once: (name, cb) -> @_addListener name, "once", cb

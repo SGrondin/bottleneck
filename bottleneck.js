@@ -30,7 +30,7 @@
         this.penalty = (ref = options.penalty) != null ? ref : (15 * this.minTime) || 5000;
         this._limiter = null;
         this._events = {};
-        this._store = new Local(this);
+        this._store = new Local(this.reservoir);
       }
 
       _addListener(name, status, cb) {
@@ -130,7 +130,11 @@
         return this._store.__check__(weight, this.reservoir != null, Date.now(), this.maxConcurrent);
       }
 
-      _run(queued, wait, reservoir) {
+      currentReservoir() {
+        return this._store.__currentReservoir__();
+      }
+
+      _run(queued, wait) {
         var done, index, next;
         next = this._getFirst(this._queues).shift();
         if (queued === 1) {
@@ -146,9 +150,9 @@
               if (!done) {
                 done = true;
                 delete this._executing[index];
-                ({running, queued} = this._store.__free__(next.options.weight));
+                ({running} = this._store.__free__(next.options.weight));
                 while (this._tryToRun()) {}
-                if (running === 0 && queued === 0) {
+                if (running === 0 && this.queued() === 0) {
                   this._trigger("idle", []);
                 }
                 if (!this.interrupt) {
@@ -167,16 +171,15 @@
       }
 
       _tryToRun() {
-        var queued, reservoir, success, wait, weight;
+        var queued, success, wait, weight;
         if ((queued = this.queued()) === 0) {
           return false;
         }
         weight = this._getFirst(this._queues).first().options.weight;
-        ({success, wait, reservoir} = this._store.__register__(weight, this.reservoir != null, Date.now(), this.maxConcurrent, this.minTime));
+        ({success, wait} = this._store.__register__(weight, this.reservoir != null, Date.now(), this.maxConcurrent, this.minTime));
         if (success) {
-          // Race condition: __register__ could come back out of order
-          this.reservoir = reservoir;
-          this._run(queued, wait, reservoir);
+          // Race condition: __register__ could come back out of order, pass the next job or synchronize
+          this._run(queued, wait);
         }
         return success;
       }
@@ -258,9 +261,7 @@
       }
 
       incrementReservoir(incr = 0) {
-        this.updateSettings({
-          reservoir: this.reservoir + incr
-        });
+        this._store.__incrementReservoir__(incr);
         return this;
       }
 
@@ -540,12 +541,8 @@
   Bottleneck = require("./Bottleneck");
 
   Local = class Local {
-    constructor(instance) {
-      this.instance = instance;
-      this._queues = function() {
-        return this.instance._queues;
-      };
-      this._reservoir = this.instance.reservoir;
+    constructor(initialReservoir) {
+      this._reservoir = initialReservoir;
       this._nextRequest = Date.now();
       this._running = 0;
       this._unblockTime = 0;
@@ -555,14 +552,16 @@
       return this._running;
     }
 
-    __globalQueued__() {
-      return this._queues().reduce((function(a, b) {
-        return a + b.length;
-      }), 0);
-    }
-
     conditionsCheck(maxConcurrent, reservoirEnabled, weight) {
       return ((maxConcurrent == null) || this._running + weight <= maxConcurrent) && (!reservoirEnabled || this._reservoir - weight >= 0);
+    }
+
+    __incrementReservoir__(incr) {
+      return this._reservoir += incr;
+    }
+
+    __currentReservoir__() {
+      return this._reservoir;
     }
 
     __isBlocked__(now) {
@@ -584,8 +583,7 @@
         this._nextRequest = now + wait + minTime;
         return {
           success: true,
-          wait,
-          reservoir: this._reservoir
+          wait
         };
       } else {
         return {
@@ -609,8 +607,7 @@
     __free__(weight) {
       this._running -= weight;
       return {
-        running: this._running,
-        queued: this.__globalQueued__()
+        running: this._running
       };
     }
 

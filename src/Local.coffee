@@ -2,20 +2,21 @@ parser = require "./parser"
 DLList = require "./DLList"
 Bottleneck = require "./Bottleneck"
 class Local
-  constructor: (@instance) ->
-    @_queues = -> @instance._queues
-    @_reservoir = @instance.reservoir
+  constructor: (initialReservoir) ->
+    @_reservoir = initialReservoir
     @_nextRequest = Date.now()
     @_running = 0
     @_unblockTime = 0
 
   __running__: -> @_running
 
-  __globalQueued__: () -> @_queues().reduce ((a, b) -> a+b.length), 0
-
   conditionsCheck: (maxConcurrent, reservoirEnabled, weight) ->
     ((not maxConcurrent? or @_running+weight <= maxConcurrent) and
     (not reservoirEnabled or @_reservoir-weight >= 0))
+
+  __incrementReservoir__: (incr) -> @_reservoir += incr
+
+  __currentReservoir__: -> @_reservoir
 
   __isBlocked__: (now) -> @_unblockTime >= now
 
@@ -29,7 +30,7 @@ class Local
       if reservoirEnabled then @_reservoir -= weight
       wait = Math.max @_nextRequest-now, 0
       @_nextRequest = now + wait + minTime
-      { success: true, wait, reservoir: @_reservoir }
+      { success: true, wait }
     else { success: false }
 
   __submit__: (strategyIsBlock, penalty, reservoirEnabled, highwaterEnabled, queueMaxed, weight, now, maxConcurrent, minTime) ->
@@ -43,6 +44,6 @@ class Local
 
   __free__: (weight) ->
     @_running -= weight
-    { running: @_running, queued: @__globalQueued__() }
+    { running: @_running }
 
 module.exports = Local
