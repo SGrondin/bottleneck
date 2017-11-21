@@ -130,12 +130,17 @@ describe('Priority', function () {
       strategy: Bottleneck.strategy.BLOCK,
       rejectOnDrop: false
     })
-    var called = false
+    var called = 0
     c.limiter.on('dropped', function (dropped) {
       c.mustExist(dropped.task)
       c.mustExist(dropped.args)
       c.mustExist(dropped.cb)
-      called = true
+      called++
+      if (called === 3) {
+        c.checkDuration(0)
+        c.checkResultsOrder([[1]])
+        done()
+      }
     })
 
     c.limiter.submit(c.job, null, 1, c.noErrVal(1))
@@ -144,15 +149,6 @@ describe('Priority', function () {
     c.limiter.submit({priority: 2}, c.job, null, 5, c.noErrVal(5))
     c.limiter.submit({priority: 2}, c.job, null, 6, c.noErrVal(6))
     c.limiter.submit({priority: 2}, c.job, null, 7, c.noErrVal(7))
-    c.limiter.updateSettings({highWater: null})
-    c.limiter._unblockTime = 0
-    c.limiter._nextRequest = 0
-    c.last(function (err, results) {
-      c.checkDuration(0)
-      c.checkResultsOrder([[1]])
-      c.mustEqual(called, true)
-      done()
-    })
   })
 
   it('Should have the right priority', function (done) {

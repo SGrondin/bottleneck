@@ -81,10 +81,6 @@
         return this;
       }
 
-      isBlocked() {
-        return this._unblockTime >= Date.now();
-      }
-
       _sanitizePriority(priority) {
         var sProperty;
         sProperty = ~~priority !== priority ? MIDDLE_PRIORITY : priority;
@@ -134,8 +130,44 @@
         return this._store.__check__(weight, this.reservoir != null, Date.now(), this.maxConcurrent);
       }
 
+      _run(queued, wait, reservoir) {
+        var done, index, next;
+        next = this._getFirst(this._queues).shift();
+        if (queued === 1) {
+          this._trigger("empty", []);
+        }
+        done = false;
+        index = this._nextIndex++;
+        return this._executing[index] = {
+          timeout: setTimeout(() => {
+            var completed;
+            completed = (...args) => {
+              var ref, running;
+              if (!done) {
+                done = true;
+                delete this._executing[index];
+                ({running, queued} = this._store.__free__(next.options.weight));
+                while (this._tryToRun()) {}
+                if (running === 0 && queued === 0) {
+                  this._trigger("idle", []);
+                }
+                if (!this.interrupt) {
+                  return (ref = next.cb) != null ? ref.apply({}, args) : void 0;
+                }
+              }
+            };
+            if (this._limiter != null) {
+              return this._limiter.submit.apply(this._limiter, Array.prototype.concat(next.task, next.args, completed));
+            } else {
+              return next.task.apply({}, next.args.concat(completed));
+            }
+          }, wait),
+          job: next
+        };
+      }
+
       _tryToRun() {
-        var done, index, next, queued, reservoir, success, wait, weight;
+        var queued, reservoir, success, wait, weight;
         if ((queued = this.queued()) === 0) {
           return false;
         }
@@ -144,38 +176,7 @@
         if (success) {
           // Race condition: __register__ could come back out of order
           this.reservoir = reservoir;
-          next = this._getFirst(this._queues).shift();
-          if (queued === 1) {
-            this._trigger("empty", []);
-          }
-          done = false;
-          index = this._nextIndex++;
-          this._executing[index] = {
-            timeout: setTimeout(() => {
-              var completed;
-              completed = (...args) => {
-                var ref, running;
-                if (!done) {
-                  done = true;
-                  delete this._executing[index];
-                  ({running, queued} = this._store.__free__(next.options.weight));
-                  while (this._tryToRun()) {}
-                  if (running === 0 && queued === 0) {
-                    this._trigger("idle", []);
-                  }
-                  if (!this.interrupt) {
-                    return (ref = next.cb) != null ? ref.apply({}, args) : void 0;
-                  }
-                }
-              };
-              if (this._limiter != null) {
-                return this._limiter.submit.apply(this._limiter, Array.prototype.concat(next.task, next.args, completed));
-              } else {
-                return next.task.apply({}, next.args.concat(completed));
-              }
-            }, wait),
-            job: next
-          };
+          this._run(queued, wait, reservoir);
         }
         return success;
       }
@@ -190,7 +191,7 @@
       }
 
       submit(...args) {
-        var cb, j, job, l, options, reachedHighWaterMark, ref, ref1, shifted, task;
+        var blocked, cb, j, job, l, options, reachedHighWaterMark, ref, ref1, shifted, task;
         if (typeof args[0] === "function") {
           ref = args, task = ref[0], args = 3 <= ref.length ? slice.call(ref, 1, j = ref.length - 1) : (j = 1, []), cb = ref[j++];
           options = this.jobDefaults;
@@ -200,11 +201,8 @@
         }
         job = {options, task, args, cb};
         options.priority = this._sanitizePriority(options.priority);
-        reachedHighWaterMark = (this.highWater != null) && this.queued() === this.highWater && !this.check(options.weight);
-        // console.log 'reachedHighWaterMark', reachedHighWaterMark, '---', (@highWater?), (@queued() == @highWater), (not @check(options.weight))
-        if (this.strategy === Bottleneck.prototype.strategy.BLOCK && (reachedHighWaterMark || this.isBlocked())) {
-          this._unblockTime = Date.now() + this.penalty;
-          this._nextRequest = this._unblockTime + this.minTime;
+        ({reachedHighWaterMark, blocked} = this._store.__submit__(this.strategy === Bottleneck.prototype.strategy.BLOCK, this.penalty, this.reservoir != null, this.highWater != null, this.queued() === this.highWater, options.weight, Date.now(), this.maxConcurrent, this.minTime));
+        if (blocked) {
           this._queues = this._makeQueues();
           this._trigger("dropped", [job]);
           return true;
@@ -567,6 +565,10 @@
       return ((maxConcurrent == null) || this._running + weight <= maxConcurrent) && (!reservoirEnabled || this._reservoir - weight >= 0);
     }
 
+    __isBlocked__(now) {
+      return this._unblockTime >= now;
+    }
+
     __check__(weight, reservoirEnabled, now, maxConcurrent) {
       return this.conditionsCheck(maxConcurrent, reservoirEnabled, weight) && (this._nextRequest - now) <= 0;
     }
@@ -590,6 +592,18 @@
           success: false
         };
       }
+    }
+
+    __submit__(strategyIsBlock, penalty, reservoirEnabled, highwaterEnabled, queueMaxed, weight, now, maxConcurrent, minTime) {
+      var blocked, check, reachedHighWaterMark;
+      check = this.__check__(weight, reservoirEnabled, now, maxConcurrent);
+      reachedHighWaterMark = highwaterEnabled && queueMaxed && !check;
+      blocked = strategyIsBlock && (reachedHighWaterMark || this.__isBlocked__(now));
+      if (blocked) {
+        this._unblockTime = now + penalty;
+        this._nextRequest = this._unblockTime + minTime;
+      }
+      return {reachedHighWaterMark, blocked};
     }
 
     __free__(weight) {

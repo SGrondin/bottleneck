@@ -46,7 +46,6 @@ class Bottleneck
     ), 0
   _makeQueues: -> new DLList() for i in [1..NB_PRIORITIES]
   chain: (@_limiter) -> @
-  isBlocked: -> @_unblockTime >= Date.now()
   _sanitizePriority: (priority) ->
     sProperty = if ~~priority != priority then MIDDLE_PRIORITY else priority
     if sProperty < 0 then 0 else if sProperty > NB_PRIORITIES-1 then NB_PRIORITIES-1 else sProperty
@@ -55,6 +54,25 @@ class Bottleneck
   running: -> @_store.__running__()
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
   check: (weight=1) -> @_store.__check__ weight, @reservoir?, Date.now(), @maxConcurrent
+  _run: (queued, wait, reservoir) ->
+    next = @_getFirst(@_queues).shift()
+    if queued == 1 then @_trigger "empty", []
+    done = false
+    index = @_nextIndex++
+    @_executing[index] =
+      timeout: setTimeout =>
+        completed = (args...) =>
+          if not done
+            done = true
+            delete @_executing[index]
+            { running, queued } = @_store.__free__ next.options.weight
+            while @_tryToRun() then
+            if running == 0 and queued == 0 then @_trigger "idle", []
+            if not @interrupt then next.cb?.apply {}, args
+        if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.task, next.args, completed
+        else next.task.apply {}, next.args.concat completed
+      , wait
+      job: next
   _tryToRun: ->
     if (queued = @queued()) == 0 then return false
     weight = @_getFirst(@_queues).first().options.weight
@@ -62,24 +80,7 @@ class Bottleneck
     if success
       # Race condition: __register__ could come back out of order
       @reservoir = reservoir
-      next = @_getFirst(@_queues).shift()
-      if queued == 1 then @_trigger "empty", []
-      done = false
-      index = @_nextIndex++
-      @_executing[index] =
-        timeout: setTimeout =>
-          completed = (args...) =>
-            if not done
-              done = true
-              delete @_executing[index]
-              { running, queued } = @_store.__free__ next.options.weight
-              while @_tryToRun() then
-              if running == 0 and queued == 0 then @_trigger "idle", []
-              if not @interrupt then next.cb?.apply {}, args
-          if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.task, next.args, completed
-          else next.task.apply {}, next.args.concat completed
-        , wait
-        job: next
+      @_run queued, wait, reservoir
     success
   _loadJobOptions: (options) ->
     options = parser.load options, @jobDefaults
@@ -95,11 +96,20 @@ class Bottleneck
       options = @_loadJobOptions options
     job = { options, task, args, cb }
     options.priority = @_sanitizePriority options.priority
-    reachedHighWaterMark = @highWater? and @queued() == @highWater and not @check(options.weight)
-    # console.log 'reachedHighWaterMark', reachedHighWaterMark, '---', (@highWater?), (@queued() == @highWater), (not @check(options.weight))
-    if @strategy == Bottleneck::strategy.BLOCK and (reachedHighWaterMark or @isBlocked())
-      @_unblockTime = Date.now() + @penalty
-      @_nextRequest = @_unblockTime + @minTime
+
+    { reachedHighWaterMark, blocked } = @_store.__submit__(
+      (@strategy == Bottleneck::strategy.BLOCK),
+      @penalty,
+      @reservoir?,
+      @highWater?,
+      (@queued() == @highWater),
+      options.weight,
+      Date.now(),
+      @maxConcurrent,
+      @minTime
+    )
+
+    if blocked
       @_queues = @_makeQueues()
       @_trigger "dropped", [job]
       return true

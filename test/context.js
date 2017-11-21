@@ -80,6 +80,7 @@ module.exports = function (options) {
     mustExist: function (a) { assert(a != null) },
     results: getResults,
     checkResultsOrder: function (order) {
+      mustEqual(order.length, calls.length)
       for (var i = 0; i < Math.max(calls.length, order.length); i++) {
         mustEqual(order[i], calls[i].result)
       }

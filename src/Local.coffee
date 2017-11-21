@@ -8,6 +8,7 @@ class Local
     @_nextRequest = Date.now()
     @_running = 0
     @_unblockTime = 0
+
   __running__: -> @_running
 
   __globalQueued__: () -> @_queues().reduce ((a, b) -> a+b.length), 0
@@ -15,6 +16,8 @@ class Local
   conditionsCheck: (maxConcurrent, reservoirEnabled, weight) ->
     ((not maxConcurrent? or @_running+weight <= maxConcurrent) and
     (not reservoirEnabled or @_reservoir-weight >= 0))
+
+  __isBlocked__: (now) -> @_unblockTime >= now
 
   __check__: (weight, reservoirEnabled, now, maxConcurrent) ->
     (@conditionsCheck(maxConcurrent, reservoirEnabled, weight) and
@@ -29,11 +32,17 @@ class Local
       { success: true, wait, reservoir: @_reservoir }
     else { success: false }
 
+  __submit__: (strategyIsBlock, penalty, reservoirEnabled, highwaterEnabled, queueMaxed, weight, now, maxConcurrent, minTime) ->
+    check = @__check__(weight, reservoirEnabled, now, maxConcurrent)
+    reachedHighWaterMark = highwaterEnabled and queueMaxed and not check
+    blocked = strategyIsBlock and (reachedHighWaterMark or @__isBlocked__ now)
+    if blocked
+      @_unblockTime = now + penalty
+      @_nextRequest = @_unblockTime + minTime
+    { reachedHighWaterMark, blocked }
+
   __free__: (weight) ->
     @_running -= weight
     { running: @_running, queued: @__globalQueued__() }
-
-
-
 
 module.exports = Local
