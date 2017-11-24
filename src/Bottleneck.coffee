@@ -9,27 +9,29 @@ class Bottleneck
   Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
   Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
   jobDefaults: { priority: MIDDLE_PRIORITY, weight: 1, id: "<none>" }
-  defaults: {
+  storeDefaults: {
     maxConcurrent: null,
     minTime: 0,
     highWater: null,
     strategy: Bottleneck::strategy.LEAK,
+    penalty: null,
+    reservoir: null
+  }
+  instanceDefaults: {
     rejectOnDrop: true,
-    reservoir: null,
     interrupt: false,
     Promise: Promise
   }
   constructor: (options={}, invalid...) ->
     unless options? and typeof options == "object" and invalid.length == 0
       throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-from-v1 if you're upgrading from Bottleneck v1."
-    parser.load options, @defaults, @
+    parser.load options, @instanceDefaults, @
     @_queues = @_makeQueues()
     @_executing = {}
     @_nextIndex = 0
-    @penalty = options.penalty ? ((15 * @minTime) or 5000)
     @_limiter = null
     @_events = {}
-    @_store = new Local @reservoir
+    @_store = new Local parser.load options, @storeDefaults, {}
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
     @_events[name].push {cb, status}
@@ -53,7 +55,7 @@ class Bottleneck
   queued: (priority) -> if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
   running: -> @_store.__running__()
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
-  check: (weight=1) -> @_store.__check__ weight, @reservoir?, Date.now(), @maxConcurrent
+  check: (weight=1) -> @_store.__check__ weight
   currentReservoir: -> @_store.__currentReservoir__()
   _run: (queued, wait) ->
     next = @_getFirst(@_queues).shift()
@@ -77,16 +79,12 @@ class Bottleneck
   _tryToRun: ->
     if (queued = @queued()) == 0 then return false
     weight = @_getFirst(@_queues).first().options.weight
-    { success, wait } = @_store.__register__ weight, @reservoir?, Date.now(), @maxConcurrent, @minTime
+    { success, wait } = @_store.__register__ weight
     if success
       # Race condition: __register__ could come back out of order, pass the next job or synchronize
       @_run queued, wait
     success
-  _loadJobOptions: (options) ->
-    options = parser.load options, @jobDefaults
-    if @maxConcurrent? and options.weight > @maxConcurrent
-      throw new Bottleneck::BottleneckError("Impossible to add a job having a weight of " + options.weight + " to a limiter having a maxConcurrent setting of " + @maxConcurrent)
-    else options
+  _loadJobOptions: (options) -> parser.load options, @jobDefaults
   submit: (args...) =>
     if typeof args[0] == "function"
       [task, args..., cb] = args
@@ -97,28 +95,18 @@ class Bottleneck
     job = { options, task, args, cb }
     options.priority = @_sanitizePriority options.priority
 
-    { reachedHighWaterMark, blocked } = @_store.__submit__(
-      (@strategy == Bottleneck::strategy.BLOCK),
-      @penalty,
-      @reservoir?,
-      @highWater?,
-      (@queued() == @highWater),
-      options.weight,
-      Date.now(),
-      @maxConcurrent,
-      @minTime
-    )
+    { reachedHighWaterMark, blocked, strategy } = @_store.__submit__ @queued(), options.weight
 
     if blocked
       @_queues = @_makeQueues()
       @_trigger "dropped", [job]
       return true
     else if reachedHighWaterMark
-      shifted = if @strategy == Bottleneck::strategy.LEAK then @_getFirst(@_queues[options.priority..].reverse()).shift()
-      else if @strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_getFirst(@_queues[(options.priority+1)..].reverse()).shift()
-      else if @strategy == Bottleneck::strategy.OVERFLOW then job
+      shifted = if strategy == Bottleneck::strategy.LEAK then @_getFirst(@_queues[options.priority..].reverse()).shift()
+      else if strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_getFirst(@_queues[(options.priority+1)..].reverse()).shift()
+      else if strategy == Bottleneck::strategy.OVERFLOW then job
       if shifted? then @_trigger "dropped", [shifted]
-      if not shifted? or @strategy == Bottleneck::strategy.OVERFLOW then return reachedHighWaterMark
+      if not shifted? or strategy == Bottleneck::strategy.OVERFLOW then return reachedHighWaterMark
     @_queues[options.priority].push job
     @_tryToRun()
     reachedHighWaterMark
@@ -138,7 +126,8 @@ class Bottleneck
         (if args[0]? then reject else args.shift(); resolve).apply {}, args
   wrap: (fn) -> (args...) => @schedule.apply {}, Array::concat fn, args
   updateSettings: (options={}) ->
-    parser.overwrite options, @defaults, @
+    @_store.__updateSettings__ parser.overwrite options, @storeDefaults
+    parser.overwrite options, @instanceDefaults, @
     while @_tryToRun() then
     @
   incrementReservoir: (incr=0) ->

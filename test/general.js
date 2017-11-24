@@ -247,16 +247,15 @@ describe('General', function () {
 
       c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.promise, null, 1), 1)
       c.pNoErrVal(c.limiter.schedule({ weight: 2 }, c.promise, null, 2), 2)
-      try {
-        c.pNoErrVal(c.limiter.schedule({ weight: 3 }, c.promise, null, 3), 3)
-      } catch (err) {
-        c.mustEqual(err.message, 'Impossible to add a job having a weight of 3 to a limiter having a maxConcurrent setting of 2')
-      }
 
-      c.last(function (err, results) {
-        c.checkDuration(0)
-        c.checkResultsOrder([[1], [2]])
-        done()
+      c.limiter.schedule({ weight: 3 }, c.promise, null, 3)
+      .catch(function (err) {
+        c.mustEqual(err.message, 'Impossible to add a job having a weight of 3 to a limiter having a maxConcurrent setting of 2')
+        c.last(function (err, results) {
+          c.checkDuration(0)
+          c.checkResultsOrder([[1], [2]])
+          done()
+        })
       })
     })
 

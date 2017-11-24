@@ -1,46 +1,55 @@
 parser = require "./parser"
 DLList = require "./DLList"
-Bottleneck = require "./Bottleneck"
+BottleneckError = require "./BottleneckError"
 class Local
-  constructor: (initialReservoir) ->
-    @_reservoir = initialReservoir
+  constructor: (options) ->
+    parser.load options, options, @
     @_nextRequest = Date.now()
     @_running = 0
     @_unblockTime = 0
 
+  computePenalty: -> @penalty ? ((15 * @minTime) or 5000)
+
+  __updateSettings__: (options) ->
+    parser.overwrite options, options, @
+    @
+
   __running__: -> @_running
 
-  conditionsCheck: (maxConcurrent, reservoirEnabled, weight) ->
-    ((not maxConcurrent? or @_running+weight <= maxConcurrent) and
-    (not reservoirEnabled or @_reservoir-weight >= 0))
+  conditionsCheck: (weight) ->
+    ((not @maxConcurrent? or @_running+weight <= @maxConcurrent) and
+    (not @reservoir? or @reservoir-weight >= 0))
 
-  __incrementReservoir__: (incr) -> @_reservoir += incr
+  __incrementReservoir__: (incr) -> @reservoir += incr
 
-  __currentReservoir__: -> @_reservoir
+  __currentReservoir__: -> @reservoir
 
-  __isBlocked__: (now) -> @_unblockTime >= now
+  isBlocked: (now) -> @_unblockTime >= now
 
-  __check__: (weight, reservoirEnabled, now, maxConcurrent) ->
-    (@conditionsCheck(maxConcurrent, reservoirEnabled, weight) and
-    (@_nextRequest-now) <= 0)
+  check: (weight, now) -> @conditionsCheck(weight) and (@_nextRequest-now) <= 0
 
-  __register__: (weight, reservoirEnabled, now, maxConcurrent, minTime) ->
-    if @conditionsCheck maxConcurrent, reservoirEnabled, weight
+  __check__: (weight) -> @check weight, Date.now()
+
+  __register__: (weight) ->
+    now = Date.now()
+    if @conditionsCheck weight
       @_running += weight
-      if reservoirEnabled then @_reservoir -= weight
+      if @reservoir? then @reservoir -= weight
       wait = Math.max @_nextRequest-now, 0
-      @_nextRequest = now + wait + minTime
+      @_nextRequest = now + wait + @minTime
       { success: true, wait }
     else { success: false }
 
-  __submit__: (strategyIsBlock, penalty, reservoirEnabled, highwaterEnabled, queueMaxed, weight, now, maxConcurrent, minTime) ->
-    check = @__check__(weight, reservoirEnabled, now, maxConcurrent)
-    reachedHighWaterMark = highwaterEnabled and queueMaxed and not check
-    blocked = strategyIsBlock and (reachedHighWaterMark or @__isBlocked__ now)
+  __submit__: (queueLength, weight) ->
+    if @maxConcurrent? and weight > @maxConcurrent
+      throw new BottleneckError("Impossible to add a job having a weight of #{weight} to a limiter having a maxConcurrent setting of #{@maxConcurrent}")
+    now = Date.now()
+    reachedHighWaterMark = @highWater? and queueLength == @highWater and not @check(weight, now)
+    blocked = @strategy == 3 and (reachedHighWaterMark or @isBlocked now)
     if blocked
-      @_unblockTime = now + penalty
-      @_nextRequest = @_unblockTime + minTime
-    { reachedHighWaterMark, blocked }
+      @_unblockTime = now + @computePenalty()
+      @_nextRequest = @_unblockTime + @minTime
+    { reachedHighWaterMark, blocked, strategy: @strategy }
 
   __free__: (weight) ->
     @_running -= weight

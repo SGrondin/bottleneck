@@ -17,20 +17,18 @@
   Bottleneck = (function() {
     class Bottleneck {
       constructor(options = {}, ...invalid) {
-        var ref;
         this.submit = this.submit.bind(this);
         this.schedule = this.schedule.bind(this);
         if (!((options != null) && typeof options === "object" && invalid.length === 0)) {
           throw new Bottleneck.prototype.BottleneckError("Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-from-v1 if you're upgrading from Bottleneck v1.");
         }
-        parser.load(options, this.defaults, this);
+        parser.load(options, this.instanceDefaults, this);
         this._queues = this._makeQueues();
         this._executing = {};
         this._nextIndex = 0;
-        this.penalty = (ref = options.penalty) != null ? ref : (15 * this.minTime) || 5000;
         this._limiter = null;
         this._events = {};
-        this._store = new Local(this.reservoir);
+        this._store = new Local(parser.load(options, this.storeDefaults, {}));
       }
 
       _addListener(name, status, cb) {
@@ -127,7 +125,7 @@
       }
 
       check(weight = 1) {
-        return this._store.__check__(weight, this.reservoir != null, Date.now(), this.maxConcurrent);
+        return this._store.__check__(weight);
       }
 
       currentReservoir() {
@@ -176,7 +174,7 @@
           return false;
         }
         weight = this._getFirst(this._queues).first().options.weight;
-        ({success, wait} = this._store.__register__(weight, this.reservoir != null, Date.now(), this.maxConcurrent, this.minTime));
+        ({success, wait} = this._store.__register__(weight));
         if (success) {
           // Race condition: __register__ could come back out of order, pass the next job or synchronize
           this._run(queued, wait);
@@ -185,16 +183,11 @@
       }
 
       _loadJobOptions(options) {
-        options = parser.load(options, this.jobDefaults);
-        if ((this.maxConcurrent != null) && options.weight > this.maxConcurrent) {
-          throw new Bottleneck.prototype.BottleneckError("Impossible to add a job having a weight of " + options.weight + " to a limiter having a maxConcurrent setting of " + this.maxConcurrent);
-        } else {
-          return options;
-        }
+        return parser.load(options, this.jobDefaults);
       }
 
       submit(...args) {
-        var blocked, cb, j, job, l, options, reachedHighWaterMark, ref, ref1, shifted, task;
+        var blocked, cb, j, job, l, options, reachedHighWaterMark, ref, ref1, shifted, strategy, task;
         if (typeof args[0] === "function") {
           ref = args, task = ref[0], args = 3 <= ref.length ? slice.call(ref, 1, j = ref.length - 1) : (j = 1, []), cb = ref[j++];
           options = this.jobDefaults;
@@ -204,17 +197,17 @@
         }
         job = {options, task, args, cb};
         options.priority = this._sanitizePriority(options.priority);
-        ({reachedHighWaterMark, blocked} = this._store.__submit__(this.strategy === Bottleneck.prototype.strategy.BLOCK, this.penalty, this.reservoir != null, this.highWater != null, this.queued() === this.highWater, options.weight, Date.now(), this.maxConcurrent, this.minTime));
+        ({reachedHighWaterMark, blocked, strategy} = this._store.__submit__(this.queued(), options.weight));
         if (blocked) {
           this._queues = this._makeQueues();
           this._trigger("dropped", [job]);
           return true;
         } else if (reachedHighWaterMark) {
-          shifted = this.strategy === Bottleneck.prototype.strategy.LEAK ? this._getFirst(this._queues.slice(options.priority).reverse()).shift() : this.strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? this._getFirst(this._queues.slice(options.priority + 1).reverse()).shift() : this.strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
+          shifted = strategy === Bottleneck.prototype.strategy.LEAK ? this._getFirst(this._queues.slice(options.priority).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? this._getFirst(this._queues.slice(options.priority + 1).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
           if (shifted != null) {
             this._trigger("dropped", [shifted]);
           }
-          if ((shifted == null) || this.strategy === Bottleneck.prototype.strategy.OVERFLOW) {
+          if ((shifted == null) || strategy === Bottleneck.prototype.strategy.OVERFLOW) {
             return reachedHighWaterMark;
           }
         }
@@ -255,7 +248,8 @@
       }
 
       updateSettings(options = {}) {
-        parser.overwrite(options, this.defaults, this);
+        this._store.__updateSettings__(parser.overwrite(options, this.storeDefaults));
+        parser.overwrite(options, this.instanceDefaults, this);
         while (this._tryToRun()) {}
         return this;
       }
@@ -349,13 +343,17 @@
       id: "<none>"
     };
 
-    Bottleneck.prototype.defaults = {
+    Bottleneck.prototype.storeDefaults = {
       maxConcurrent: null,
       minTime: 0,
       highWater: null,
       strategy: Bottleneck.prototype.strategy.LEAK,
+      penalty: null,
+      reservoir: null
+    };
+
+    Bottleneck.prototype.instanceDefaults = {
       rejectOnDrop: true,
-      reservoir: null,
       interrupt: false,
       Promise: Promise
     };
@@ -532,55 +530,70 @@
 },{}],5:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.2
 (function() {
-  var Bottleneck, DLList, Local, parser;
+  var BottleneckError, DLList, Local, parser;
 
   parser = require("./parser");
 
   DLList = require("./DLList");
 
-  Bottleneck = require("./Bottleneck");
+  BottleneckError = require("./BottleneckError");
 
   Local = class Local {
-    constructor(initialReservoir) {
-      this._reservoir = initialReservoir;
+    constructor(options) {
+      parser.load(options, options, this);
       this._nextRequest = Date.now();
       this._running = 0;
       this._unblockTime = 0;
+    }
+
+    computePenalty() {
+      var ref;
+      return (ref = this.penalty) != null ? ref : (15 * this.minTime) || 5000;
+    }
+
+    __updateSettings__(options) {
+      parser.overwrite(options, options, this);
+      return this;
     }
 
     __running__() {
       return this._running;
     }
 
-    conditionsCheck(maxConcurrent, reservoirEnabled, weight) {
-      return ((maxConcurrent == null) || this._running + weight <= maxConcurrent) && (!reservoirEnabled || this._reservoir - weight >= 0);
+    conditionsCheck(weight) {
+      return ((this.maxConcurrent == null) || this._running + weight <= this.maxConcurrent) && ((this.reservoir == null) || this.reservoir - weight >= 0);
     }
 
     __incrementReservoir__(incr) {
-      return this._reservoir += incr;
+      return this.reservoir += incr;
     }
 
     __currentReservoir__() {
-      return this._reservoir;
+      return this.reservoir;
     }
 
-    __isBlocked__(now) {
+    isBlocked(now) {
       return this._unblockTime >= now;
     }
 
-    __check__(weight, reservoirEnabled, now, maxConcurrent) {
-      return this.conditionsCheck(maxConcurrent, reservoirEnabled, weight) && (this._nextRequest - now) <= 0;
+    check(weight, now) {
+      return this.conditionsCheck(weight) && (this._nextRequest - now) <= 0;
     }
 
-    __register__(weight, reservoirEnabled, now, maxConcurrent, minTime) {
-      var wait;
-      if (this.conditionsCheck(maxConcurrent, reservoirEnabled, weight)) {
+    __check__(weight) {
+      return this.check(weight, Date.now());
+    }
+
+    __register__(weight) {
+      var now, wait;
+      now = Date.now();
+      if (this.conditionsCheck(weight)) {
         this._running += weight;
-        if (reservoirEnabled) {
-          this._reservoir -= weight;
+        if (this.reservoir != null) {
+          this.reservoir -= weight;
         }
         wait = Math.max(this._nextRequest - now, 0);
-        this._nextRequest = now + wait + minTime;
+        this._nextRequest = now + wait + this.minTime;
         return {
           success: true,
           wait
@@ -592,16 +605,23 @@
       }
     }
 
-    __submit__(strategyIsBlock, penalty, reservoirEnabled, highwaterEnabled, queueMaxed, weight, now, maxConcurrent, minTime) {
-      var blocked, check, reachedHighWaterMark;
-      check = this.__check__(weight, reservoirEnabled, now, maxConcurrent);
-      reachedHighWaterMark = highwaterEnabled && queueMaxed && !check;
-      blocked = strategyIsBlock && (reachedHighWaterMark || this.__isBlocked__(now));
-      if (blocked) {
-        this._unblockTime = now + penalty;
-        this._nextRequest = this._unblockTime + minTime;
+    __submit__(queueLength, weight) {
+      var blocked, now, reachedHighWaterMark;
+      if ((this.maxConcurrent != null) && weight > this.maxConcurrent) {
+        throw new BottleneckError(`Impossible to add a job having a weight of ${weight} to a limiter having a maxConcurrent setting of ${this.maxConcurrent}`);
       }
-      return {reachedHighWaterMark, blocked};
+      now = Date.now();
+      reachedHighWaterMark = (this.highWater != null) && queueLength === this.highWater && !this.check(weight, now);
+      blocked = this.strategy === 3 && (reachedHighWaterMark || this.isBlocked(now));
+      if (blocked) {
+        this._unblockTime = now + this.computePenalty();
+        this._nextRequest = this._unblockTime + this.minTime;
+      }
+      return {
+        reachedHighWaterMark,
+        blocked,
+        strategy: this.strategy
+      };
     }
 
     __free__(weight) {
@@ -617,7 +637,7 @@
 
 }).call(this);
 
-},{"./Bottleneck":1,"./DLList":4,"./parser":7}],6:[function(require,module,exports){
+},{"./BottleneckError":2,"./DLList":4,"./parser":7}],6:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.2
 (function() {
   module.exports = require("./Bottleneck");
