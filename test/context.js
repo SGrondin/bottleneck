@@ -31,6 +31,14 @@ module.exports = function (options) {
       if (process.env.DEBUG) console.log(result, calls)
       cb.apply({}, [err].concat(result))
     },
+    slowJob: function (duration, err, ...result) {
+      setTimeout(function () {
+        var cb = result.pop()
+        calls.push({err: err, result: result, time: Date.now()-start})
+        if (process.env.DEBUG) console.log(result, calls)
+        cb.apply({}, [err].concat(result))
+      }, duration)
+    },
     promise: function (err, ...result) {
       return new Promise(function (resolve, reject) {
         if (process.env.DEBUG) console.log('In c.promise. Result: ', result)
@@ -62,7 +70,7 @@ module.exports = function (options) {
       promise.then(function (actual) {
         mustEqual(actual, expected)
       }).catch(function (err) {
-        console.error(err)
+        console.error('!!!!', expected, err)
       })
     },
     noErrVal: function (...expected) {
@@ -71,9 +79,14 @@ module.exports = function (options) {
         mustEqual(actual, expected)
       }
     },
-    last: function (cb, options) {
+    last: function (options) {
       var opt = options != null ? options : {}
-      limiter.submit(opt, function (cb) {cb(null, getResults())}, cb)
+      return limiter.schedule(opt, function () { return Promise.resolve(getResults()) })
+    },
+    wait: function (wait) {
+      return new Promise(function (resolve, reject) {
+        setTimeout(resolve, wait)
+      })
     },
     limiter: limiter,
     mustEqual: mustEqual,

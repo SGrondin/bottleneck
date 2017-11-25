@@ -17,8 +17,21 @@
   Bottleneck = (function() {
     class Bottleneck {
       constructor(options = {}, ...invalid) {
+        this.ready = this.ready.bind(this);
+        this.chain = this.chain.bind(this);
+        this.queued = this.queued.bind(this);
+        this.running = this.running.bind(this);
+        this.check = this.check.bind(this);
         this.submit = this.submit.bind(this);
         this.schedule = this.schedule.bind(this);
+        this.wrap = this.wrap.bind(this);
+        this.updateSettings = this.updateSettings.bind(this);
+        this.currentReservoir = this.currentReservoir.bind(this);
+        this.incrementReservoir = this.incrementReservoir.bind(this);
+        this.on = this.on.bind(this);
+        this.once = this.once.bind(this);
+        this.removeAllListeners = this.removeAllListeners.bind(this);
+        this.stopAll = this.stopAll.bind(this);
         if (!((options != null) && typeof options === "object" && invalid.length === 0)) {
           throw new Bottleneck.prototype.BottleneckError("Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-from-v1 if you're upgrading from Bottleneck v1.");
         }
@@ -28,7 +41,11 @@
         this._nextIndex = 0;
         this._limiter = null;
         this._events = {};
-        this._store = new Local(parser.load(options, this.storeDefaults, {}));
+        this._store = new Local(parser.load(options, this.storeDefaults, {}), this);
+      }
+
+      ready() {
+        return this._store._ready;
       }
 
       _addListener(name, status, cb) {
@@ -126,10 +143,6 @@
 
       check(weight = 1) {
         return this._store.__check__(weight);
-      }
-
-      currentReservoir() {
-        return this._store.__currentReservoir__();
       }
 
       _run(queued, wait) {
@@ -247,15 +260,20 @@
         };
       }
 
-      updateSettings(options = {}) {
-        this._store.__updateSettings__(parser.overwrite(options, this.storeDefaults));
+      async updateSettings(options = {}) {
+        await this._store.__updateSettings__(parser.overwrite(options, this.storeDefaults));
         parser.overwrite(options, this.instanceDefaults, this);
         while (this._tryToRun()) {}
         return this;
       }
 
-      incrementReservoir(incr = 0) {
-        this._store.__incrementReservoir__(incr);
+      currentReservoir() {
+        return this._store.__currentReservoir__();
+      }
+
+      async incrementReservoir(incr = 0) {
+        await this._store.__incrementReservoir__(incr);
+        while (this._tryToRun()) {}
         return this;
       }
 
@@ -539,11 +557,19 @@
   BottleneckError = require("./BottleneckError");
 
   Local = class Local {
-    constructor(options) {
+    constructor(options, instance) {
+      this.instance = instance;
       parser.load(options, options, this);
       this._nextRequest = Date.now();
       this._running = 0;
       this._unblockTime = 0;
+      this._ready = this.yieldLoop();
+    }
+
+    yieldLoop() {
+      return new this.instance.Promise(function(resolve, reject) {
+        return setTimeout(resolve, 0);
+      });
     }
 
     computePenalty() {
@@ -551,12 +577,14 @@
       return (ref = this.penalty) != null ? ref : (15 * this.minTime) || 5000;
     }
 
-    __updateSettings__(options) {
+    async __updateSettings__(options) {
+      await this.yieldLoop();
       parser.overwrite(options, options, this);
-      return this;
+      return true;
     }
 
-    __running__() {
+    async __running__() {
+      await this.yieldLoop();
       return this._running;
     }
 
@@ -564,11 +592,13 @@
       return ((this.maxConcurrent == null) || this._running + weight <= this.maxConcurrent) && ((this.reservoir == null) || this.reservoir - weight >= 0);
     }
 
-    __incrementReservoir__(incr) {
+    async __incrementReservoir__(incr) {
+      await this.yieldLoop();
       return this.reservoir += incr;
     }
 
-    __currentReservoir__() {
+    async __currentReservoir__() {
+      await this.yieldLoop();
       return this.reservoir;
     }
 
@@ -580,7 +610,8 @@
       return this.conditionsCheck(weight) && (this._nextRequest - now) <= 0;
     }
 
-    __check__(weight) {
+    async __check__(weight) {
+      await this.yieldLoop();
       return this.check(weight, Date.now());
     }
 
@@ -612,7 +643,7 @@
       }
       now = Date.now();
       reachedHighWaterMark = (this.highWater != null) && queueLength === this.highWater && !this.check(weight, now);
-      blocked = this.strategy === 3 && (reachedHighWaterMark || this.isBlocked(now));
+      blocked = this.strategy === this.instance.strategy.BLOCK && (reachedHighWaterMark || this.isBlocked(now));
       if (blocked) {
         this._unblockTime = now + this.computePenalty();
         this._nextRequest = this._unblockTime + this.minTime;

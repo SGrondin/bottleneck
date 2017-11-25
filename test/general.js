@@ -13,111 +13,147 @@ describe('General', function () {
     }
   })
 
-  it('Should return the queued count with and without a priority value', function (done) {
-    var c = makeTest({maxConcurrent: 1, minTime: 250})
+  it('Should check() and return the queued count with and without a priority value', function () {
+    var c = makeTest({maxConcurrent: 1, minTime: 100})
 
-    c.mustEqual(c.limiter.queued(), 0)
+    return c.limiter.ready()
+    .then(c.limiter.check)
+    .then(function (willRunNow) {
+      c.mustEqual(willRunNow, true)
 
-    c.limiter.submit(c.job, null, 1, c.noErrVal(1))
-    c.mustEqual(c.limiter.queued(), 0) // It's already running
+      c.mustEqual(c.limiter.queued(), 0)
+      c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
+      c.mustEqual(c.limiter.queued(), 0) // It's already running
+      return c.limiter.check()
+    })
+    .then(function (willRunNow) {
+      c.mustEqual(willRunNow, false)
 
-    c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-    c.mustEqual(c.limiter.queued(), 1)
-    c.mustEqual(c.limiter.queued(1), 0)
-    c.mustEqual(c.limiter.queued(5), 1)
+      c.limiter.submit(c.slowJob, 50, null, 2, c.noErrVal(2))
+      c.mustEqual(c.limiter.queued(), 1)
+      c.mustEqual(c.limiter.queued(1), 0)
+      c.mustEqual(c.limiter.queued(5), 1)
 
-    c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-    c.mustEqual(c.limiter.queued(), 2)
-    c.mustEqual(c.limiter.queued(1), 0)
-    c.mustEqual(c.limiter.queued(5), 2)
+      c.limiter.submit(c.slowJob, 50, null, 3, c.noErrVal(3))
+      c.mustEqual(c.limiter.queued(), 2)
+      c.mustEqual(c.limiter.queued(1), 0)
+      c.mustEqual(c.limiter.queued(5), 2)
 
-    c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-    c.mustEqual(c.limiter.queued(), 3)
-    c.mustEqual(c.limiter.queued(1), 0)
-    c.mustEqual(c.limiter.queued(5), 3)
+      c.limiter.submit(c.slowJob, 50, null, 4, c.noErrVal(4))
+      c.mustEqual(c.limiter.queued(), 3)
+      c.mustEqual(c.limiter.queued(1), 0)
+      c.mustEqual(c.limiter.queued(5), 3)
 
-    c.limiter.submit({priority: 1}, c.job, null, 5, c.noErrVal(5))
-    c.mustEqual(c.limiter.queued(), 4)
-    c.mustEqual(c.limiter.queued(1), 1)
-    c.mustEqual(c.limiter.queued(5), 3)
+      c.limiter.submit({priority: 1}, c.job, null, 5, c.noErrVal(5))
+      c.mustEqual(c.limiter.queued(), 4)
+      c.mustEqual(c.limiter.queued(1), 1)
+      c.mustEqual(c.limiter.queued(5), 3)
 
-    c.last(function (err, results) {
+
+      return c.last()
+    })
+    .then(function (results) {
       c.mustEqual(c.limiter.queued(), 0)
       c.checkResultsOrder([[1], [5], [2], [3], [4]])
-      c.checkDuration(1000)
-      done()
+      c.checkDuration(450)
     })
+
   })
 
-  it('Should return the running count', function (done) {
-    var c = makeTest({maxConcurrent: 2, minTime: 250})
+  it('Should return the running count', function () {
+    var c = makeTest({maxConcurrent: 5, minTime: 0})
 
-    c.mustEqual(c.limiter.running(), 0)
-
-    c.limiter.submit(c.job, null, 1, c.noErrVal(1))
-    c.mustEqual(c.limiter.running(), 1)
-
-    setTimeout(function () {
-      c.mustEqual(c.limiter.running(), 0)
-      setTimeout(function () {
-        c.limiter.submit(c.job, null, 1, c.noErrVal(1))
-        c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-        c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-        c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-        c.mustEqual(c.limiter.running(), 2)
-        done()
-      }, 0)
-    }, 0)
+    return c.limiter.ready()
+    .then(c.limiter.running)
+    .then(function (running) {
+      c.mustEqual(running, 0)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule({ weight: 3 }, c.slowPromise, 200, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 3), 3)
+      return c.limiter.running()
+    })
+    .then(function (running) {
+      c.mustEqual(running, 5)
+      return c.wait(125)
+    })
+    .then(c.limiter.running)
+    .then(function (running) {
+      c.mustEqual(running, 3)
+      return c.wait(100)
+    })
+    .then(c.limiter.running)
+    .then(function (running) {
+      c.mustEqual(running, 0)
+      return c.last()
+    })
+    .then(function (results) {
+      c.checkResultsOrder([[1], [3], [2]])
+      c.checkDuration(200)
+    })
   })
 
   describe('Events', function () {
-    it('Should fire events on empty queue', function (done) {
+    it('Should fire events on empty queue', function () {
       var c = makeTest({maxConcurrent: 1, minTime: 250})
       var calledEmpty = 0
       var calledIdle = 0
 
-      c.limiter.on('empty', function () { calledEmpty++ })
-      c.limiter.on('idle', function () { calledIdle++ })
+      return c.limiter.ready()
+      .then(function () {
+        c.limiter.on('empty', function () { calledEmpty++ })
+        c.limiter.on('idle', function () { calledIdle++ })
 
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
-      c.limiter.on('idle', function () {
-        c.limiter.removeAllListeners()
-        c.last(function (err, results) {
-          c.checkResultsOrder([[1], [2], [3]])
-          c.checkDuration(500)
-          c.mustEqual(calledEmpty, 2)
-          c.mustEqual(calledIdle, 1)
-          done()
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+
+        return new Promise(function (resolve, reject) {
+          c.limiter.on('idle', function () {
+            c.limiter.removeAllListeners()
+            return resolve()
+          })
         })
+      })
+      .then(c.last)
+      .then(function (results) {
+        c.checkResultsOrder([[1], [2], [3]])
+        c.checkDuration(500)
+        c.mustEqual(calledEmpty, 2)
+        c.mustEqual(calledIdle, 1)
       })
     })
 
-    it('Should fire events once', function (done) {
+    it('Should fire events once', function () {
       var c = makeTest({maxConcurrent: 1, minTime: 250})
       var calledEmpty = 0
       var calledIdle = 0
 
-      c.limiter.once('empty', function () { calledEmpty++ })
-      c.limiter.once('idle', function () { calledIdle++ })
+      return c.limiter.ready()
+      .then(function () {
+        c.limiter.once('empty', function () { calledEmpty++ })
+        c.limiter.once('idle', function () { calledIdle++ })
 
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
-      c.limiter.on('idle', function () {
-        c.limiter.removeAllListeners()
-        c.last(function (err, results) {
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+
+        return new Promise(function (resolve, reject) {
+          c.limiter.on('idle', function () {
+            c.limiter.removeAllListeners()
+            return resolve()
+          })
+        })
+        .then(c.last)
+        .then(function (results) {
           c.checkResultsOrder([[1], [2], [3]])
           c.checkDuration(500)
           c.mustEqual(calledEmpty, 1)
           c.mustEqual(calledIdle, 1)
-          done()
         })
       })
     })
 
-    it('Should fire events when calling stopAll() (sync)', function (done) {
+    it.skip('Should fire events when calling stopAll() (sync)', function (done) {
       var c = makeTest({maxConcurrent: 1, minTime: 250, rejectOnDrop: false})
       var calledEmpty = 0
       var calledIdle = 0
@@ -140,7 +176,7 @@ describe('General', function () {
       }, 30)
     })
 
-    it('Should fire events when calling stopAll() (async)', function (done) {
+    it.skip('Should fire events when calling stopAll() (async)', function (done) {
       var c = makeTest({maxConcurrent: 1, minTime: 250, rejectOnDrop: false})
       var calledEmpty = 0
       var calledDropped = 0
@@ -194,89 +230,107 @@ describe('General', function () {
         }
       })
 
-      c.limiter.submit(c.job, null, 1, c.noErrVal(1))
+      c.limiter.ready()
+      .then(function () {
+        c.limiter.submit(c.job, null, 1, c.noErrVal(1))
 
-      c.limiter.submit(c.job, null, 2, function (err) {
-        assert(err instanceof Bottleneck.BottleneckError)
-        c.mustEqual(err.message, 'This job has been dropped by Bottleneck')
-        checkedError = true
-        if (dropped && checkedError) {
-          done()
-        }
+        c.limiter.submit(c.job, null, 2, function (err) {
+          assert(err instanceof Bottleneck.BottleneckError)
+          c.mustEqual(err.message, 'This job has been dropped by Bottleneck')
+          checkedError = true
+          if (dropped && checkedError) {
+            done()
+          }
+        })
+
+        c.limiter.submit(c.job, null, 3, c.noErrVal(3))
       })
-
-      c.limiter.submit(c.job, null, 3, c.noErrVal(3))
     })
   })
 
   describe('High water limit', function () {
-    it('Should support highWater set to 0', function (done) {
+    it('Should support highWater set to 0', function () {
       var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 0, rejectOnDrop: false})
 
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
-      c.limiter.updateSettings({highWater: null})
-      c.last(function (err, results) {
+      return c.limiter.ready()
+      .then(function () {
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
+
+        return c.limiter.updateSettings({highWater: null})
+      })
+      .then(c.last)
+      .then(function (results) {
         c.checkDuration(0)
         c.checkResultsOrder([[1]])
-        done()
       })
+
     })
 
-    it('Should support highWater set to 1', function (done) {
+    it('Should support highWater set to 1', function () {
       var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 1, rejectOnDrop: false})
 
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
-      c.limiter.updateSettings({highWater: null})
-      c.last(function (err, results) {
+      return c.limiter.ready()
+      .then(function () {
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
+
+        return c.limiter.updateSettings({highWater: null})
+      })
+      .then(c.last)
+      .then(function (results) {
         c.checkDuration(250)
         c.checkResultsOrder([[1], [4]])
-        done()
       })
     })
   })
 
   describe('Weight', function () {
-    it('Should not add jobs with a weight above the maxConcurrent', function (done) {
+    it('Should not add jobs with a weight above the maxConcurrent', function () {
       var c = makeTest({maxConcurrent: 2})
 
-      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.promise, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule({ weight: 2 }, c.promise, null, 2), 2)
+      return c.limiter.ready()
+      .then(function () {
+        c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.promise, null, 1), 1)
+        c.pNoErrVal(c.limiter.schedule({ weight: 2 }, c.promise, null, 2), 2)
 
-      c.limiter.schedule({ weight: 3 }, c.promise, null, 3)
+        return c.limiter.schedule({ weight: 3 }, c.promise, null, 3)
+      })
       .catch(function (err) {
         c.mustEqual(err.message, 'Impossible to add a job having a weight of 3 to a limiter having a maxConcurrent setting of 2')
-        c.last(function (err, results) {
-          c.checkDuration(0)
-          c.checkResultsOrder([[1], [2]])
-          done()
-        })
+        return c.last()
+      })
+      .then(function (results) {
+        c.checkDuration(0)
+        c.checkResultsOrder([[1], [2]])
       })
     })
 
 
-    it('Should support custom job weights', function (done) {
+    it('Should support custom job weights', function () {
       var c = makeTest({maxConcurrent: 2})
 
-      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule({ weight: 2 }, c.slowPromise, 200, null, 2), 2)
-      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 3), 3)
-      c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 4), 4)
-      c.pNoErrVal(c.limiter.schedule({ weight: 0 }, c.slowPromise, 100, null, 5), 5)
+      return c.limiter.ready()
+      .then(function () {
+        c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 1), 1)
+        c.pNoErrVal(c.limiter.schedule({ weight: 2 }, c.slowPromise, 200, null, 2), 2)
+        c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 3), 3)
+        c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 4), 4)
+        c.pNoErrVal(c.limiter.schedule({ weight: 0 }, c.slowPromise, 100, null, 5), 5)
 
-      c.last(function (err, results) {
+        return c.last()
+      })
+      .then(function (results) {
         c.checkDuration(400)
         c.checkResultsOrder([[1], [2], [3], [4], [5]])
-        done()
       })
     })
 
-    it('Should overflow at the correct rate', function (done) {
+    it('Should overflow at the correct rate', function () {
       var c = makeTest({
         maxConcurrent: 2,
         reservoir: 3
@@ -286,22 +340,30 @@ describe('General', function () {
 
       var promise2 = c.limiter.schedule({ weight: 2 }, c.slowPromise, 150, null, 2)
       c.pNoErrVal(promise2, 2)
-      promise2.then(function () {
-        c.mustEqual(c.limiter.currentReservoir(), 0)
-        c.mustEqual(c.limiter.queued(), 2)
-
-        c.last(function (err, results) {
-          c.mustEqual(c.limiter.currentReservoir(), 0)
-          c.mustEqual(c.limiter.queued(), 2)
-          c.checkDuration(250)
-          c.checkResultsOrder([[1], [2]])
-          done()
-        }, { priority: 1, weight: 0 })
-      })
 
       c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 3), 3)
       c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 100, null, 4), 4)
 
+      return promise2.then(function () {
+        c.mustEqual(c.limiter.queued(), 2)
+        return c.limiter.currentReservoir()
+      })
+      .then(function (reservoir) {
+        c.mustEqual(reservoir, 0)
+        return c.limiter.incrementReservoir(1)
+      })
+      .then(function () {
+        return c.last({ priority: 1, weight: 0 })
+      })
+      .then(function (results) {
+        c.mustEqual(c.limiter.queued(), 1)
+        c.checkDuration(250)
+        c.checkResultsOrder([[1], [2]])
+        return c.limiter.currentReservoir()
+      })
+      .then(function (reservoir) {
+        c.mustEqual(reservoir, 0)
+      })
     })
 
   })

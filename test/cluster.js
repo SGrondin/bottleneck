@@ -88,10 +88,13 @@ describe('Cluster', function () {
     c.mustEqual(cluster1.timeout, 300000)
     c.mustEqual(cluster2.timeout, 5000)
 
-    cluster1.updateSettings({ timeout: 123 })
-    cluster2.updateSettings({ timeout: 456 })
-    c.mustEqual(cluster1.timeout, 123)
-    c.mustEqual(cluster2.timeout, 456)
+    var p1 = cluster1.updateSettings({ timeout: 123 })
+    var p2 = cluster2.updateSettings({ timeout: 456 })
+    return Promise.all([p1, p2])
+    .then(function () {
+      c.mustEqual(cluster1.timeout, 123)
+      c.mustEqual(cluster2.timeout, 456)
+    })
   })
 
 })

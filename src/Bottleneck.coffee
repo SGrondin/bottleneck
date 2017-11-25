@@ -31,7 +31,8 @@ class Bottleneck
     @_nextIndex = 0
     @_limiter = null
     @_events = {}
-    @_store = new Local parser.load options, @storeDefaults, {}
+    @_store = new Local parser.load(options, @storeDefaults, {}), @
+  ready: => @_store._ready
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
     @_events[name].push {cb, status}
@@ -47,16 +48,15 @@ class Bottleneck
       event.cb.apply {}, args
     ), 0
   _makeQueues: -> new DLList() for i in [1..NB_PRIORITIES]
-  chain: (@_limiter) -> @
+  chain: (@_limiter) => @
   _sanitizePriority: (priority) ->
     sProperty = if ~~priority != priority then MIDDLE_PRIORITY else priority
     if sProperty < 0 then 0 else if sProperty > NB_PRIORITIES-1 then NB_PRIORITIES-1 else sProperty
   _find: (arr, fn) -> (do -> for x, i in arr then if fn x then return x) ? []
-  queued: (priority) -> if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
-  running: -> @_store.__running__()
+  queued: (priority) => if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
+  running: => @_store.__running__()
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
-  check: (weight=1) -> @_store.__check__ weight
-  currentReservoir: -> @_store.__currentReservoir__()
+  check: (weight=1) => @_store.__check__ weight
   _run: (queued, wait) ->
     next = @_getFirst(@_queues).shift()
     if queued == 1 then @_trigger "empty", []
@@ -124,21 +124,23 @@ class Bottleneck
     new @Promise (resolve, reject) =>
       @submit.apply {}, Array::concat options, wrapped, args, (args...) ->
         (if args[0]? then reject else args.shift(); resolve).apply {}, args
-  wrap: (fn) -> (args...) => @schedule.apply {}, Array::concat fn, args
-  updateSettings: (options={}) ->
-    @_store.__updateSettings__ parser.overwrite options, @storeDefaults
+  wrap: (fn) => (args...) => @schedule.apply {}, Array::concat fn, args
+  updateSettings: (options={}) =>
+    await @_store.__updateSettings__ parser.overwrite options, @storeDefaults
     parser.overwrite options, @instanceDefaults, @
     while @_tryToRun() then
     @
-  incrementReservoir: (incr=0) ->
-    @_store.__incrementReservoir__ incr
+  currentReservoir: => @_store.__currentReservoir__()
+  incrementReservoir: (incr=0) =>
+    await @_store.__incrementReservoir__ incr
+    while @_tryToRun() then
     @
-  on: (name, cb) -> @_addListener name, "many", cb
-  once: (name, cb) -> @_addListener name, "once", cb
-  removeAllListeners: (name=null) ->
+  on: (name, cb) => @_addListener name, "many", cb
+  once: (name, cb) => @_addListener name, "once", cb
+  removeAllListeners: (name=null) =>
     if name? then delete @_events[name] else @_events = {}
     @
-  stopAll: (@interrupt=@interrupt) ->
+  stopAll: (@interrupt=@interrupt) =>
     keys = Object.keys @_executing
     (clearTimeout @_executing[k].timeout for k in keys)
     @_tryToRun = ->
