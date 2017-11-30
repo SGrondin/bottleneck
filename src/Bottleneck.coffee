@@ -1,8 +1,9 @@
-NB_PRIORITIES = 10
+NUM_PRIORITIES = 10
 MIDDLE_PRIORITY = 5
 parser = require "./parser"
 Local = require "./Local"
 DLList = require "./DLList"
+Sync = require "./Sync"
 class Bottleneck
   Bottleneck.default = Bottleneck
   Bottleneck.strategy = Bottleneck::strategy = { LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3 }
@@ -31,6 +32,8 @@ class Bottleneck
     @_nextIndex = 0
     @_limiter = null
     @_events = {}
+    @_submitLock = new Sync("submit")
+    @_registerLock = new Sync("register")
     @_store = new Local parser.load(options, @storeDefaults, {}), @
   ready: => @_store._ready
   _addListener: (name, status, cb) ->
@@ -38,28 +41,29 @@ class Bottleneck
     @_events[name].push {cb, status}
     @
   _trigger: (name, args) ->
+    console.log ">>>>>>>>>", name, args
     if @rejectOnDrop && name == "dropped"
       args.forEach (job) -> job.cb.apply {}, [new Bottleneck::BottleneckError("This job has been dropped by Bottleneck")]
     return unless @_events[name]?
     @_events[name] = @_events[name].filter (event) -> event.status != "none"
-    setTimeout (=> @_events[name].forEach (event) ->
-      return if event.status == "none"
-      if event.status == "once" then event.status = "none"
-      event.cb.apply {}, args
+    setTimeout (=>
+      @_events[name]?.forEach (event) ->
+        return if event.status == "none"
+        if event.status == "once" then event.status = "none"
+        event.cb.apply {}, args
     ), 0
-  _makeQueues: -> new DLList() for i in [1..NB_PRIORITIES]
+  _makeQueues: -> new DLList() for i in [1..NUM_PRIORITIES]
   chain: (@_limiter) => @
   _sanitizePriority: (priority) ->
     sProperty = if ~~priority != priority then MIDDLE_PRIORITY else priority
-    if sProperty < 0 then 0 else if sProperty > NB_PRIORITIES-1 then NB_PRIORITIES-1 else sProperty
+    if sProperty < 0 then 0 else if sProperty > NUM_PRIORITIES-1 then NUM_PRIORITIES-1 else sProperty
   _find: (arr, fn) -> (do -> for x, i in arr then if fn x then return x) ? []
   queued: (priority) => if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
   running: => @_store.__running__()
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
   check: (weight=1) => @_store.__check__ weight
-  _run: (queued, wait) ->
-    next = @_getFirst(@_queues).shift()
-    if queued == 1 then @_trigger "empty", []
+  _run: (next, wait) ->
+    console.log "Running #{next.args}"
     done = false
     index = @_nextIndex++
     @_executing[index] =
@@ -68,72 +72,90 @@ class Bottleneck
           if not done
             done = true
             delete @_executing[index]
-            { running } = @_store.__free__ next.options.weight
-            while @_tryToRun() then
+            { running } = await @_store.__free__ next.options.weight
+            @_drainAll()
             if running == 0 and @queued() == 0 then @_trigger "idle", []
             if not @interrupt then next.cb?.apply {}, args
         if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.task, next.args, completed
         else next.task.apply {}, next.args.concat completed
       , wait
       job: next
-  _tryToRun: ->
-    if (queued = @queued()) == 0 then return false
-    weight = @_getFirst(@_queues).first().options.weight
-    { success, wait } = @_store.__register__ weight
-    if success
-      # Race condition: __register__ could come back out of order, pass the next job or synchronize
-      @_run queued, wait
-    success
-  _loadJobOptions: (options) -> parser.load options, @jobDefaults
+  _drainOne: ->
+    @_registerLock.schedule =>
+      if (queued = @queued()) == 0 then return Promise.resolve false
+      if queued == 1 then @_trigger "empty", []
+      queue = @_getFirst @_queues
+      weight = queue.first().options.weight
+      console.log "Draining #{queue.first().args}"
+      @_store.__register__ weight
+      .then ({ success, wait }) =>
+        console.log "Drained #{queue.first().args} --", success
+        if success
+          next = queue.shift()
+          @_run next, wait
+        Promise.resolve success
+  _drainAll: ->
+    @_drainOne()
+    .then (success) =>
+      if success then @_drainAll()
+      else Promise.resolve success
   submit: (args...) =>
     if typeof args[0] == "function"
       [task, args..., cb] = args
       options = @jobDefaults
     else
       [options, task, args..., cb] = args
-      options = @_loadJobOptions options
+      options = parser.load options, @jobDefaults
     job = { options, task, args, cb }
     options.priority = @_sanitizePriority options.priority
 
-    { reachedHighWaterMark, blocked, strategy } = @_store.__submit__ @queued(), options.weight
+    console.log "Submitting", job.args
+    @_submitLock.schedule =>
+      try
+        { reachedHWM, blocked, strategy } = await @_store.__submit__ @queued(), options.weight
+        console.log "Submitted #{job.args} --", reachedHWM, blocked
+      catch e
+        job.cb e
+        return false
 
-    if blocked
-      @_queues = @_makeQueues()
-      @_trigger "dropped", [job]
-      return true
-    else if reachedHighWaterMark
-      shifted = if strategy == Bottleneck::strategy.LEAK then @_getFirst(@_queues[options.priority..].reverse()).shift()
-      else if strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_getFirst(@_queues[(options.priority+1)..].reverse()).shift()
-      else if strategy == Bottleneck::strategy.OVERFLOW then job
-      if shifted? then @_trigger "dropped", [shifted]
-      if not shifted? or strategy == Bottleneck::strategy.OVERFLOW then return reachedHighWaterMark
-    @_queues[options.priority].push job
-    @_tryToRun()
-    reachedHighWaterMark
+      if blocked
+        @_queues = @_makeQueues()
+        @_trigger "dropped", [job]
+        return true
+      else if reachedHWM
+        shifted = if strategy == Bottleneck::strategy.LEAK then @_getFirst(@_queues[options.priority..].reverse()).shift()
+        else if strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_getFirst(@_queues[(options.priority+1)..].reverse()).shift()
+        else if strategy == Bottleneck::strategy.OVERFLOW then job
+        if shifted? then @_trigger "dropped", [shifted]
+        if not shifted? or strategy == Bottleneck::strategy.OVERFLOW then return reachedHWM
+      @_queues[options.priority].push job
+      await @_drainAll()
+      reachedHWM
   schedule: (args...) =>
     if typeof args[0] == "function"
       [task, args...] = args
       options = @jobDefaults
     else
       [options, task, args...] = args
-      options = @_loadJobOptions options
+      options = parser.load options, @jobDefaults
     wrapped = (args..., cb) ->
       (task.apply {}, args)
       .then (args...) -> cb.apply {}, Array::concat null, args
       .catch (args...) -> cb.apply {}, args
     new @Promise (resolve, reject) =>
-      @submit.apply {}, Array::concat options, wrapped, args, (args...) ->
+      sub = @submit.apply {}, Array::concat options, wrapped, args, (args...) ->
         (if args[0]? then reject else args.shift(); resolve).apply {}, args
+      sub.catch (err) -> console.log "ERROR while submitting, #{err.message}"
   wrap: (fn) => (args...) => @schedule.apply {}, Array::concat fn, args
   updateSettings: (options={}) =>
     await @_store.__updateSettings__ parser.overwrite options, @storeDefaults
     parser.overwrite options, @instanceDefaults, @
-    while @_tryToRun() then
+    @_drainAll()
     @
   currentReservoir: => @_store.__currentReservoir__()
   incrementReservoir: (incr=0) =>
     await @_store.__incrementReservoir__ incr
-    while @_tryToRun() then
+    @_drainAll()
     @
   on: (name, cb) => @_addListener name, "many", cb
   once: (name, cb) => @_addListener name, "once", cb
@@ -143,7 +165,7 @@ class Bottleneck
   stopAll: (@interrupt=@interrupt) =>
     keys = Object.keys @_executing
     (clearTimeout @_executing[k].timeout for k in keys)
-    @_tryToRun = ->
+    @_drainOne = ->
     @check = -> false
     @submit = (args..., cb) -> cb new Bottleneck::BottleneckError "This limiter is stopped"
     @schedule = -> @Promise.reject(new Bottleneck::BottleneckError "This limiter is stopped")

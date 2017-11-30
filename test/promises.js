@@ -35,7 +35,7 @@ describe('Promises', function () {
   it('Should get rejected when rejectOnDrop is true', function (done) {
     var c = makeTest({
       maxConcurrent: 1,
-      minTime: 250,
+      minTime: 0,
       highWater: 1,
       strategy: Bottleneck.strategy.OVERFLOW,
       rejectOnDrop: true
@@ -52,10 +52,10 @@ describe('Promises', function () {
 
     c.limiter.ready()
     .then(function () {
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+      c.pNoErrVal(c.limiter.schedule(c.slowPromise, 50, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule(c.slowPromise, 50, null, 3), 3)
 
-      return c.limiter.schedule(c.promise, null, 2)
+      return c.limiter.schedule(c.slowPromise, 50, null, 2)
     })
     .catch(function (err) {
       c.mustEqual(err.message, 'This job has been dropped by Bottleneck')

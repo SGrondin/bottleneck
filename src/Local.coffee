@@ -10,7 +10,7 @@ class Local
     @_unblockTime = 0
     @_ready = @yieldLoop()
 
-  yieldLoop: -> new @instance.Promise (resolve, reject) -> setTimeout resolve, 0
+  yieldLoop: (t=0) -> new @instance.Promise (resolve, reject) -> setTimeout resolve, t
 
   computePenalty: -> @penalty ? ((15 * @minTime) or 5000)
 
@@ -41,9 +41,11 @@ class Local
 
   __check__: (weight) ->
     await @yieldLoop()
-    @check weight, Date.now()
+    now = Date.now()
+    @check weight, now
 
   __register__: (weight) ->
+    await @yieldLoop()
     now = Date.now()
     if @conditionsCheck weight
       @_running += weight
@@ -54,17 +56,19 @@ class Local
     else { success: false }
 
   __submit__: (queueLength, weight) ->
+    await @yieldLoop()
     if @maxConcurrent? and weight > @maxConcurrent
       throw new BottleneckError("Impossible to add a job having a weight of #{weight} to a limiter having a maxConcurrent setting of #{@maxConcurrent}")
     now = Date.now()
-    reachedHighWaterMark = @highWater? and queueLength == @highWater and not @check(weight, now)
-    blocked = @strategy == @instance.strategy.BLOCK and (reachedHighWaterMark or @isBlocked now)
+    reachedHWM = @highWater? and queueLength == @highWater and not @check(weight, now)
+    blocked = @strategy == @instance.strategy.BLOCK and (reachedHWM or @isBlocked now)
     if blocked
       @_unblockTime = now + @computePenalty()
       @_nextRequest = @_unblockTime + @minTime
-    { reachedHighWaterMark, blocked, strategy: @strategy }
+    { reachedHWM, blocked, strategy: @strategy }
 
   __free__: (weight) ->
+    await @yieldLoop()
     @_running -= weight
     { running: @_running }
 

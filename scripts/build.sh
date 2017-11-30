@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 if [ ! -d node_modules ]; then
-	echo 'Installing compiler tools...'
+	echo "Running 'npm install' first"
 	sleep 1
 	npm install
 fi

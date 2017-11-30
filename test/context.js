@@ -67,10 +67,11 @@ module.exports = function (options) {
     },
     pNoErrVal: function (promise, ...expected) {
       if (process.env.DEBUG) console.log('In c.pNoErrVal. Expected:', expected)
-      promise.then(function (actual) {
+      return promise.then(function (actual) {
         mustEqual(actual, expected)
       }).catch(function (err) {
-        console.error('!!!!', expected, err)
+        console.error('%%%%', expected, err)
+        // return Promise.reject(err)
       })
     },
     noErrVal: function (...expected) {
@@ -82,6 +83,7 @@ module.exports = function (options) {
     last: function (options) {
       var opt = options != null ? options : {}
       return limiter.schedule(opt, function () { return Promise.resolve(getResults()) })
+      .catch(function (err) { console.error("Error in context.last:", err)})
     },
     wait: function (wait) {
       return new Promise(function (resolve, reject) {
