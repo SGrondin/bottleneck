@@ -3,14 +3,14 @@ DLList = require "./DLList"
 BottleneckError = require "./BottleneckError"
 
 class Local
-  constructor: (options, @instance) ->
+  constructor: (options) ->
     parser.load options, options, @
     @_nextRequest = Date.now()
     @_running = 0
     @_unblockTime = 0
     @_ready = @yieldLoop()
 
-  yieldLoop: (t=0) -> new @instance.Promise (resolve, reject) -> setTimeout resolve, t
+  yieldLoop: (t=0) -> new @Promise (resolve, reject) -> setTimeout resolve, t
 
   computePenalty: -> @penalty ? ((15 * @minTime) or 5000)
 
@@ -55,13 +55,15 @@ class Local
       { success: true, wait }
     else { success: false }
 
+  strategyIsBlock: -> @strategy == 3
+
   __submit__: (queueLength, weight) ->
     await @yieldLoop()
     if @maxConcurrent? and weight > @maxConcurrent
       throw new BottleneckError("Impossible to add a job having a weight of #{weight} to a limiter having a maxConcurrent setting of #{@maxConcurrent}")
     now = Date.now()
     reachedHWM = @highWater? and queueLength == @highWater and not @check(weight, now)
-    blocked = @strategy == @instance.strategy.BLOCK and (reachedHWM or @isBlocked now)
+    blocked = @strategyIsBlock() and (reachedHWM or @isBlocked now)
     if blocked
       @_unblockTime = now + @computePenalty()
       @_nextRequest = @_unblockTime + @minTime

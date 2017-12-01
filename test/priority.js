@@ -4,7 +4,7 @@ var assert = require('assert')
 
 describe('Priority', function () {
   it('Should do basic ordering', function () {
-    var c = makeTest({maxConcurrent: 1, minTime: 250, rejectOnDrop: false})
+    var c = makeTest({maxConcurrent: 1, minTime: 100, rejectOnDrop: false})
 
     return c.limiter.ready()
     .then(function () {
@@ -18,7 +18,7 @@ describe('Priority', function () {
     })
     .then(function (results) {
       c.checkResultsOrder([[1], [5,6], [2] ,[3], [4]])
-      c.checkDuration(1000)
+      c.checkDuration(400)
     })
   })
 
@@ -172,7 +172,7 @@ describe('Priority', function () {
   })
 
   it('Should have the right priority', function () {
-    var c = makeTest({maxConcurrent: 1, minTime: 250})
+    var c = makeTest({maxConcurrent: 1, minTime: 100})
 
     return c.limiter.ready()
     .then(function () {
@@ -183,7 +183,7 @@ describe('Priority', function () {
       return c.last()
     })
     .then(function (results) {
-      c.checkDuration(750)
+      c.checkDuration(300)
       c.checkResultsOrder([[1], [4], [3], [2]])
     })
   })

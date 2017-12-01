@@ -3,7 +3,7 @@ var Bottleneck = require('../lib/index.js')
 
 describe('Promises', function () {
   it('Should support promises', function () {
-    var c = makeTest({maxConcurrent: 1, minTime: 250})
+    var c = makeTest({maxConcurrent: 1, minTime: 100})
 
     return c.limiter.ready()
     .then(function () {
@@ -15,13 +15,13 @@ describe('Promises', function () {
     })
     .then(function (results) {
       c.checkResultsOrder([[1,9], [2], [3], [4,5]])
-      c.checkDuration(750)
+      c.checkDuration(300)
     })
   })
 
   it('Should pass error on failure', function () {
     var failureMessage = 'failed'
-    var c = makeTest({maxConcurrent: 1, minTime: 250})
+    var c = makeTest({maxConcurrent: 1, minTime: 100})
 
     return c.limiter.ready()
     .then(function () {
@@ -68,7 +68,7 @@ describe('Promises', function () {
   })
 
   it('Should wrap', function () {
-    var c = makeTest({maxConcurrent: 1, minTime: 250})
+    var c = makeTest({maxConcurrent: 1, minTime: 100})
 
     return c.limiter.ready()
     .then(function () {
@@ -83,13 +83,13 @@ describe('Promises', function () {
     })
     .then(function (results) {
       c.checkResultsOrder([[1], [2], [3], [4]])
-      c.checkDuration(750)
+      c.checkDuration(300)
     })
   })
 
   it('Should pass errors when wrapped', function () {
     var failureMessage = 'BLEW UP!!!'
-    var c = makeTest({maxConcurrent: 1, minTime: 250})
+    var c = makeTest({maxConcurrent: 1, minTime: 100})
 
     return c.limiter.ready()
     .then(function () {
@@ -105,7 +105,7 @@ describe('Promises', function () {
     })
     .then(function (results) {
       c.checkResultsOrder([[1], [2], [3]])
-      c.checkDuration(500)
+      c.checkDuration(200)
     })
   })
 })

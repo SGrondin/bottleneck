@@ -16,6 +16,10 @@ module.exports = function (options) {
   var start = Date.now()
   var calls = []
   var limiter = new Bottleneck(options)
+  // limiter.on("debug", function (str, args) { console.log(`${Date.now()-start} ${str}`) })
+  limiter.on("error", function (err) {
+    console.log('ERROR EVENT', err)
+  })
   var getResults = function () {
     return {
       elapsed: Date.now() - start,

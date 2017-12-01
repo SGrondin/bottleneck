@@ -100,14 +100,14 @@ describe('General', function () {
       return c.last()
     })
     .then(function (results) {
-      c.checkResultsOrder([[], [1], [3], [2]])
       c.checkDuration(200)
+      c.checkResultsOrder([[], [1], [3], [2]])
     })
   })
 
   describe('Events', function () {
-    it.skip('Should fire events on empty queue', function () {
-      var c = makeTest({maxConcurrent: 1, minTime: 250})
+    it('Should fire events on empty queue', function () {
+      var c = makeTest({maxConcurrent: 1, minTime: 100})
       var calledEmpty = 0
       var calledIdle = 0
 
@@ -116,17 +116,24 @@ describe('General', function () {
         c.limiter.on('empty', function () { calledEmpty++ })
         c.limiter.on('idle', function () { calledIdle++ })
 
-        return c.pNoErrVal(c.limiter.schedule(c.slowPromise, 50, null, 1), 1)
+        return c.pNoErrVal(c.limiter.schedule({id: 1}, c.slowPromise, 50, null, 1), 1)
       })
       .then(function () {
-        console.log(calledEmpty, calledIdle)
+        c.mustEqual(calledEmpty, 1)
+        c.mustEqual(calledIdle, 1)
         return Promise.all([
-          c.pNoErrVal(c.limiter.schedule(c.slowPromise, 50, null, 2), 2),
-          c.pNoErrVal(c.limiter.schedule(c.slowPromise, 50, null, 3), 3)
+          c.pNoErrVal(c.limiter.schedule({id: 2}, c.slowPromise, 50, null, 2), 2),
+          c.pNoErrVal(c.limiter.schedule({id: 3}, c.slowPromise, 50, null, 3), 3)
         ])
       })
       .then(function () {
-        console.log(calledEmpty, calledIdle)
+        return c.limiter.submit({id: 4}, c.slowJob, 50, null, 4, null)
+      })
+      .then(function () {
+        c.checkDuration(250)
+        c.checkResultsOrder([[1], [2], [3]])
+        c.mustEqual(calledEmpty, 3)
+        c.mustEqual(calledIdle, 2)
       })
       .catch(function (err) {
         console.log('ERROR!', err)
@@ -134,32 +141,36 @@ describe('General', function () {
     })
 
     it('Should fire events once', function () {
-      var c = makeTest({maxConcurrent: 1, minTime: 250})
+      var c = makeTest({maxConcurrent: 1, minTime: 100})
+      var calledEmptyOnce = 0
+      var calledIdleOnce = 0
       var calledEmpty = 0
       var calledIdle = 0
 
       return c.limiter.ready()
       .then(function () {
-        c.limiter.once('empty', function () { calledEmpty++ })
-        c.limiter.once('idle', function () { calledIdle++ })
+        c.limiter.once('empty', function () { calledEmptyOnce++ })
+        c.limiter.once('idle', function () { calledIdleOnce++ })
+        c.limiter.on('empty', function () { calledEmpty++ })
+        c.limiter.on('idle', function () { calledIdle++ })
 
-        c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
-        c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
-        c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
-
-        return new Promise(function (resolve, reject) {
-          c.limiter.on('idle', function () {
-            c.limiter.removeAllListeners()
-            return resolve()
-          })
-        })
-        .then(c.last)
-        .then(function (results) {
-          c.checkResultsOrder([[1], [2], [3]])
-          c.checkDuration(500)
-          c.mustEqual(calledEmpty, 1)
-          c.mustEqual(calledIdle, 1)
-        })
+        c.pNoErrVal(c.limiter.schedule(c.slowPromise, 50, null, 1), 1)
+        return c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
+      })
+      .then(function () {
+        c.mustEqual(calledEmptyOnce, 1)
+        c.mustEqual(calledIdleOnce, 1)
+        c.mustEqual(calledEmpty, 1)
+        c.mustEqual(calledIdle, 1)
+        return c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3)
+      })
+      .then(function () {
+        c.checkDuration(200)
+        c.checkResultsOrder([[1], [2], [3]])
+        c.mustEqual(calledEmptyOnce, 1)
+        c.mustEqual(calledIdleOnce, 1)
+        c.mustEqual(calledEmpty, 2)
+        c.mustEqual(calledIdle, 2)
       })
     })
 
@@ -229,7 +240,7 @@ describe('General', function () {
     })
 
     it('Should fail (with BottleneckError) when rejectOnDrop is true', function (done) {
-      var c = makeTest({maxConcurrent: 1, minTime: 250, highWater: 1, rejectOnDrop: true})
+      var c = makeTest({maxConcurrent: 1, minTime: 100, highWater: 1, rejectOnDrop: true})
       var dropped = false
       var checkedError = false
 
