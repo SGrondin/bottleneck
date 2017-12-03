@@ -151,8 +151,8 @@
         return this._store.__check__(weight);
       }
 
-      _run(next, wait) {
-        var done, index;
+      _run(next, wait, index) {
+        var completed, done;
         this._trigger("debug", [
           `Scheduling ${next.options.id}`,
           {
@@ -161,10 +161,31 @@
           }
         ]);
         done = false;
-        index = this._nextIndex++;
+        completed = async(...args) => {
+          var ref, running;
+          if (!done) {
+            done = true;
+            clearTimeout(this._executing[index].expiration);
+            delete this._executing[index];
+            this._trigger("debug", [
+              `Completed ${next.options.id}`,
+              {
+                args: next.args,
+                options: next.options
+              }
+            ]);
+            ({running} = (await this._store.__free__(index, next.options.weight)));
+            this._drainAll();
+            if (running === 0 && this.queued() === 0) {
+              this._trigger("idle", []);
+            }
+            if (!this.interrupt) {
+              return (ref = next.cb) != null ? ref.apply({}, args) : void 0;
+            }
+          }
+        };
         return this._executing[index] = {
           timeout: setTimeout(() => {
-            var completed;
             this._trigger("debug", [
               `Executing ${next.options.id}`,
               {
@@ -172,48 +193,30 @@
                 options: next.options
               }
             ]);
-            completed = async(...args) => {
-              var ref, running;
-              if (!done) {
-                done = true;
-                delete this._executing[index];
-                this._trigger("debug", [
-                  `Completed ${next.options.id}`,
-                  {
-                    args: next.args,
-                    options: next.options
-                  }
-                ]);
-                ({running} = (await this._store.__free__(next.options.weight)));
-                this._drainAll();
-                if (running === 0 && this.queued() === 0) {
-                  this._trigger("idle", []);
-                }
-                if (!this.interrupt) {
-                  return (ref = next.cb) != null ? ref.apply({}, args) : void 0;
-                }
-              }
-            };
             if (this._limiter != null) {
               return this._limiter.submit.apply(this._limiter, Array.prototype.concat(next.task, next.args, completed));
             } else {
               return next.task.apply({}, next.args.concat(completed));
             }
           }, wait),
+          expiration: next.options.expiration != null ? setTimeout(() => {
+            return completed(new Bottleneck.prototype.BottleneckError(`This job timed out after ${next.options.expiration} ms.`));
+          }, next.options.expiration) : void 0,
           job: next
         };
       }
 
       _drainOne() {
         return this._registerLock.schedule(() => {
-          var args, options, queue, queued;
+          var args, index, options, queue, queued;
           if ((queued = this.queued()) === 0) {
             return Promise.resolve(false);
           }
           queue = this._getFirst(this._queues);
           ({options, args} = queue.first());
           this._trigger("debug", [`Draining ${options.id}`, {args, options}]);
-          return this._store.__register__(options.weight).then(({success, wait}) => {
+          index = this._nextIndex++;
+          return this._store.__register__(index, options.weight, options.expiration).then(({success, wait}) => {
             var next;
             this._trigger("debug", [`Drained ${options.id}`, {success, args, options}]);
             if (success) {
@@ -221,7 +224,7 @@
               if (this.queued() === 0 && this._submitLock._queue.length === 0) {
                 this._trigger("empty", []);
               }
-              this._run(next, wait);
+              this._run(next, wait, index);
             }
             return Promise.resolve(success);
           });
@@ -421,6 +424,7 @@
     Bottleneck.prototype.jobDefaults = {
       priority: MIDDLE_PRIORITY,
       weight: 1,
+      expiration: null,
       id: "<no-id>"
     };
 
@@ -625,6 +629,7 @@
       parser.load(options, options, this);
       this._nextRequest = Date.now();
       this._running = 0;
+      this._executing = {};
       this._unblockTime = 0;
       this._ready = this.yieldLoop();
     }
@@ -680,12 +685,21 @@
       return this.check(weight, now);
     }
 
-    async __register__(weight) {
+    async __register__(index, weight, expiration) {
       var now, wait;
       await this.yieldLoop();
       now = Date.now();
       if (this.conditionsCheck(weight)) {
         this._running += weight;
+        this._executing[index] = {
+          timeout: expiration != null ? setTimeout(() => {
+            if (!this._executing[index].freed) {
+              this._executing[index].freed = true;
+              return this._running -= weight;
+            }
+          }, expiration) : void 0,
+          freed: false
+        };
         if (this.reservoir != null) {
           this.reservoir -= weight;
         }
@@ -726,9 +740,13 @@
       };
     }
 
-    async __free__(weight) {
+    async __free__(index, weight) {
       await this.yieldLoop();
-      this._running -= weight;
+      clearTimeout(this._executing[index].timeout);
+      if (!this._executing[index].freed) {
+        this._executing[index].freed = true;
+        this._running -= weight;
+      }
       return {
         running: this._running
       };

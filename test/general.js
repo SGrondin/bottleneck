@@ -389,6 +389,39 @@ describe('General', function () {
         c.mustEqual(reservoir, 0)
       })
     })
+  })
 
+  describe('Expiration', function () {
+    it('Should cancel jobs', function () {
+      var c = makeTest({ maxConcurrent: 2 })
+      var t0 = Date.now()
+
+      return Promise.all([
+        c.pNoErrVal(c.limiter.schedule(c.slowPromise, 150, null, 1), 1),
+        c.limiter.schedule({ expiration: 50 }, c.slowPromise, 75, null, 2)
+        .then(function () {
+          console.log('ERROR: Job still completed')
+          return Promise.reject(new Error("Should have timed out."))
+        })
+        .catch(function (err) {
+          c.mustEqual(err.message, 'This job timed out after 50 ms.')
+          var duration = Date.now() - t0
+          assert(duration > 45 && duration < 80)
+
+          return c.limiter.running()
+        })
+        .then(function (r) {
+          c.mustEqual(r, 1)
+        })
+      ])
+      .then(function () {
+        var duration = Date.now() - t0
+        assert(duration > 145 && duration < 180)
+        return c.limiter.running()
+      })
+      .then(function (r) {
+        c.mustEqual(r, 0)
+      })
+    })
   })
 })

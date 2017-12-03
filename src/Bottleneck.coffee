@@ -9,7 +9,12 @@ class Bottleneck
   Bottleneck.strategy = Bottleneck::strategy = { LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3 }
   Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
   Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
-  jobDefaults: { priority: MIDDLE_PRIORITY, weight: 1, id: "<no-id>" }
+  jobDefaults: {
+    priority: MIDDLE_PRIORITY,
+    weight: 1,
+    expiration: null,
+    id: "<no-id>"
+  }
   storeDefaults: {
     maxConcurrent: null,
     minTime: 0,
@@ -61,25 +66,28 @@ class Bottleneck
   running: => @_store.__running__()
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
   check: (weight=1) => @_store.__check__ weight
-  _run: (next, wait) ->
+  _run: (next, wait, index) ->
     @_trigger "debug", ["Scheduling #{next.options.id}", { args: next.args, options: next.options }]
     done = false
-    index = @_nextIndex++
+    completed = (args...) =>
+      if not done
+        done = true
+        clearTimeout @_executing[index].expiration
+        delete @_executing[index]
+        @_trigger "debug", ["Completed #{next.options.id}", { args: next.args, options: next.options }]
+        { running } = await @_store.__free__ index, next.options.weight
+        @_drainAll()
+        if running == 0 and @queued() == 0 then @_trigger "idle", []
+        if not @interrupt then next.cb?.apply {}, args
     @_executing[index] =
       timeout: setTimeout =>
         @_trigger "debug", ["Executing #{next.options.id}", { args: next.args, options: next.options }]
-        completed = (args...) =>
-          if not done
-            done = true
-            delete @_executing[index]
-            @_trigger "debug", ["Completed #{next.options.id}", { args: next.args, options: next.options }]
-            { running } = await @_store.__free__ next.options.weight
-            @_drainAll()
-            if running == 0 and @queued() == 0 then @_trigger "idle", []
-            if not @interrupt then next.cb?.apply {}, args
         if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.task, next.args, completed
         else next.task.apply {}, next.args.concat completed
       , wait
+      expiration: if next.options.expiration? then setTimeout =>
+        completed new Bottleneck::BottleneckError "This job timed out after #{next.options.expiration} ms."
+      , next.options.expiration
       job: next
   _drainOne: =>
     @_registerLock.schedule =>
@@ -87,13 +95,14 @@ class Bottleneck
       queue = @_getFirst @_queues
       { options, args } = queue.first()
       @_trigger "debug", ["Draining #{options.id}", { args, options }]
-      @_store.__register__ options.weight
+      index = @_nextIndex++
+      @_store.__register__ index, options.weight, options.expiration
       .then ({ success, wait }) =>
         @_trigger "debug", ["Drained #{options.id}", { success, args, options }]
         if success
           next = queue.shift()
           if @queued() == 0 and @_submitLock._queue.length == 0 then @_trigger "empty", []
-          @_run next, wait
+          @_run next, wait, index
         Promise.resolve success
   _drainAll: ->
     @_drainOne()

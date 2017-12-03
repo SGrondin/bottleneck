@@ -7,6 +7,7 @@ class Local
     parser.load options, options, @
     @_nextRequest = Date.now()
     @_running = 0
+    @_executing = {}
     @_unblockTime = 0
     @_ready = @yieldLoop()
 
@@ -44,11 +45,18 @@ class Local
     now = Date.now()
     @check weight, now
 
-  __register__: (weight) ->
+  __register__: (index, weight, expiration) ->
     await @yieldLoop()
     now = Date.now()
     if @conditionsCheck weight
       @_running += weight
+      @_executing[index] =
+        timeout: if expiration? then setTimeout =>
+          if not @_executing[index].freed
+            @_executing[index].freed = true
+            @_running -= weight
+        , expiration
+        freed: false
       if @reservoir? then @reservoir -= weight
       wait = Math.max @_nextRequest-now, 0
       @_nextRequest = now + wait + @minTime
@@ -69,9 +77,12 @@ class Local
       @_nextRequest = @_unblockTime + @minTime
     { reachedHWM, blocked, strategy: @strategy }
 
-  __free__: (weight) ->
+  __free__: (index, weight) ->
     await @yieldLoop()
-    @_running -= weight
+    clearTimeout @_executing[index].timeout
+    if not @_executing[index].freed
+      @_executing[index].freed = true
+      @_running -= weight
     { running: @_running }
 
 module.exports = Local
