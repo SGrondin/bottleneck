@@ -9,7 +9,7 @@ class Local
     @_running = 0
     @_executing = {}
     @_unblockTime = 0
-    @_ready = @yieldLoop()
+    @ready = @yieldLoop()
 
   yieldLoop: (t=0) -> new @Promise (resolve, reject) -> setTimeout resolve, t
 

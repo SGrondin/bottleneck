@@ -1,16 +1,19 @@
 NUM_PRIORITIES = 10
-MIDDLE_PRIORITY = 5
+DEFAULT_PRIORITY = 5
 parser = require "./parser"
 Local = require "./Local"
+RedisStorage = require "./RedisStorage"
 DLList = require "./DLList"
 Sync = require "./Sync"
+packagejson = require "../package.json"
 class Bottleneck
   Bottleneck.default = Bottleneck
+  Bottleneck.version = Bottleneck::version = packagejson.version
   Bottleneck.strategy = Bottleneck::strategy = { LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3 }
   Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
   Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
   jobDefaults: {
-    priority: MIDDLE_PRIORITY,
+    priority: DEFAULT_PRIORITY,
     weight: 1,
     expiration: null,
     id: "<no-id>"
@@ -22,9 +25,16 @@ class Bottleneck
     strategy: Bottleneck::strategy.LEAK,
     penalty: null,
     reservoir: null,
+  }
+  storeInstanceDefaults: {
+    clientOptions: {
+    },
+    clearDatastore: false,
     Promise: Promise
   }
   instanceDefaults: {
+    datastore: "local",
+    id: "<no-id>",
     rejectOnDrop: true,
     interrupt: false,
     Promise: Promise
@@ -40,8 +50,11 @@ class Bottleneck
     @_events = {}
     @_submitLock = new Sync("submit")
     @_registerLock = new Sync("register")
-    @_store = new Local parser.load options, @storeDefaults, {}
-  ready: => @_store._ready
+    sDefaults = parser.load options, @storeDefaults, {}
+    @_store = if @datastore == "local" then new Local parser.load options, @storeInstanceDefaults, sDefaults
+    else if @datastore == "redis" then new RedisStorage sDefaults, parser.load options, @storeInstanceDefaults, {}
+    else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
+  ready: => @_store.ready
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
     @_events[name].push {cb, status}
@@ -59,7 +72,7 @@ class Bottleneck
   _makeQueues: -> new DLList() for i in [1..NUM_PRIORITIES]
   chain: (@_limiter) => @
   _sanitizePriority: (priority) ->
-    sProperty = if ~~priority != priority then MIDDLE_PRIORITY else priority
+    sProperty = if ~~priority != priority then DEFAULT_PRIORITY else priority
     if sProperty < 0 then 0 else if sProperty > NUM_PRIORITIES-1 then NUM_PRIORITIES-1 else sProperty
   _find: (arr, fn) -> (do -> for x, i in arr then if fn x then return x) ? []
   queued: (priority) => if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
@@ -91,7 +104,7 @@ class Bottleneck
       job: next
   _drainOne: =>
     @_registerLock.schedule =>
-      if (queued = @queued()) == 0 then return Promise.resolve false
+      if (queued = @queued()) == 0 then return @Promise.resolve false
       queue = @_getFirst @_queues
       { options, args } = queue.first()
       @_trigger "debug", ["Draining #{options.id}", { args, options }]
@@ -103,12 +116,12 @@ class Bottleneck
           next = queue.shift()
           if @queued() == 0 and @_submitLock._queue.length == 0 then @_trigger "empty", []
           @_run next, wait, index
-        Promise.resolve success
+        @Promise.resolve success
   _drainAll: ->
     @_drainOne()
     .then (success) =>
       if success then @_drainAll()
-      else Promise.resolve success
+      else @Promise.resolve success
     .catch (e) => @_trigger "error", [e]
   submit: (args...) =>
     if typeof args[0] == "function"

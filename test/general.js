@@ -4,7 +4,7 @@ var assert = require('assert')
 
 describe('General', function () {
 
-  it('Should prompt to upgrade', function () {
+  it.only('Should prompt to upgrade', function () {
     var c = makeTest()
     try {
       var limiter = new Bottleneck(1, 250)

@@ -2,7 +2,7 @@ global.TEST = true
 var Bottleneck = require('../lib/index.js')
 var assert = require('assert')
 
-module.exports = function (options) {
+module.exports = function (options={}) {
   var mustEqual = function (a, b) {
     var strA = JSON.stringify(a)
     var strB = JSON.stringify(b)
@@ -15,6 +15,8 @@ module.exports = function (options) {
   // OTHERS
   var start = Date.now()
   var calls = []
+  options.datastore = 'redis'
+  options.clearDatastore = true
   var limiter = new Bottleneck(options)
   // limiter.on("debug", function (str, args) { console.log(`${Date.now()-start} ${str}`) })
   limiter.on("error", function (err) {
