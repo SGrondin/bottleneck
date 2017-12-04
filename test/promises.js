@@ -1,9 +1,19 @@
 var makeTest = require('./context')
 var Bottleneck = require('../lib/index.js')
+var assert = require('assert')
 
 describe('Promises', function () {
+  var c
+
+  afterEach(function () {
+    if (c.limiter.datastore === 'redis') {
+      var client = c.limiter.redisClient()
+      client.end(false)
+    }
+  })
+
   it('Should support promises', function () {
-    var c = makeTest({maxConcurrent: 1, minTime: 100})
+    c = makeTest({maxConcurrent: 1, minTime: 100})
 
     return c.limiter.ready()
     .then(function () {
@@ -21,7 +31,7 @@ describe('Promises', function () {
 
   it('Should pass error on failure', function () {
     var failureMessage = 'failed'
-    var c = makeTest({maxConcurrent: 1, minTime: 100})
+    c = makeTest({maxConcurrent: 1, minTime: 100})
 
     return c.limiter.ready()
     .then(function () {
@@ -32,43 +42,47 @@ describe('Promises', function () {
     })
   })
 
-  it('Should get rejected when rejectOnDrop is true', function (done) {
-    var c = makeTest({
+  it('Should get rejected when rejectOnDrop is true', function () {
+    c = makeTest({
       maxConcurrent: 1,
       minTime: 0,
       highWater: 1,
       strategy: Bottleneck.strategy.OVERFLOW,
       rejectOnDrop: true
     })
-    var dropped = false
-    var checkedError = false
+    var dropped = 0
+    var caught = 0
+    var p1
+    var p2
 
     c.limiter.on('dropped', function () {
-      dropped = true
-      if (dropped && checkedError) {
-        done()
-      }
+      dropped++
     })
 
-    c.limiter.ready()
+    return c.limiter.ready()
     .then(function () {
-      c.pNoErrVal(c.limiter.schedule(c.slowPromise, 50, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule(c.slowPromise, 50, null, 3), 3)
+      p1 = c.pNoErrVal(c.limiter.schedule({id: 1}, c.slowPromise, 50, null, 1), 1)
+      p2 = c.pNoErrVal(c.limiter.schedule({id: 2}, c.slowPromise, 50, null, 2), 2)
 
-      return c.limiter.schedule(c.slowPromise, 50, null, 2)
+      return c.limiter.schedule({id: 3}, c.slowPromise, 50, null, 3)
     })
     .catch(function (err) {
       c.mustEqual(err.message, 'This job has been dropped by Bottleneck')
-      checkedError = true
-      if (dropped && checkedError) {
-        done()
-      }
+      assert(err instanceof Bottleneck.BottleneckError)
+      caught++
+      return Promise.all([p1, p2])
     })
-
+    .then(c.last)
+    .then(function (results) {
+      c.checkResultsOrder([[1], [2]])
+      c.checkDuration(100)
+      c.mustEqual(dropped, 1)
+      c.mustEqual(caught, 1)
+    })
   })
 
   it('Should wrap', function () {
-    var c = makeTest({maxConcurrent: 1, minTime: 100})
+    c = makeTest({maxConcurrent: 1, minTime: 100})
 
     return c.limiter.ready()
     .then(function () {
@@ -89,7 +103,7 @@ describe('Promises', function () {
 
   it('Should pass errors when wrapped', function () {
     var failureMessage = 'BLEW UP!!!'
-    var c = makeTest({maxConcurrent: 1, minTime: 100})
+    c = makeTest({maxConcurrent: 1, minTime: 100})
 
     return c.limiter.ready()
     .then(function () {

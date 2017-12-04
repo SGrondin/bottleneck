@@ -2,8 +2,17 @@ var makeTest = require('./context')
 var Bottleneck = require('../lib/index.js')
 
 describe('Cluster', function () {
+  var c
+
+  afterEach(function () {
+    if (c.limiter.datastore === 'redis') {
+      var client = c.limiter.redisClient()
+      client.end(false)
+    }
+  })
+
   it('Should make Clusters', function (done) {
-    var c = makeTest()
+    c = makeTest()
     var cluster = new Bottleneck.Cluster({
       maxConcurrent: 1, minTime: 100
     })
@@ -39,7 +48,7 @@ describe('Cluster', function () {
 
   it('Should pass error on failure', function (done) {
     var failureMessage = 'SOMETHING BLEW UP!!'
-    var c = makeTest()
+    c = makeTest()
     var cluster = new Bottleneck.Cluster({
       maxConcurrent: 1, minTime: 100
     })
@@ -77,7 +86,7 @@ describe('Cluster', function () {
   })
 
   it('Should update its settings', function () {
-    var c = makeTest()
+    c = makeTest()
     var cluster1 = new Bottleneck.Cluster({
       maxConcurrent: 1, minTime: 100
     })

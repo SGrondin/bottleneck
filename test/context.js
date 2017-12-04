@@ -13,14 +13,24 @@ module.exports = function (options={}) {
   }
 
   // OTHERS
-  var start = Date.now()
+  var start
   var calls = []
-  options.datastore = 'redis'
-  options.clearDatastore = true
+  options.datastore = 'local'
+  if (options.datastore == null) {
+    options.datastore = 'redis'
+    options.clearDatastore = true
+    options.clientOptions = {
+      host: "127.0.0.1",
+      port: 6379
+    }
+  }
   var limiter = new Bottleneck(options)
   // limiter.on("debug", function (str, args) { console.log(`${Date.now()-start} ${str}`) })
   limiter.on("error", function (err) {
     console.log('ERROR EVENT', err)
+  })
+  limiter.ready().then(function (client) {
+    start = Date.now()
   })
   var getResults = function () {
     return {

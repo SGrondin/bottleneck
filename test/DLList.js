@@ -1,7 +1,6 @@
-var makeTest = require('./context')
 var DLList = require('../lib/DLList')
 var assert = require('assert')
-var c = require('./context')()
+var c = require('./context')({datastore: 'local'})
 
 describe('DLList', function () {
 

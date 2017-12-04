@@ -25,6 +25,7 @@
       constructor(options = {}, ...invalid) {
         var sDefaults;
         this.ready = this.ready.bind(this);
+        this.redisClient = this.redisClient.bind(this);
         this.chain = this.chain.bind(this);
         this.queued = this.queued.bind(this);
         this.running = this.running.bind(this);
@@ -65,6 +66,10 @@
 
       ready() {
         return this._store.ready;
+      }
+
+      redisClient() {
+        return this._store.client;
       }
 
       _addListener(name, status, cb) {
@@ -176,25 +181,39 @@
         ]);
         done = false;
         completed = async(...args) => {
-          var ref, running;
+          var e, ref, running;
           if (!done) {
-            done = true;
-            clearTimeout(this._executing[index].expiration);
-            delete this._executing[index];
-            this._trigger("debug", [
-              `Completed ${next.options.id}`,
-              {
-                args: next.args,
-                options: next.options
+            try {
+              done = true;
+              clearTimeout(this._executing[index].expiration);
+              delete this._executing[index];
+              this._trigger("debug", [
+                `Completed ${next.options.id}`,
+                {
+                  args: next.args,
+                  options: next.options
+                }
+              ]);
+              ({running} = (await this._store.__free__(index, next.options.weight)));
+              this._trigger("debug", [
+                `Freed ${next.options.id}`,
+                {
+                  args: next.args,
+                  options: next.options
+                }
+              ]);
+              this._drainAll().catch((e) => {
+                return this._trigger("error", [e]);
+              });
+              if (running === 0 && this.queued() === 0) {
+                this._trigger("idle", []);
               }
-            ]);
-            ({running} = (await this._store.__free__(index, next.options.weight)));
-            this._drainAll();
-            if (running === 0 && this.queued() === 0) {
-              this._trigger("idle", []);
-            }
-            if (!this.interrupt) {
-              return (ref = next.cb) != null ? ref.apply({}, args) : void 0;
+              if (!this.interrupt) {
+                return (ref = next.cb) != null ? ref.apply({}, args) : void 0;
+              }
+            } catch (error) {
+              e = error;
+              return this._trigger("error", [e]);
             }
           }
         };
@@ -327,7 +346,7 @@
         return new this.Promise((resolve, reject) => {
           return this.submit.apply({}, Array.prototype.concat(options, wrapped, args, function(...args) {
             return (args[0] != null ? reject : (args.shift(), resolve)).apply({}, args);
-          })).catch(function(e) {
+          })).catch((e) => {
             return this._trigger("error", [e]);
           });
         });
@@ -342,7 +361,9 @@
       async updateSettings(options = {}) {
         await this._store.__updateSettings__(parser.overwrite(options, this.storeDefaults));
         parser.overwrite(options, this.instanceDefaults, this);
-        this._drainAll();
+        this._drainAll().catch((e) => {
+          return this._trigger("error", [e]);
+        });
         return this;
       }
 
@@ -352,7 +373,9 @@
 
       async incrementReservoir(incr = 0) {
         await this._store.__incrementReservoir__(incr);
-        this._drainAll();
+        this._drainAll().catch((e) => {
+          return this._trigger("error", [e]);
+        });
         return this;
       }
 
@@ -454,11 +477,7 @@
     };
 
     Bottleneck.prototype.storeInstanceDefaults = {
-      clientOptions: {
-        host: "redis-18583.c11.us-east-1-3.ec2.cloud.redislabs.com",
-        port: 18583,
-        password: "whatever"
-      },
+      clientOptions: {},
       clearDatastore: false,
       Promise: Promise
     };
@@ -857,7 +876,7 @@
     } else {
         return libraries['refresh_running'] = data.toString('utf8');
     }
-})(null,Buffer("bG9jYWwgcmVmcmVzaF9ydW5uaW5nID0gZnVuY3Rpb24gKGV4ZWN1dGluZ19rZXksIHJ1bm5pbmdfa2V5LCBzZXR0aW5nc19rZXksIG5vdykKCiAgbG9jYWwgZXhwaXJlZCA9IHJlZGlzLmNhbGwoJ3pyYW5nZWJ5c2NvcmUnLCBleGVjdXRpbmdfa2V5LCAnLWluZicsICcoJy4ubm93KQoKICBpZiAjZXhwaXJlZCA9PSAwIHRoZW4KICAgIHJldHVybiByZWRpcy5jYWxsKCdoZ2V0Jywgc2V0dGluZ3Nfa2V5LCAncnVubmluZycpCiAgZWxzZQogICAgcmVkaXMuY2FsbCgnenJlbXJhbmdlYnlzY29yZScsIGV4ZWN1dGluZ19rZXksICctaW5mJywgJygnLi5ub3cpCgogICAgbG9jYWwgYXJncyA9IHsnaG1nZXQnLCBydW5uaW5nX2tleX0KICAgIGZvciBpID0gMSwgI2V4cGlyZWQgZG8KICAgICAgdGFibGUuaW5zZXJ0KGFyZ3MsIGV4cGlyZWRbaV0pCiAgICBlbmQKCiAgICBsb2NhbCB3ZWlnaHRzID0gcmVkaXMuY2FsbCh1bnBhY2soYXJncykpCgogICAgYXJnc1sxXSA9ICdoZGVsJwogICAgbG9jYWwgZGVsZXRlZCA9IHJlZGlzLmNhbGwodW5wYWNrKGFyZ3MpKQoKICAgIGxvY2FsIHRvdGFsID0gMAogICAgZm9yIGkgPSAxLCAjd2VpZ2h0cyBkbwoKICAgICAgdG90YWwgPSB0b3RhbCArICh0b251bWJlcih3ZWlnaHRzW2ldKSBvciAwKQogICAgZW5kCiAgICBsb2NhbCBpbmNyID0gLXRvdGFsCgogICAgcmV0dXJuIHJlZGlzLmNhbGwoJ2hpbmNyYnknLCBzZXR0aW5nc19rZXksICdydW5uaW5nJywgaW5jcikKICBlbmQKCmVuZAo=","base64"))});
+})(null,Buffer("bG9jYWwgcmVmcmVzaF9ydW5uaW5nID0gZnVuY3Rpb24gKGV4ZWN1dGluZ19rZXksIHJ1bm5pbmdfa2V5LCBzZXR0aW5nc19rZXksIG5vdykKCiAgbG9jYWwgZXhwaXJlZCA9IHJlZGlzLmNhbGwoJ3pyYW5nZWJ5c2NvcmUnLCBleGVjdXRpbmdfa2V5LCAnLWluZicsICcoJy4ubm93KQoKICBpZiAjZXhwaXJlZCA9PSAwIHRoZW4KICAgIHJldHVybiByZWRpcy5jYWxsKCdoZ2V0Jywgc2V0dGluZ3Nfa2V5LCAncnVubmluZycpCiAgZWxzZQogICAgcmVkaXMuY2FsbCgnenJlbXJhbmdlYnlzY29yZScsIGV4ZWN1dGluZ19rZXksICctaW5mJywgJygnLi5ub3cpCgogICAgbG9jYWwgYXJncyA9IHsnaG1nZXQnLCBydW5uaW5nX2tleX0KICAgIGZvciBpID0gMSwgI2V4cGlyZWQgZG8KICAgICAgdGFibGUuaW5zZXJ0KGFyZ3MsIGV4cGlyZWRbaV0pCiAgICBlbmQKCiAgICBsb2NhbCB3ZWlnaHRzID0gcmVkaXMuY2FsbCh1bnBhY2soYXJncykpCgogICAgYXJnc1sxXSA9ICdoZGVsJwogICAgbG9jYWwgZGVsZXRlZCA9IHJlZGlzLmNhbGwodW5wYWNrKGFyZ3MpKQoKICAgIGxvY2FsIHRvdGFsID0gMAogICAgZm9yIGkgPSAxLCAjd2VpZ2h0cyBkbwoKICAgICAgdG90YWwgPSB0b3RhbCArICh0b251bWJlcih3ZWlnaHRzW2ldKSBvciAwKQogICAgZW5kCiAgICBsb2NhbCBpbmNyID0gLXRvdGFsCiAgICBpZiB0b3RhbCA9PSAwIHRoZW4KICAgICAgaW5jciA9IDAKICAgIGVuZAoKICAgIHJldHVybiByZWRpcy5jYWxsKCdoaW5jcmJ5Jywgc2V0dGluZ3Nfa2V5LCAncnVubmluZycsIGluY3IpCiAgZW5kCgplbmQK","base64"))});
 
   process.nextTick(function(){(function (err, data) {
     if (err != null) {
@@ -881,7 +900,7 @@
     } else {
         return scripts['running'].code = data.toString('utf8');
     }
-})(null,Buffer("cmVkaXMucmVwbGljYXRlX2NvbW1hbmRzKCkKbG9jYWwgc2V0dGluZ3Nfa2V5ID0gS0VZU1sxXQpsb2NhbCBydW5uaW5nX2tleSA9IEtFWVNbMl0KbG9jYWwgZXhlY3V0aW5nX2tleSA9IEtFWVNbM10KbG9jYWwgbm93ID0gQVJHVlsxXQoKcmV0dXJuIHJlZnJlc2hfcnVubmluZyhleGVjdXRpbmdfa2V5LCBydW5uaW5nX2tleSwgc2V0dGluZ3Nfa2V5LCBub3cpCg==","base64"))});
+})(null,Buffer("cmVkaXMucmVwbGljYXRlX2NvbW1hbmRzKCkKbG9jYWwgc2V0dGluZ3Nfa2V5ID0gS0VZU1sxXQpsb2NhbCBydW5uaW5nX2tleSA9IEtFWVNbMl0KbG9jYWwgZXhlY3V0aW5nX2tleSA9IEtFWVNbM10KbG9jYWwgbm93ID0gQVJHVlsxXQoKcmV0dXJuIHRvbnVtYmVyKHJlZnJlc2hfcnVubmluZyhleGVjdXRpbmdfa2V5LCBydW5uaW5nX2tleSwgc2V0dGluZ3Nfa2V5LCBub3cpKQo=","base64"))});
 
   process.nextTick(function(){(function (err, data) {
     if (err != null) {
@@ -913,7 +932,7 @@
     } else {
         return scripts['register'].code = data.toString('utf8');
     }
-})(null,Buffer("cmVkaXMucmVwbGljYXRlX2NvbW1hbmRzKCkKbG9jYWwgc2V0dGluZ3Nfa2V5ID0gS0VZU1sxXQpsb2NhbCBydW5uaW5nX2tleSA9IEtFWVNbMl0KbG9jYWwgZXhlY3V0aW5nX2tleSA9IEtFWVNbM10KCmxvY2FsIGluZGV4ID0gQVJHVlsxXQpsb2NhbCB3ZWlnaHQgPSB0b251bWJlcihBUkdWWzJdKQpsb2NhbCBleHBpcmF0aW9uID0gdG9udW1iZXIoQVJHVlszXSkKbG9jYWwgbm93ID0gdG9udW1iZXIoQVJHVls0XSkKCmxvY2FsIHJ1bm5pbmcgPSB0b251bWJlcihyZWZyZXNoX3J1bm5pbmcoZXhlY3V0aW5nX2tleSwgcnVubmluZ19rZXksIHNldHRpbmdzX2tleSwgbm93KSkKbG9jYWwgc2V0dGluZ3MgPSByZWRpcy5jYWxsKCdobWdldCcsIHNldHRpbmdzX2tleSwKICAnbWF4Q29uY3VycmVudCcsCiAgJ3Jlc2Vydm9pcicsCiAgJ25leHRSZXF1ZXN0JywKICAnbWluVGltZScKKQpsb2NhbCBtYXhDb25jdXJyZW50ID0gdG9udW1iZXIoc2V0dGluZ3NbMV0pCmxvY2FsIHJlc2Vydm9pciA9IHRvbnVtYmVyKHNldHRpbmdzWzJdKQpsb2NhbCBuZXh0UmVxdWVzdCA9IHRvbnVtYmVyKHNldHRpbmdzWzNdKQpsb2NhbCBtaW5UaW1lID0gdG9udW1iZXIoc2V0dGluZ3NbNF0pCgppZiBjb25kaXRpb25zX2NoZWNrKHdlaWdodCwgbWF4Q29uY3VycmVudCwgcnVubmluZywgcmVzZXJ2b2lyKSB0aGVuCgogIC0tIEBfcnVubmluZyArPSB3ZWlnaHQKICBpZiBleHBpcmF0aW9uIH49IG5pbCB0aGVuCiAgICByZWRpcy5jYWxsKCd6YWRkJywgZXhlY3V0aW5nX2tleSwgbm93ICsgZXhwaXJhdGlvbiwgaW5kZXgpCiAgZW5kCiAgcmVkaXMuY2FsbCgnaHNldCcsIHJ1bm5pbmdfa2V5LCBpbmRleCwgd2VpZ2h0KQogIHJlZGlzLmNhbGwoJ2hpbmNyYnknLCBzZXR0aW5nc19rZXksICdydW5uaW5nJywgd2VpZ2h0KQoKICBsb2NhbCB3YWl0ID0gbWF0aC5tYXgobmV4dFJlcXVlc3QgLSBub3csIDApCgogIHJlZGlzLmNhbGwoJ2htc2V0Jywgc2V0dGluZ3Nfa2V5LAogICAgJ3Jlc2Vydm9pcicsIHJlc2Vydm9pciBvciAnJywKICAgICduZXh0UmVxdWVzdCcsIG5vdyArIHdhaXQgKyBtaW5UaW1lCiAgKQoKICByZXR1cm4ge3RydWUsIHdhaXR9CgplbHNlCiAgcmV0dXJuIHtmYWxzZX0KZW5kCg==","base64"))});
+})(null,Buffer("cmVkaXMucmVwbGljYXRlX2NvbW1hbmRzKCkKbG9jYWwgc2V0dGluZ3Nfa2V5ID0gS0VZU1sxXQpsb2NhbCBydW5uaW5nX2tleSA9IEtFWVNbMl0KbG9jYWwgZXhlY3V0aW5nX2tleSA9IEtFWVNbM10KCmxvY2FsIGluZGV4ID0gQVJHVlsxXQpsb2NhbCB3ZWlnaHQgPSB0b251bWJlcihBUkdWWzJdKQpsb2NhbCBleHBpcmF0aW9uID0gdG9udW1iZXIoQVJHVlszXSkKbG9jYWwgbm93ID0gdG9udW1iZXIoQVJHVls0XSkKCmxvY2FsIHJ1bm5pbmcgPSB0b251bWJlcihyZWZyZXNoX3J1bm5pbmcoZXhlY3V0aW5nX2tleSwgcnVubmluZ19rZXksIHNldHRpbmdzX2tleSwgbm93KSkKbG9jYWwgc2V0dGluZ3MgPSByZWRpcy5jYWxsKCdobWdldCcsIHNldHRpbmdzX2tleSwKICAnbWF4Q29uY3VycmVudCcsCiAgJ3Jlc2Vydm9pcicsCiAgJ25leHRSZXF1ZXN0JywKICAnbWluVGltZScKKQpsb2NhbCBtYXhDb25jdXJyZW50ID0gdG9udW1iZXIoc2V0dGluZ3NbMV0pCmxvY2FsIHJlc2Vydm9pciA9IHRvbnVtYmVyKHNldHRpbmdzWzJdKQpsb2NhbCBuZXh0UmVxdWVzdCA9IHRvbnVtYmVyKHNldHRpbmdzWzNdKQpsb2NhbCBtaW5UaW1lID0gdG9udW1iZXIoc2V0dGluZ3NbNF0pCgppZiBjb25kaXRpb25zX2NoZWNrKHdlaWdodCwgbWF4Q29uY3VycmVudCwgcnVubmluZywgcmVzZXJ2b2lyKSB0aGVuCgogIGlmIGV4cGlyYXRpb24gfj0gbmlsIHRoZW4KICAgIHJlZGlzLmNhbGwoJ3phZGQnLCBleGVjdXRpbmdfa2V5LCBub3cgKyBleHBpcmF0aW9uLCBpbmRleCkKICBlbmQKICByZWRpcy5jYWxsKCdoc2V0JywgcnVubmluZ19rZXksIGluZGV4LCB3ZWlnaHQpCiAgcmVkaXMuY2FsbCgnaGluY3JieScsIHNldHRpbmdzX2tleSwgJ3J1bm5pbmcnLCB3ZWlnaHQpCgogIGxvY2FsIHdhaXQgPSBtYXRoLm1heChuZXh0UmVxdWVzdCAtIG5vdywgMCkKCiAgaWYgcmVzZXJ2b2lyID09IG5pbCB0aGVuCiAgICByZWRpcy5jYWxsKCdoc2V0Jywgc2V0dGluZ3Nfa2V5LAogICAgJ25leHRSZXF1ZXN0Jywgbm93ICsgd2FpdCArIG1pblRpbWUKICAgICkKICBlbHNlCiAgICByZWRpcy5jYWxsKCdobXNldCcsIHNldHRpbmdzX2tleSwKICAgICAgJ3Jlc2Vydm9pcicsIHJlc2Vydm9pciAtIHdlaWdodCwKICAgICAgJ25leHRSZXF1ZXN0Jywgbm93ICsgd2FpdCArIG1pblRpbWUKICAgICkKICBlbmQKCiAgcmV0dXJuIHt0cnVlLCB3YWl0fQoKZWxzZQogIHJldHVybiB7ZmFsc2V9CmVuZAo=","base64"))});
 
   process.nextTick(function(){(function (err, data) {
     if (err != null) {
@@ -965,7 +984,8 @@
         args.unshift((options.clearDatastore ? 1 : 0));
         return this.runScript("init", args);
       }).then((results) => {
-        return console.log(this.shas);
+        // console.log @shas
+        return this.client;
       });
     }
 
@@ -1024,11 +1044,10 @@
         script = scripts[name];
         arr = [this.shas[name], script.keys.length].concat(script.keys, args, function(err, replies) {
           if (err != null) {
-            reject(err);
+            return reject(err);
           }
           return resolve(replies);
         });
-        console.log(`Calling ${name}`, JSON.stringify(arr));
         return this.client.evalsha.bind(this.client).apply({}, arr);
       });
     }
@@ -1037,18 +1056,12 @@
       return !!b;
     }
 
-    yieldLoop(t = 0) {
-      return new this.Promise(function(resolve, reject) {
-        return setTimeout(resolve, t);
-      });
-    }
-
     __updateSettings__(options) {
       return this.runScript("updateSettings", this.prepareObject(options));
     }
 
-    __running__() {
-      return this.runScript("running", [Date.now()]);
+    async __running__() {
+      return (await this.runScript("running", [Date.now()]));
     }
 
     __incrementReservoir__(incr) {
@@ -1056,7 +1069,7 @@
     }
 
     __currentReservoir__() {
-      return this.runScript("current_reservoir", this.prepareArray([false]));
+      return this.runScript("current_reservoir", this.prepareArray([]));
     }
 
     async __check__(weight) {
@@ -1067,8 +1080,6 @@
       var success, wait;
       [success, wait] = (await this.runScript("register", this.prepareArray([index, weight, expiration, Date.now()])));
       return {
-        // console.log "&&&&&&&", @convertBool(success), wait
-        // throw new BottleneckError "WOOOOP"
         success: this.convertBool(success),
         wait
       };
@@ -1079,9 +1090,6 @@
       try {
         [reachedHWM, blocked, strategy] = (await this.runScript("submit", this.prepareArray([queueLength, weight, Date.now()])));
         return {
-          // console.log(@convertBool(reachedHWM), @convertBool(blocked), strategy)
-
-          // throw new BottleneckError "DERRP"
           reachedHWM: this.convertBool(reachedHWM),
           blocked: this.convertBool(blocked),
           strategy
@@ -1101,7 +1109,6 @@
       var result;
       result = (await this.runScript("free", this.prepareArray([index, Date.now()])));
       return {
-        // console.log('FREEEEE, RUNNING:', result)
         running: result
       };
     }

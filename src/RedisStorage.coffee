@@ -53,7 +53,7 @@ class RedisStorage
   constructor: (initSettings, options) ->
     if not redis? then require "redis" # Triggers an error on purpose
     parser.load options, options, @
-    @client = redis.createClient(@clientOptions)
+    @client = redis.createClient @clientOptions
     @shas = {}
 
     @ready = new @Promise (resolve, reject) =>
@@ -70,7 +70,8 @@ class RedisStorage
       args.unshift (if options.clearDatastore then 1 else 0)
       @runScript "init", args
     .then (results) =>
-      console.log @shas
+      # console.log @shas
+      @client
 
   loadScript: (name) ->
     new @Promise (resolve, reject) =>
@@ -95,29 +96,24 @@ class RedisStorage
     new @Promise (resolve, reject) =>
       script = scripts[name]
       arr = [@shas[name], script.keys.length].concat script.keys, args, (err, replies) ->
-        if err? then reject err
+        if err? then return reject err
         return resolve replies
-      console.log "Calling #{name}", JSON.stringify arr
       @client.evalsha.bind(@client).apply {}, arr
 
   convertBool: (b) -> !!b
 
-  yieldLoop: (t=0) -> new @Promise (resolve, reject) -> setTimeout resolve, t
-
   __updateSettings__: (options) -> @runScript "updateSettings", @prepareObject options
 
-  __running__: -> @runScript "running", [Date.now()]
+  __running__: -> await @runScript "running", [Date.now()]
 
   __incrementReservoir__: (incr) -> @runScript "increment_reservoir", [incr]
 
-  __currentReservoir__: -> @runScript "current_reservoir", @prepareArray [false]
+  __currentReservoir__: -> @runScript "current_reservoir", @prepareArray []
 
   __check__: (weight) -> @convertBool await @runScript "check", @prepareArray [weight, Date.now()]
 
   __register__: (index, weight, expiration) ->
     [success, wait] = await @runScript "register", @prepareArray [index, weight, expiration, Date.now()]
-
-    # console.log "REGISTER", @convertBool(success), wait
     return {
       success: @convertBool(success),
       wait
@@ -126,8 +122,6 @@ class RedisStorage
   __submit__: (queueLength, weight) ->
     try
       [reachedHWM, blocked, strategy] = await @runScript "submit", @prepareArray [queueLength, weight, Date.now()]
-      # console.log(@convertBool(reachedHWM), @convertBool(blocked), strategy)
-
       return {
         reachedHWM: @convertBool(reachedHWM),
         blocked: @convertBool(blocked),
@@ -142,7 +136,6 @@ class RedisStorage
 
   __free__: (index, weight) ->
     result = await @runScript "free", @prepareArray [index, Date.now()]
-    # console.log('FREE, RUNNING:', result)
     return { running: result }
 
 module.exports = RedisStorage

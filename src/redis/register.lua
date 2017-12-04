@@ -22,7 +22,6 @@ local minTime = tonumber(settings[4])
 
 if conditions_check(weight, maxConcurrent, running, reservoir) then
 
-  -- @_running += weight
   if expiration ~= nil then
     redis.call('zadd', executing_key, now + expiration, index)
   end
@@ -31,10 +30,16 @@ if conditions_check(weight, maxConcurrent, running, reservoir) then
 
   local wait = math.max(nextRequest - now, 0)
 
-  redis.call('hmset', settings_key,
-    'reservoir', reservoir or '',
+  if reservoir == nil then
+    redis.call('hset', settings_key,
     'nextRequest', now + wait + minTime
-  )
+    )
+  else
+    redis.call('hmset', settings_key,
+      'reservoir', reservoir - weight,
+      'nextRequest', now + wait + minTime
+    )
+  end
 
   return {true, wait}
 

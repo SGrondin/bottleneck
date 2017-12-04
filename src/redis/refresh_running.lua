@@ -23,6 +23,9 @@ local refresh_running = function (executing_key, running_key, settings_key, now)
       total = total + (tonumber(weights[i]) or 0)
     end
     local incr = -total
+    if total == 0 then
+      incr = 0
+    end
 
     return redis.call('hincrby', settings_key, 'running', incr)
   end

@@ -3,8 +3,17 @@ var Bottleneck = require('../lib/index.js')
 var assert = require('assert')
 
 describe('Priority', function () {
+  var c
+
+  afterEach(function () {
+    if (c.limiter.datastore === 'redis') {
+      var client = c.limiter.redisClient()
+      client.end(false)
+    }
+  })
+
   it('Should do basic ordering', function () {
-    var c = makeTest({maxConcurrent: 1, minTime: 100, rejectOnDrop: false})
+    c = makeTest({maxConcurrent: 1, minTime: 100, rejectOnDrop: false})
 
     return c.limiter.ready()
     .then(function () {
@@ -23,7 +32,7 @@ describe('Priority', function () {
   })
 
   it('Should support LEAK', function () {
-    var c = makeTest({
+    c = makeTest({
       maxConcurrent: 1,
       minTime: 100,
       highWater: 3,
@@ -59,7 +68,7 @@ describe('Priority', function () {
   })
 
   it('Should support OVERFLOW', function () {
-    var c = makeTest({
+    c = makeTest({
       maxConcurrent: 1,
       minTime: 100,
       highWater: 2,
@@ -97,7 +106,7 @@ describe('Priority', function () {
   })
 
   it('Should support OVERFLOW_PRIORITY', function () {
-    var c = makeTest({
+    c = makeTest({
       maxConcurrent: 1,
       minTime: 100,
       highWater: 2,
@@ -134,7 +143,7 @@ describe('Priority', function () {
   })
 
   it('Should support BLOCK', function (done) {
-    var c = makeTest({
+    c = makeTest({
       maxConcurrent: 1,
       minTime: 100,
       highWater: 2,
@@ -155,6 +164,7 @@ describe('Priority', function () {
         .catch(function (err) {
           assert(err instanceof Bottleneck.BottleneckError)
           c.mustEqual(err.message, 'This job has been dropped by Bottleneck')
+          c.limiter.removeAllListeners('error')
           done()
         })
       }
@@ -172,7 +182,7 @@ describe('Priority', function () {
   })
 
   it('Should have the right priority', function () {
-    var c = makeTest({maxConcurrent: 1, minTime: 100})
+    c = makeTest({maxConcurrent: 1, minTime: 100})
 
     return c.limiter.ready()
     .then(function () {

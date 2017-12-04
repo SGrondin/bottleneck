@@ -27,8 +27,7 @@ class Bottleneck
     reservoir: null,
   }
   storeInstanceDefaults: {
-    clientOptions: {
-    },
+    clientOptions: {},
     clearDatastore: false,
     Promise: Promise
   }
@@ -55,6 +54,7 @@ class Bottleneck
     else if @datastore == "redis" then new RedisStorage sDefaults, parser.load options, @storeInstanceDefaults, {}
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
   ready: => @_store.ready
+  redisClient: => @_store.client
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
     @_events[name].push {cb, status}
@@ -84,14 +84,18 @@ class Bottleneck
     done = false
     completed = (args...) =>
       if not done
-        done = true
-        clearTimeout @_executing[index].expiration
-        delete @_executing[index]
-        @_trigger "debug", ["Completed #{next.options.id}", { args: next.args, options: next.options }]
-        { running } = await @_store.__free__ index, next.options.weight
-        @_drainAll()
-        if running == 0 and @queued() == 0 then @_trigger "idle", []
-        if not @interrupt then next.cb?.apply {}, args
+        try
+          done = true
+          clearTimeout @_executing[index].expiration
+          delete @_executing[index]
+          @_trigger "debug", ["Completed #{next.options.id}", { args: next.args, options: next.options }]
+          { running } = await @_store.__free__ index, next.options.weight
+          @_trigger "debug", ["Freed #{next.options.id}", { args: next.args, options: next.options }]
+          @_drainAll().catch (e) => @_trigger "error", [e]
+          if running == 0 and @queued() == 0 then @_trigger "idle", []
+          if not @interrupt then next.cb?.apply {}, args
+        catch e
+          @_trigger "error", [e]
     @_executing[index] =
       timeout: setTimeout =>
         @_trigger "debug", ["Executing #{next.options.id}", { args: next.args, options: next.options }]
@@ -170,17 +174,17 @@ class Bottleneck
     new @Promise (resolve, reject) =>
       @submit.apply {}, Array::concat options, wrapped, args, (args...) ->
         (if args[0]? then reject else args.shift(); resolve).apply {}, args
-      .catch (e) -> @_trigger "error", [e]
+      .catch (e) => @_trigger "error", [e]
   wrap: (fn) => (args...) => @schedule.apply {}, Array::concat fn, args
   updateSettings: (options={}) =>
     await @_store.__updateSettings__ parser.overwrite options, @storeDefaults
     parser.overwrite options, @instanceDefaults, @
-    @_drainAll()
+    @_drainAll().catch (e) => @_trigger "error", [e]
     @
   currentReservoir: => @_store.__currentReservoir__()
   incrementReservoir: (incr=0) =>
     await @_store.__incrementReservoir__ incr
-    @_drainAll()
+    @_drainAll().catch (e) => @_trigger "error", [e]
     @
   on: (name, cb) => @_addListener name, "many", cb
   once: (name, cb) => @_addListener name, "once", cb
