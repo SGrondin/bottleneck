@@ -19,12 +19,13 @@ local refresh_running = function (executing_key, running_key, settings_key, now)
 
     local total = 0
     for i = 1, #weights do
-
       total = total + (tonumber(weights[i]) or 0)
     end
     local incr = -total
     if total == 0 then
       incr = 0
+    else
+      redis.call('publish', 'bottleneck', 'freed:'..total)
     end
 
     return redis.call('hincrby', settings_key, 'running', incr)

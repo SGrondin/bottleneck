@@ -1,4 +1,3 @@
-redis.replicate_commands()
 local settings_key = KEYS[1]
 local incr = ARGV[1]
 

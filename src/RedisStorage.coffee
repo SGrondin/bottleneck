@@ -1,7 +1,6 @@
 parser = require "./parser"
 DLList = require "./DLList"
 BottleneckError = require "./BottleneckError"
-redis = try require "redis" catch e then null
 
 fs = require "fs"
 libraries = {}
@@ -50,17 +49,30 @@ fs.readFile "./src/redis/current_reservoir.lua", (err, data) -> if err? then thr
 fs.readFile "./src/redis/increment_reservoir.lua", (err, data) -> if err? then throw err else scripts["increment_reservoir"].code = data.toString "utf8"
 
 class RedisStorage
-  constructor: (initSettings, options) ->
-    if not redis? then require "redis" # Triggers an error on purpose
+  constructor: (@instance, initSettings, options) ->
+    redis = require "redis"
     parser.load options, options, @
     @client = redis.createClient @clientOptions
+    @subClient = redis.createClient @clientOptions
     @shas = {}
 
     @ready = new @Promise (resolve, reject) =>
+      count = 0
+      done = ->
+        count++
+        if count == 2 then resolve()
       @client.on "error", (e) -> reject e
-      @client.on "ready", => resolve()
+      @client.on "ready", -> done()
+      @subClient.on "error", (e) -> reject e
+      @subClient.on "ready", =>
+        @subClient.on "subscribe", -> done()
+        @subClient.subscribe "bottleneck"
     .then @loadAll
     .then =>
+      @subClient.on "message", (channel, message) =>
+        [type, info] = message.split ":"
+        if type == "freed" then @instance._drainAll ~~info
+
       initSettings.nextRequest = Date.now()
       initSettings.running = 0
       initSettings.unblockTime = 0
@@ -72,6 +84,11 @@ class RedisStorage
     .then (results) =>
       # console.log @shas
       @client
+
+  disconnect: (flush) ->
+    @client.end flush
+    @subClient.end flush
+    @
 
   loadScript: (name) ->
     new @Promise (resolve, reject) =>

@@ -11,6 +11,8 @@ class Local
     @_unblockTime = 0
     @ready = @yieldLoop()
 
+  disconnect: (flush) -> @
+
   yieldLoop: (t=0) -> new @Promise (resolve, reject) -> setTimeout resolve, t
 
   computePenalty: -> @penalty ? ((15 * @minTime) or 5000)

@@ -44,17 +44,16 @@ class Bottleneck
     parser.load options, @instanceDefaults, @
     @_queues = @_makeQueues()
     @_executing = {}
-    @_nextIndex = 0
     @_limiter = null
     @_events = {}
     @_submitLock = new Sync("submit")
     @_registerLock = new Sync("register")
     sDefaults = parser.load options, @storeDefaults, {}
     @_store = if @datastore == "local" then new Local parser.load options, @storeInstanceDefaults, sDefaults
-    else if @datastore == "redis" then new RedisStorage sDefaults, parser.load options, @storeInstanceDefaults, {}
+    else if @datastore == "redis" then new RedisStorage @, sDefaults, parser.load options, @storeInstanceDefaults, {}
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
   ready: => @_store.ready
-  redisClient: => @_store.client
+  disconnect: (flush) => @_store.disconnect flush
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
     @_events[name].push {cb, status}
@@ -78,6 +77,7 @@ class Bottleneck
   queued: (priority) => if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
   running: => @_store.__running__()
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
+  _randomIndex: -> Math.random().toString(36).slice(2)
   check: (weight=1) => @_store.__check__ weight
   _run: (next, wait, index) ->
     @_trigger "debug", ["Scheduling #{next.options.id}", { args: next.args, options: next.options }]
@@ -106,13 +106,14 @@ class Bottleneck
         completed new Bottleneck::BottleneckError "This job timed out after #{next.options.expiration} ms."
       , next.options.expiration
       job: next
-  _drainOne: =>
+  _drainOne: (freed) =>
     @_registerLock.schedule =>
       if (queued = @queued()) == 0 then return @Promise.resolve false
       queue = @_getFirst @_queues
       { options, args } = queue.first()
+      if freed? and options.weight > freed then return @Promise.resolve false
       @_trigger "debug", ["Draining #{options.id}", { args, options }]
-      index = @_nextIndex++
+      index = @_randomIndex()
       @_store.__register__ index, options.weight, options.expiration
       .then ({ success, wait }) =>
         @_trigger "debug", ["Drained #{options.id}", { success, args, options }]
@@ -121,8 +122,8 @@ class Bottleneck
           if @queued() == 0 and @_submitLock._queue.length == 0 then @_trigger "empty", []
           @_run next, wait, index
         @Promise.resolve success
-  _drainAll: ->
-    @_drainOne()
+  _drainAll: (freed) ->
+    @_drainOne(freed)
     .then (success) =>
       if success then @_drainAll()
       else @Promise.resolve success

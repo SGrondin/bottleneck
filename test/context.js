@@ -15,14 +15,10 @@ module.exports = function (options={}) {
   // OTHERS
   var start
   var calls = []
-  options.datastore = 'local'
+  // options.datastore = 'local'
   if (options.datastore == null) {
     options.datastore = 'redis'
     options.clearDatastore = true
-    options.clientOptions = {
-      host: "127.0.0.1",
-      port: 6379
-    }
   }
   var limiter = new Bottleneck(options)
   // limiter.on("debug", function (str, args) { console.log(`${Date.now()-start} ${str}`) })

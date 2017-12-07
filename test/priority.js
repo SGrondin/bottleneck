@@ -7,8 +7,7 @@ describe('Priority', function () {
 
   afterEach(function () {
     if (c.limiter.datastore === 'redis') {
-      var client = c.limiter.redisClient()
-      client.end(false)
+      c.limiter.disconnect(false)
     }
   })
 
