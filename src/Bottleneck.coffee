@@ -53,7 +53,7 @@ class Bottleneck
     else if @datastore == "redis" then new RedisStorage @, sDefaults, parser.load options, @storeInstanceDefaults, {}
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
   ready: => @_store.ready
-  disconnect: (flush) => @_store.disconnect flush
+  disconnect: (flush) => await @_store.disconnect flush
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
     @_events[name].push {cb, status}
@@ -75,10 +75,10 @@ class Bottleneck
     if sProperty < 0 then 0 else if sProperty > NUM_PRIORITIES-1 then NUM_PRIORITIES-1 else sProperty
   _find: (arr, fn) -> (do -> for x, i in arr then if fn x then return x) ? []
   queued: (priority) => if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
-  running: => @_store.__running__()
+  running: => await @_store.__running__()
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
   _randomIndex: -> Math.random().toString(36).slice(2)
-  check: (weight=1) => @_store.__check__ weight
+  check: (weight=1) => await @_store.__check__ weight
   _run: (next, wait, index) ->
     @_trigger "debug", ["Scheduling #{next.options.id}", { args: next.args, options: next.options }]
     done = false
@@ -182,7 +182,7 @@ class Bottleneck
     parser.overwrite options, @instanceDefaults, @
     @_drainAll().catch (e) => @_trigger "error", [e]
     @
-  currentReservoir: => @_store.__currentReservoir__()
+  currentReservoir: => await @_store.__currentReservoir__()
   incrementReservoir: (incr=0) =>
     await @_store.__incrementReservoir__ incr
     @_drainAll().catch (e) => @_trigger "error", [e]

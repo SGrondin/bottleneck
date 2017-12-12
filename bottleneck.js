@@ -67,8 +67,8 @@
         return this._store.ready;
       }
 
-      disconnect(flush) {
-        return this._store.disconnect(flush);
+      async disconnect(flush) {
+        return (await this._store.disconnect(flush));
       }
 
       _addListener(name, status, cb) {
@@ -155,8 +155,8 @@
         }
       }
 
-      running() {
-        return this._store.__running__();
+      async running() {
+        return (await this._store.__running__());
       }
 
       _getFirst(arr) {
@@ -169,8 +169,8 @@
         return Math.random().toString(36).slice(2);
       }
 
-      check(weight = 1) {
-        return this._store.__check__(weight);
+      async check(weight = 1) {
+        return (await this._store.__check__(weight));
       }
 
       _run(next, wait, index) {
@@ -373,8 +373,8 @@
         return this;
       }
 
-      currentReservoir() {
-        return this._store.__currentReservoir__();
+      async currentReservoir() {
+        return (await this._store.__currentReservoir__());
       }
 
       async incrementReservoir(incr = 0) {
@@ -1005,12 +1005,11 @@
         initSettings.nextRequest = Date.now();
         initSettings.running = 0;
         initSettings.unblockTime = 0;
-        // initSettings.version =
+        initSettings.version = this.instance.version;
         args = this.prepareObject(initSettings);
         args.unshift((options.clearDatastore ? 1 : 0));
         return this.runScript("init", args);
       }).then((results) => {
-        // console.log @shas
         return this.client;
       });
     }
@@ -1088,20 +1087,20 @@
       return !!b;
     }
 
-    __updateSettings__(options) {
-      return this.runScript("updateSettings", this.prepareObject(options));
+    async __updateSettings__(options) {
+      return (await this.runScript("updateSettings", this.prepareObject(options)));
     }
 
     async __running__() {
       return (await this.runScript("running", [Date.now()]));
     }
 
-    __incrementReservoir__(incr) {
-      return this.runScript("increment_reservoir", [incr]);
+    async __incrementReservoir__(incr) {
+      return (await this.runScript("increment_reservoir", [incr]));
     }
 
-    __currentReservoir__() {
-      return this.runScript("current_reservoir", this.prepareArray([]));
+    async __currentReservoir__() {
+      return (await this.runScript("current_reservoir", this.prepareArray([])));
     }
 
     async __check__(weight) {

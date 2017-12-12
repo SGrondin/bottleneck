@@ -76,13 +76,12 @@ class RedisStorage
       initSettings.nextRequest = Date.now()
       initSettings.running = 0
       initSettings.unblockTime = 0
-      # initSettings.version =
+      initSettings.version = @instance.version
 
       args = @prepareObject(initSettings)
       args.unshift (if options.clearDatastore then 1 else 0)
       @runScript "init", args
     .then (results) =>
-      # console.log @shas
       @client
 
   disconnect: (flush) ->
@@ -119,13 +118,13 @@ class RedisStorage
 
   convertBool: (b) -> !!b
 
-  __updateSettings__: (options) -> @runScript "updateSettings", @prepareObject options
+  __updateSettings__: (options) -> await @runScript "updateSettings", @prepareObject options
 
   __running__: -> await @runScript "running", [Date.now()]
 
-  __incrementReservoir__: (incr) -> @runScript "increment_reservoir", [incr]
+  __incrementReservoir__: (incr) -> await @runScript "increment_reservoir", [incr]
 
-  __currentReservoir__: -> @runScript "current_reservoir", @prepareArray []
+  __currentReservoir__: -> await @runScript "current_reservoir", @prepareArray []
 
   __check__: (weight) -> @convertBool await @runScript "check", @prepareArray [weight, Date.now()]
 
