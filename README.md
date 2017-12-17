@@ -5,7 +5,7 @@
 [![License][npm-license]][license-url]
 [![Gitter][gitter-image]][gitter-url]
 
-Bottleneck is a tiny and efficient Task Scheduler and Rate Limiter for Node.JS and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded. Bottleneck also makes scheduling asynchronous jobs easier.
+Bottleneck is a tiny and efficient Task Scheduler and Rate Limiter for Node.js and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded. Bottleneck also makes scheduling asynchronous jobs easier.
 
 Bottleneck is the easiest solution as it doesn't add much complexity to the code.
 
@@ -16,9 +16,9 @@ It also supports distributed applications through the new Clustering feature in 
 __Bottleneck Version 2__
 This new major version was released in December 2017. It's almost 100% compatible with Version 1, but it adds some very interesting features such as:
 - **True Clustering support.** You can now rate limit and schedule jobs across multiple Node.js instances. It uses strictly atomic operations to stay reliable in the presence of unreliable clients. 100% of Bottleneck's features are supported.
-- **Support for custom job _weights_.** Not all jobs have to be considered equally resource intensive.
+- **Support for custom job _weights_.** Not all jobs are equally resource intensive.
 - **Support for job timeouts.** Bottleneck can automatically cancel jobs if they exceed their execution time limit.
-- Many improvements to the interface, such as better method names and errors.
+- Many improvements to the interface, such as better method names and errors, better debugging tools.
 
 [Quickly upgrade your code from Version 1 to Version 2.](#upgrading-to-v2)
 
@@ -82,7 +82,7 @@ throttledMyFunction(arg1, arg2)
 
 #### Remember...
 
-Bottleneck builds a queue of jobs and executes them as soon as possible. All the jobs will be executed *in the order that they were received*. See [priorities](#priorities) if you wish to alter this behavior.
+Bottleneck builds a queue of jobs and executes them as soon as possible. All the jobs will be executed *in the order that they were received*. See [priorities](#job-options) if you wish to alter this behavior.
 
 This is sufficient for the vast majority of applications. **Read the 'Gotchas' section** and you're good to go. Or keep reading to learn about all the fine tuning available for the more complex use cases.
 
@@ -114,7 +114,7 @@ Basic options:
 | `maxConcurrent` | `null` (unlimited) | How many jobs can be running at the same time. |
 | `minTime` | `0` (ms) | How long to wait after launching a job before launching another one. |
 | `highWater` | `null` | How long can the queue get? When the queue length exceeds that value, the selected `strategy` is executed to shed the load. |
-| `strategy` | `Bottleneck.strategy.LEAK` | Which strategy to use if the queue gets longer than the high water mark. [Read about strategies](#strategies) |
+| `strategy` | `Bottleneck.strategy.LEAK` | Which strategy to use if the queue gets longer than the high water mark. [Read about strategies](#strategies). |
 | `penalty` | `15 * minTime`, or `5000` when `minTime` is `null` | The `penalty` value used by the `Bottleneck.strategy.BLOCK` strategy. |
 | `reservoir` | `null` (unlimited) | How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no more `0`. |
 | `rejectOnDrop` | `true` | When `true`, if a job is dropped by Bottleneck, it will fail with a `BottleneckError`. If the job was a promise it will be rejected. When set to `false`, the job will instead never complete. |
@@ -125,7 +125,7 @@ Basic options:
 Adds a job to the queue. This is the callback version of `schedule`.
 
 ```js
-limiter.submit(someAsyncCall, arg1, arg2, argN, callback);
+limiter.submit(someAsyncCall, arg1, arg2, callback);
 ```
 
 `submit` can also accept some advanced options. See [Job Options](#job-options).
@@ -138,11 +138,11 @@ It's safe to mix `submit` and `schedule` in the same limiter.
 Adds a job to the queue. This is the Promise version of `submit`.
 
 ```js
-const fn = function(arg1, arg2, argN) {
-  return httpGet(arg1, arg2, argN); // Here httpGet() returns a promise
+const fn = function(arg1, arg2) {
+  return httpGet(arg1, arg2); // Here httpGet() returns a promise
 };
 
-limiter.schedule(fn, arg1, arg2, argN)
+limiter.schedule(fn, arg1, arg2)
 .then((result) => {
   /* ... */
 })
@@ -179,7 +179,7 @@ const limiter = new Bottleneck({
 
 ### wrap()
 
-Takes a function that returns a promise. Wrap returns a function that acts identically to the original one, but is rate limited.
+Takes a function that returns a promise. Returns a function identical to the original, but is rate limited.
 
 ```js
 const wrapped = limiter.wrap(fn)
@@ -189,7 +189,7 @@ fn()
   /* ... */
 })
 .catch(function (error) {
-  // Bottleneck might need to return errors even if the original function can never fail
+  // Bottleneck might need to fail the job even if the original function can never fail
 })
 ```
 
@@ -200,10 +200,10 @@ Both `submit` and `schedule` accept advanced options.
 
 ```js
 // Submit
-limiter.submit(options, someAsyncCall, arg1, arg2, argN, callback);
+limiter.submit(options, someAsyncCall, arg1, arg2, callback);
 
 // Schedule
-limiter.schedule(options, fn, arg1, arg2, argN);
+limiter.schedule(options, fn, arg1, arg2);
 ```
 
 | Option | Default | Description |
@@ -313,11 +313,11 @@ Use `.once()` instead of `.on()` to only receive a single event.
 ```js
 limiter.updateSettings(options);
 ```
-The options are the same as the [limiter instantiation](#constructor).
+The options are the same as the [limiter constructor](#constructor).
 
 **Note:** This doesn't affect jobs already scheduled for execution.
 
-For example, imagine that three 60-second jobs are added to a limiter at time T with `maxConcurrent: null` and `minTime: 2000`. The jobs will be launched at T seconds, T+2 seconds and T+4 seconds, respectively. If right after adding the jobs to Bottleneck, you were to call `limiter.updateSettings({ maxConcurrent: 1 });`, it won't change the fact that there will be 3 jobs running at the same time for roughly 60 seconds. **`updateSettings` only affects jobs that have not yet been added.**
+For example, imagine that three 60-second jobs are added to a limiter at time T with `maxConcurrent: null` and `minTime: 2000`. The jobs will be launched at T seconds, T+2 seconds and T+4 seconds, respectively. If right after adding the jobs to Bottleneck, you were to call `limiter.updateSettings({ maxConcurrent: 1 });`, it won't change the fact that there will be 3 jobs running at the same time for roughly 60 seconds. **`updateSettings()` only affects jobs that have not yet been added.**
 
 This is by design, as Bottleneck made a promise to execute those requests according to the settings valid at the time.
 
@@ -360,7 +360,7 @@ limiterB.chain(limiterC);
 
 ## Clustering
 
-Clustering lets many limiters access the same shared state, stored in a Redis server or Redis cluster. Changes to the state are Atomic, Consistent and Isolated (and fully [ACID](https://en.wikipedia.org/wiki/ACID) with the right redis Durability configuration) to eliminate any chances of race conditions or corruption. Your settings, such as `maxConcurrent`, `minTime`, etc., are shared across the whole cluster, which means -for example- that `{ maxConcurrent: 5 }` guarantees no more than 5 jobs can ever run at the time across all the limiters connected to the cluster. 100% of Bottleneck's features are supported. Enabling Clustering is as simple as changing a few settings. Clustering is also a convenient way to store or export state for later use.
+Clustering lets many limiters access the same shared state, stored in a Redis server or Redis cluster. Changes to the state are Atomic, Consistent and Isolated (and fully [ACID](https://en.wikipedia.org/wiki/ACID) with the right redis [Durability](https://redis.io/topics/persistence) configuration) to eliminate any chances of race conditions or state corruption. Your settings, such as `maxConcurrent`, `minTime`, etc., are shared across the whole cluster, which means -for example- that `{ maxConcurrent: 5 }` guarantees no more than 5 jobs can ever run at a time in the entire cluster of limiters. 100% of Bottleneck's features are supported in Clustering mode. Enabling Clustering is as simple as changing a few settings. It's also a convenient way to store or export state for later use.
 
 ##### Enabling Clustering
 
@@ -396,29 +396,31 @@ const limiter = new Bottleneck({
 
 ##### Important considerations when Clustering
 
-Queued jobs are **NOT** stored on Redis. Queued up jobs are local to the limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run jobs across limiters. Bottleneck also cannot keep track of the queue contents of the limiters on a cluster, for performance reasons and because the reliability tradeoffs were too great.
+Queued jobs are **NOT** stored on Redis. They are local to each limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run a job across a different Node.js process than the one it originated on. Bottleneck doesn't keep track of the queue contents of the limiters on a cluster, for performance reasons and because the reliability tradeoffs were simply too great.
 
-For those reasons, functionality relying on the queue length, happen purely locally:
+For those reasons, functionality relying on the queue length happen purely locally:
 - Priorities are local. A higher priority job will run before a lower priority job **on the same limiter**. Another limiter on the cluster might run a lower priority before our higher priority one.
-- (Assuming default priority levels) Bottleneck guarantees that jobs will be run in the order they were queued **on the same limiter**. Another limiter on the cluster might run a job queued later before ours.
-- `highWater` and load shedding (through a strategy) are per limiter. However, one limiter entering Blocked mode will put the entire cluster in Blocked mode until `penalty` milliseconds have passed. See [Strategies](#strategies).
+- (Assuming default priority levels) Bottleneck guarantees that jobs will be run in the order they were queued **on the same limiter**. Another limiter on the cluster might run a job queued later before ours runs.
+- `highWater` and load shedding ([strategies](#strategies)) are per limiter. However, one limiter entering Blocked mode will put the entire cluster in Blocked mode until `penalty` milliseconds have passed. See [Strategies](#strategies).
+- The `empty` event is triggered when the (local) queue is empty.
+- The `idle` event is triggered when the (local) queue is empty *and* no jobs are currently running anywhere in the cluster.
 
-The above limitations should be possible to work around in your application code, if necessary.
+The above limitations should hopefully be possible to work around in your application code, if necessary.
 
 The current design was chosen because it guarantees reliability and lets clients (limiters) come and go. Your application can scale up or down, and clients can be disconnected without issues.
 
 It is **strongly recommended** that you set a `timeout` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using timeouts, those lost jobs are automatically cleared after the timeout. Using timeouts is essential to a keeping a cluster reliable in the face of unpredictable bugs, network hiccups, and so on.
 
-Bottleneck does not take network latency into account when calculating timings (such as `minTime`). Bottleneck keeps the number of state accesses to the minimum possible, but keeping the Redis server close to your limiters will help you get a more consistent experience.
+Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). Bottleneck does the absolute minimum number of state accesses, to minize the impact of latency, but keeping the Redis server close to your limiters will help you get a more consistent experience.
 
 
 ##### Additional Clustering information
 
 - Bottleneck is compatible with [Redis Clusters](https://redis.io/topics/cluster-tutorial).
 - Bottleneck's data is stored in Redis keys beginning with `b_` and it uses the `bottleneck` pub/sub channel. It will not interfere with any other data stored on the server.
-- Bottleneck loads a few Lua scripts on the Redis server using the `EVALSHA` command. Those scripts do not take up more than a few Kb of memory. Therefore running the `SCRIPT FLUSH` command will cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
-- The Lua scripts are highly optimized and designed to use as little resources (especially CPU) as possible.
-- [Chaining](#chain) limiters can help create complex designs when a `{ datastore: "local" }` limiter is chained to a `{ datastore: "redis" }` one or vice versa.
+- Bottleneck loads a few Lua scripts on the Redis server using the `SCRIPT LOAD` command. Those scripts only take up a few Kb of memory. Running the `SCRIPT FLUSH` command will obviously cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
+- The Lua scripts are highly optimized and designed to use as little resources (CPU, especially) as possible.
+- [Chaining](#chain) limiters can help you create complex designs when a `{ datastore: "local" }` limiter is chained to a `{ datastore: "redis" }` one or vice versa.
 
 
 ## Debugging your application
@@ -462,8 +464,10 @@ Let's take a DNS server as an example of how Bottleneck can be used. It's a serv
 
 
 ```js
-var group = new Bottleneck.Group(maxConcurrent, minTime, highWater, strategy);
+var group = new Bottleneck.Group(options);
 ```
+
+The `options` object will be used for every limiter created by the group.
 
 The group is then used with the `.key(str)` method:
 
@@ -539,8 +543,8 @@ All the breaking changes:
 - Renamed `nbRunning` to `running()`, it also now returns its result using a promise.
 - Removed `isBlocked()`.
 - Changing the Promise library is now done through the options object like any other limiter settings.
-- Removed `changePenalty`, it is now done through the options object like any other limiter settings.
-- Removed `changeReservoir, it is now done through the options object like any other limiter settings.
+- Removed `changePenalty()`, it is now done through the options object like any other limiter settings.
+- Removed `changeReservoir()`, it is now done through the options object like any other limiter settings.
 - Removed `stopAll()`, as its implementation was flawed and misleading. Use the `reservoir` feature to disable execution instead.
 - `check()` now accepts an optional `weight` argument, and now also returns its result using a promise.
 - The `Cluster` feature is now called `Group`. This is to distinguish it from the new v2 [Clustering](#clustering) feature.

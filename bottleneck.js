@@ -3323,8 +3323,8 @@ process.umask = function() { return 0; };
 },{}],14:[function(require,module,exports){
 module.exports={
   "name": "bottleneck",
-  "version": "1.16.0",
-  "description": "Async rate limiter",
+  "version": "2.0.0-beta.1",
+  "description": "Distributed task scheduler and rate limiter",
   "main": "lib/index.js",
   "typings": "bottleneck.d.ts",
   "scripts": {
@@ -3357,17 +3357,15 @@ module.exports={
     "url": "https://github.com/SGrondin/bottleneck/issues"
   },
   "devDependencies": {
-    "coffeescript": "2.0.x",
-    "browserify": "*",
-    "mocha": "4.x",
     "assert": "1.4.x",
+    "brfs": "^1.4.3",
+    "browserify": "*",
+    "coffeescript": "2.0.x",
+    "mocha": "4.x",
+    "redis": "^2.8.0",
     "uglify-es": "3.x"
   },
-  "dependencies": {
-    "bluebird": "^3.5.1",
-    "brfs": "^1.4.3",
-    "redis": "^2.8.0"
-  }
+  "dependencies": {}
 }
 
 },{}]},{},[8]);
