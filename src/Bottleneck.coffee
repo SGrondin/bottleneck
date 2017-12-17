@@ -11,7 +11,7 @@ class Bottleneck
   Bottleneck.version = Bottleneck::version = packagejson.version
   Bottleneck.strategy = Bottleneck::strategy = { LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3 }
   Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
-  Bottleneck.Cluster = Bottleneck::Cluster = require "./Cluster"
+  Bottleneck.Group = Bottleneck::Group = require "./Group"
   jobDefaults: {
     priority: DEFAULT_PRIORITY,
     weight: 1,
@@ -35,7 +35,6 @@ class Bottleneck
     datastore: "local",
     id: "<no-id>",
     rejectOnDrop: true,
-    interrupt: false,
     Promise: Promise
   }
   constructor: (options={}, invalid...) ->
@@ -93,7 +92,7 @@ class Bottleneck
           @_trigger "debug", ["Freed #{next.options.id}", { args: next.args, options: next.options }]
           @_drainAll().catch (e) => @_trigger "error", [e]
           if running == 0 and @queued() == 0 then @_trigger "idle", []
-          if not @interrupt then next.cb?.apply {}, args
+          next.cb?.apply {}, args
         catch e
           @_trigger "error", [e]
     @_executing[index] =
@@ -191,19 +190,6 @@ class Bottleneck
   once: (name, cb) => @_addListener name, "once", cb
   removeAllListeners: (name=null) =>
     if name? then delete @_events[name] else @_events = {}
-    @
-  stopAll: (@interrupt=@interrupt) =>
-    keys = Object.keys @_executing
-    (clearTimeout @_executing[k].timeout for k in keys)
-    @_drainOne = ->
-    @_drainAll = ->
-    @check = -> false
-    @submit = (args..., cb) -> cb new Bottleneck::BottleneckError "This limiter is stopped"
-    @schedule = -> @Promise.reject(new Bottleneck::BottleneckError "This limiter is stopped")
-    if @interrupt then (@_trigger "dropped", [@_executing[k].job] for k in keys)
-    while job = @_getFirst(@_queues).shift() then @_trigger "dropped", [job]
-    @_trigger "empty", []
-    if @running() == 0 then @_trigger "idle", []
     @
 
 module.exports = Bottleneck

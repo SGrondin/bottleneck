@@ -15,10 +15,11 @@ module.exports = function (options={}) {
   // OTHERS
   var start
   var calls = []
-  // options.datastore = 'local'
-  if (options.datastore == null) {
+  if (options.datastore == null && process.env.DATASTORE === 'redis') {
     options.datastore = 'redis'
     options.clearDatastore = true
+  } else {
+    options.datastore = 'local'
   }
   var limiter = new Bottleneck(options)
   // limiter.on("debug", function (str, args) { console.log(`${Date.now()-start} ${str}`) })

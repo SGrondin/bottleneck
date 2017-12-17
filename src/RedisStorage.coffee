@@ -57,13 +57,18 @@ class RedisStorage
     @shas = {}
 
     @ready = new @Promise (resolve, reject) =>
+      errorListener = (e) -> reject e
       count = 0
-      done = ->
+      done = =>
         count++
-        if count == 2 then resolve()
-      @client.on "error", (e) -> reject e
+        if count == 2
+          [@client, @subClient].forEach (client) =>
+            client.removeListener "error", errorListener
+            client.on "error", (e) => @instance._trigger "error", [e]
+          resolve()
+      @client.on "error", errorListener
       @client.on "ready", -> done()
-      @subClient.on "error", (e) -> reject e
+      @subClient.on "error", errorListener
       @subClient.on "ready", =>
         @subClient.on "subscribe", -> done()
         @subClient.subscribe "bottleneck"
