@@ -5,6 +5,10 @@
 [![License][npm-license]][license-url]
 [![Gitter][gitter-image]][gitter-url]
 
+__You are currently viewing the Version 2 Beta 1 docs.__
+
+__Please report any bugs you may find. Your feedback is important.__
+
 Bottleneck is a tiny and efficient Task Scheduler and Rate Limiter for Node.js and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded. Bottleneck also makes scheduling asynchronous jobs easier.
 
 Bottleneck is the easiest solution as it doesn't add much complexity to the code.
@@ -20,14 +24,14 @@ This new major version was released in December 2017. It's almost 100% compatibl
 - **Support for job timeouts.** Bottleneck can automatically cancel jobs if they exceed their execution time limit.
 - Many improvements to the interface, such as better method names and errors, better debugging tools.
 
-[Quickly upgrade your code from Version 1 to Version 2.](#upgrading-to-v2)
+[Quickly upgrade your application code from v1 to v2 of Bottleneck.](#upgrading-to-v2)
 
 Version 1 is still maintained, but will not be receiving any new features. Browse the v1 documentation.
 
 ## Install
 
 ```
-npm install --save bottleneck
+npm install --save git://github.com/SGrondin/bottleneck.git#v2.0.0-beta.1
 ```
 
 
