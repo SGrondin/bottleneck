@@ -26,7 +26,7 @@ This new major version was released in December 2017. It's almost 100% compatibl
 
 [Quickly upgrade your application code from v1 to v2 of Bottleneck.](#upgrading-to-v2)
 
-Version 1 is still maintained, but will not be receiving any new features. Browse the v1 documentation.
+Version 1 is still maintained, but will not be receiving any new features. [Browse the v1 documentation](https://github.com/SGrondin/bottleneck/tree/version-1).
 
 ## Install
 
@@ -381,7 +381,7 @@ const limiter = new Bottleneck({
 
   /* Clustering options */
   datastore: "redis",
-  cleaDatastore: false,
+  clearDatastore: false,
   clientOptions: {
     /* node-redis client options, passed to redis.createClient() */
     // See https://github.com/NodeRedis/node_redis#options-object-properties
