@@ -18,7 +18,7 @@ It's battle-hardened, reliable and production-ready. It's used on a large scale 
 It also supports distributed applications through the new Clustering feature in v2.
 
 __Bottleneck Version 2__
-This new major version was released in December 2017. It's almost 100% compatible with Version 1, but it adds some very interesting features such as:
+This new version is almost 100% compatible with Version 1, but it adds some very interesting features such as:
 - **True Clustering support.** You can now rate limit and schedule jobs across multiple Node.js instances. It uses strictly atomic operations to stay reliable in the presence of unreliable clients. 100% of Bottleneck's features are supported.
 - **Support for custom job _weights_.** Not all jobs are equally resource intensive.
 - **Support for job timeouts.** Bottleneck can automatically cancel jobs if they exceed their execution time limit.
@@ -121,7 +121,6 @@ Basic options:
 | `strategy` | `Bottleneck.strategy.LEAK` | Which strategy to use if the queue gets longer than the high water mark. [Read about strategies](#strategies). |
 | `penalty` | `15 * minTime`, or `5000` when `minTime` is `null` | The `penalty` value used by the `Bottleneck.strategy.BLOCK` strategy. |
 | `reservoir` | `null` (unlimited) | How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no more `0`. |
-| `rejectOnDrop` | `true` | When `true`, if a job is dropped by Bottleneck, it will fail with a `BottleneckError`. If the job was a promise it will be rejected. When set to `false`, the job will instead never complete. |
 
 
 ### submit()
@@ -173,11 +172,11 @@ It's also possible to replace the Promise library used by Bottleneck:
 
 ```js
 const Bottleneck = require("bottleneck");
-const Bluebird = require("bluebird");
+const Promise = require("bluebird");
 
 const limiter = new Bottleneck({
   /* other options... */
-  Promise: Bluebird
+  Promise: Promise
 });
 ```
 
@@ -398,7 +397,25 @@ const limiter = new Bottleneck({
 | `clearDatastore` | `false` | When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db. |
 | `clientOptions` | `{}` | This object is passed directly to NodeRedis's `redis.createClient()` method. [See all the valid client options.](https://github.com/NodeRedis/node_redis#options-object-properties) |
 
+Since your limiter has to connect to Redis, and this operation takes time and can fail, you need to wait for your limiter to be connected before using it.
+
+```js
+const limiter = new Bottleneck({ /* ... */ })
+
+limiter.ready()
+.then(() => {
+  // The limiter is ready
+})
+.catch((error) => {
+  // The limiter couldn't start
+})
+```
+
+The `.ready()` method also exists when using the `local` datastore, for code compatibility reasons: code written for `redis` will always work with `local`.
+
 ##### Important considerations when Clustering
+
+The first limiter connecting to Redis will store its constructor options ([Constructor](#constructor)) on Redis and all subsequent limiters will be using those settings. You can alter the constructor options used by all the connected limiters by calling `updateSettings`. The `clearDatastore` option instructs a new limiter to wipe any previous Bottleneck data, including previously stored settings.
 
 Queued jobs are **NOT** stored on Redis. They are local to each limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run a job across a different Node.js process than the one it originated on. Bottleneck doesn't keep track of the queue contents of the limiters on a cluster, for performance reasons and because the reliability tradeoffs were simply too great.
 
@@ -413,9 +430,11 @@ The above limitations should hopefully be possible to work around in your applic
 
 The current design was chosen because it guarantees reliability and lets clients (limiters) come and go. Your application can scale up or down, and clients can be disconnected without issues.
 
-It is **strongly recommended** that you set a `timeout` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using timeouts, those lost jobs are automatically cleared after the timeout. Using timeouts is essential to a keeping a cluster reliable in the face of unpredictable bugs, network hiccups, and so on.
+It is **strongly recommended** that you set a `timeout` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using timeouts, those lost jobs are automatically cleared after the timeout. Using timeouts is essential to keeping a cluster reliable in the face of unpredictable application bugs, network hiccups, and so on.
 
-Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). Bottleneck does the absolute minimum number of state accesses, to minize the impact of latency, but keeping the Redis server close to your limiters will help you get a more consistent experience.
+Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). Bottleneck performs the absolute minimum number of state accesses, to minize the impact of latency, but keeping the Redis server close to your limiters will help you get a more consistent experience.
+
+It is **strongly recommended** to [set up an `error` listener](#events).
 
 
 ##### Additional Clustering information
@@ -459,6 +478,8 @@ limiter.schedule(fn)
   /* ... */
 })
 ```
+
+You can also set the constructor option `rejectOnDrop` to `false`, and Bottleneck will leave your failed jobs hanging instead of failing them.
 
 ## Group
 
@@ -531,7 +552,7 @@ console.log(limiters)
 
 ## Upgrading to v2
 
-The internal algorithms essentially haven't changed, but many small changes to the interface had to be done to make the new features possible.
+The internal algorithms essentially haven't changed from v1, but many small changes to the interface had to be done to make the new features possible.
 
 All the breaking changes:
 - Bottleneck v2 uses ES6/ES2015. v1 will continue to use ES5 only.
@@ -555,14 +576,14 @@ All the breaking changes:
 - The `Group` constructor takes an options object, to match the limiter constructor.
 - Renamed the `Group` `changeTimeout()` method to `updateSettings()`, it now takes an options object. See [Group](#group).
 
-Version 2 is strictly superior: more user-friendly, powerful and reliable than ever.
+Version 2 is more user-friendly, powerful and reliable than ever.
 
 After upgrading your code, please take a minute to read the [Debugging your application](#debugging-your-application) chapter.
 
 
 ## Contributing
 
-This README file is always in need of improvements. If wording can be clearer and simpler, please consider forking this repo and submitting a Pull Request, or simply opening an issue.
+This README is always in need of improvements. If wording can be clearer and simpler, please consider forking this repo and submitting a Pull Request, or simply opening an issue.
 
 Suggestions and bug reports are also welcome.
 

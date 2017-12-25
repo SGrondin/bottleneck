@@ -41,7 +41,7 @@
         this.once = this.once.bind(this);
         this.removeAllListeners = this.removeAllListeners.bind(this);
         if (!((options != null) && typeof options === "object" && invalid.length === 0)) {
-          throw new Bottleneck.prototype.BottleneckError("Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-from-v1 if you're upgrading from Bottleneck v1.");
+          throw new Bottleneck.prototype.BottleneckError("Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1.");
         }
         parser.load(options, this.instanceDefaults, this);
         this._queues = this._makeQueues();
@@ -1062,7 +1062,7 @@
     }
 
     async __currentReservoir__() {
-      return (await this.runScript("current_reservoir", this.prepareArray([])));
+      return (await this.runScript("current_reservoir", []));
     }
 
     async __check__(weight) {

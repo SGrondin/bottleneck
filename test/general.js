@@ -15,7 +15,7 @@ describe('General', function () {
     try {
       var limiter = new Bottleneck(1, 250)
     } catch (err) {
-      c.mustEqual(err.message, 'Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-from-v1 if you\'re upgrading from Bottleneck v1.')
+      c.mustEqual(err.message, 'Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you\'re upgrading from Bottleneck v1.')
     }
   })
 

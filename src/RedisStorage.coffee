@@ -129,7 +129,7 @@ class RedisStorage
 
   __incrementReservoir__: (incr) -> await @runScript "increment_reservoir", [incr]
 
-  __currentReservoir__: -> await @runScript "current_reservoir", @prepareArray []
+  __currentReservoir__: -> await @runScript "current_reservoir", []
 
   __check__: (weight) -> @convertBool await @runScript "check", @prepareArray [weight, Date.now()]
 

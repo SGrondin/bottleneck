@@ -12,34 +12,30 @@ class Bottleneck
   Bottleneck.strategy = Bottleneck::strategy = { LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3 }
   Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
   Bottleneck.Group = Bottleneck::Group = require "./Group"
-  jobDefaults: {
+  jobDefaults:
     priority: DEFAULT_PRIORITY,
     weight: 1,
     expiration: null,
     id: "<no-id>"
-  }
-  storeDefaults: {
+  storeDefaults:
     maxConcurrent: null,
     minTime: 0,
     highWater: null,
     strategy: Bottleneck::strategy.LEAK,
     penalty: null,
     reservoir: null,
-  }
-  storeInstanceDefaults: {
+  storeInstanceDefaults:
     clientOptions: {},
     clearDatastore: false,
     Promise: Promise
-  }
-  instanceDefaults: {
+  instanceDefaults:
     datastore: "local",
     id: "<no-id>",
     rejectOnDrop: true,
     Promise: Promise
-  }
   constructor: (options={}, invalid...) ->
     unless options? and typeof options == "object" and invalid.length == 0
-      throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-from-v1 if you're upgrading from Bottleneck v1."
+      throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1."
     parser.load options, @instanceDefaults, @
     @_queues = @_makeQueues()
     @_executing = {}
