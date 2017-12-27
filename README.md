@@ -5,7 +5,7 @@
 [![License][npm-license]][license-url]
 [![Gitter][gitter-image]][gitter-url]
 
-__You are currently viewing the Version 2 Beta 1 docs.__
+__You are currently viewing the Version 2 Beta 2 docs.__
 
 __Please report any bugs you may find. Your feedback is important.__
 
@@ -19,7 +19,7 @@ It also supports distributed applications through the new Clustering feature in 
 
 __Bottleneck Version 2__
 This new version is almost 100% compatible with Version 1, but it adds some very interesting features such as:
-- **True Clustering support.** You can now rate limit and schedule jobs across multiple Node.js instances. It uses strictly atomic operations to stay reliable in the presence of unreliable clients. 100% of Bottleneck's features are supported.
+- **True [Clustering](#clustering) support.** You can now rate limit and schedule jobs across multiple Node.js instances. It uses strictly atomic operations to stay reliable in the presence of unreliable clients. 100% of Bottleneck's features are supported.
 - **Support for custom job _weights_.** Not all jobs are equally resource intensive.
 - **Support for job timeouts.** Bottleneck can automatically cancel jobs if they exceed their execution time limit.
 - Many improvements to the interface, such as better method names and errors, better debugging tools.
@@ -31,7 +31,7 @@ Version 1 is still maintained, but will not be receiving any new features. [Brow
 ## Install
 
 ```
-npm install --save git://github.com/SGrondin/bottleneck.git#v2.0.0-beta.1
+npm install --save git://github.com/SGrondin/bottleneck.git#v2.0.0-beta.2
 ```
 
 
@@ -96,9 +96,9 @@ This is sufficient for the vast majority of applications. **Read the 'Gotchas' s
 
 * **When using `submit`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work if you forget to do this.
 
-* **When using `submit`**, make sure that all the jobs will eventually complete by calling their callback. Again, even if you `submit`ted your job with a `null` callback , it still needs to call its callback. This is very important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run. It's safe to call the callback more than once, subsequent calls are ignored.
+* **When using `submit`**, make sure that all the jobs will eventually complete by calling their callback (or have a [`timeout`](#job-options)). Again, even if you `submit`ted your job with a `null` callback , it still needs to call its callback. This is very important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run. It's safe to call the callback more than once, subsequent calls are ignored.
 
-* **When using `schedule` or `wrap`**, make sure that all the jobs will eventually complete (resolving or rejecting). This is very important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run.
+* **When using `schedule` or `wrap`**, make sure that all the jobs will eventually complete (resolving or rejecting) or have a [`timeout`](#job-options). This is very important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run.
 
 * **Clustering** has its own share of gotchas. Read the [Clustering](#clustering) chapter carefully.
 
@@ -397,6 +397,8 @@ const limiter = new Bottleneck({
 | `clearDatastore` | `false` | When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db. |
 | `clientOptions` | `{}` | This object is passed directly to NodeRedis's `redis.createClient()` method. [See all the valid client options.](https://github.com/NodeRedis/node_redis#options-object-properties) |
 
+###### `.ready()`
+
 Since your limiter has to connect to Redis, and this operation takes time and can fail, you need to wait for your limiter to be connected before using it.
 
 ```js
@@ -412,6 +414,25 @@ limiter.ready()
 ```
 
 The `.ready()` method also exists when using the `local` datastore, for code compatibility reasons: code written for `redis` will always work with `local`.
+
+###### `.disconnect(flush)`
+
+This helper method calls the `.end(flush)` method on the Redis clients used by a limiter.
+
+```js
+limiter.disconnect(true)
+```
+
+###### `.clients()`
+
+If you need direct access to the redis clients, use `.clients()`:
+
+```js
+console.log(limiter.clients())
+// { client: <Redis Client>, subscriber: <Redis Client> }
+```
+
+Just like `.ready()`, calling `.clients()` when using the `local` datastore won't fail, it just won't return anything.
 
 ##### Important considerations when Clustering
 
@@ -436,14 +457,31 @@ Network latency between Node.js and Redis is not taken into account when calcula
 
 It is **strongly recommended** to [set up an `error` listener](#events).
 
+Bottleneck doesn't guarantee that the concurrency will be spread evenly across limiters. With `{ maxConcurrent: 5 }`, it's absolutely possible for a single limiter to end up running 5 jobs simultaneously while the other limiters in the cluster sit idle. To spread the load, use the `.chain()` method:
+
+```js
+const clusterLimiter = new Bottleneck({ maxConcurrent: 5, datastore: 'redis' });
+const limiter = new Bottleneck({ maxConcurrent: 1 });
+
+limiter.chain(clusterLimiter);
+
+clusterLimiter.ready()
+.then(() => {
+  // Any Node process can only run one job at a time.
+  // Across the whole cluster, up to 5 jobs can run simultaneously.
+
+  limiter.schedule( /* ... */ )
+})
+.catch((error) => { /* ... */ });
+```
+
 
 ##### Additional Clustering information
 
 - Bottleneck is compatible with [Redis Clusters](https://redis.io/topics/cluster-tutorial).
 - Bottleneck's data is stored in Redis keys beginning with `b_` and it uses the `bottleneck` pub/sub channel. It will not interfere with any other data stored on the server.
-- Bottleneck loads a few Lua scripts on the Redis server using the `SCRIPT LOAD` command. Those scripts only take up a few Kb of memory. Running the `SCRIPT FLUSH` command will obviously cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
+- Bottleneck loads a few Lua scripts on the Redis server using the `SCRIPT LOAD` command. These scripts only take up a few Kb of memory. Running the `SCRIPT FLUSH` command will obviously cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
 - The Lua scripts are highly optimized and designed to use as little resources (CPU, especially) as possible.
-- [Chaining](#chain) limiters can help you create complex designs when a `{ datastore: "local" }` limiter is chained to a `{ datastore: "redis" }` one or vice versa.
 
 
 ## Debugging your application

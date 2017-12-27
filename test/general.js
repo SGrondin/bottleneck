@@ -1,7 +1,6 @@
 var makeTest = require('./context')
 var Bottleneck = require('../lib/index.js')
 var assert = require('assert')
-var packagejson = require('../package.json')
 
 describe('General', function () {
   var c
@@ -346,52 +345,4 @@ describe('General', function () {
     })
   })
 
-  describe('Redis-only', function () {
-    it('Publishes running decreases', function () {
-      c = makeTest({ maxConcurrent: 2 })
-      var limiter2, p1, p2, p3, p4
-      if (c.limiter.datastore !== 'redis') {
-        return Promise.resolve()
-      }
-
-      return c.limiter.ready()
-      .then(function () {
-        limiter2 = new Bottleneck({
-          maxConcurrent: 2,
-          datastore: 'redis'
-        })
-        return limiter2.ready()
-      })
-      .then(function () {
-        p1 = c.limiter.schedule({id: 1}, c.slowPromise, 100, null, 1)
-        p2 = c.limiter.schedule({id: 2}, c.slowPromise, 100, null, 2)
-
-        return c.limiter.schedule({id: 0, weight: 0}, c.promise, null, 0)
-      })
-      .then(function () {
-        p3 = limiter2.schedule({id: 3}, c.slowPromise, 100, null, 3)
-        return p3
-      })
-      .then(c.last)
-      .then(function (results) {
-        c.checkResultsOrder([[0], [1], [2], [3]])
-        c.checkDuration(200)
-
-        // Also check that the version gets set
-        return new Promise(function (resolve, reject) {
-          limiter2._store.client.hget('b_settings', 'version', function (err, data) {
-            if (err != null) return reject(err)
-            c.mustEqual(data, packagejson.version)
-            return resolve()
-          })
-        })
-      })
-      .then(function () {
-        limiter2.disconnect(false)
-      })
-
-
-
-    })
-  })
 })

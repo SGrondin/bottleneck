@@ -27,7 +27,7 @@ local penalty = tonumber(settings[7])
 local minTime = tonumber(settings[8])
 
 if maxConcurrent ~= nil and weight > maxConcurrent then
-  return redis.error_reply('OVERWEIGHT '..weight..' '..maxConcurrent)
+  return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)
 end
 
 local reachedHWM = (highWater ~= nil and queueLength == highWater

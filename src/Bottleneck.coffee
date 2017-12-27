@@ -48,6 +48,7 @@ class Bottleneck
     else if @datastore == "redis" then new RedisStorage @, sDefaults, parser.load options, @storeInstanceDefaults, {}
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
   ready: => @_store.ready
+  clients: => @_store.clients
   disconnect: (flush) => await @_store.disconnect flush
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
@@ -94,7 +95,7 @@ class Bottleneck
     @_executing[index] =
       timeout: setTimeout =>
         @_trigger "debug", ["Executing #{next.options.id}", { args: next.args, options: next.options }]
-        if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.task, next.args, completed
+        if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.options, next.task, next.args, completed
         else next.task.apply {}, next.args.concat completed
       , wait
       expiration: if next.options.expiration? then setTimeout =>

@@ -10,6 +10,7 @@ class Local
     @_executing = {}
     @_unblockTime = 0
     @ready = @yieldLoop()
+    @clients = {}
 
   disconnect: (flush) -> @
 

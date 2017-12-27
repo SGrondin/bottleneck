@@ -1,5 +1,4 @@
 DLList = require "./DLList"
-BottleneckError = require "./BottleneckError"
 class Sync
   constructor: (@name) ->
     @_running = 0

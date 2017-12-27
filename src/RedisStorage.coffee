@@ -34,7 +34,7 @@ scripts =
     libs: []
 
 # Runs as-is in Node, but it also gets preprocessed by brfs
-# brfs looks for the pattern "fs.readFile [string], [function]", can't use variables here
+# brfs looks for the exact pattern "fs.readFile [string], [function]", can't use variables here
 fs.readFile "./src/redis/refresh_running.lua", (err, data) -> if err? then throw err else libraries["refresh_running"] = data.toString "utf8"
 fs.readFile "./src/redis/conditions_check.lua", (err, data) -> if err? then throw err else libraries["conditions_check"] = data.toString "utf8"
 
@@ -56,6 +56,7 @@ class RedisStorage
     @subClient = redis.createClient @clientOptions
     @shas = {}
 
+    @clients = { client: @client, subscriber: @subClient }
     @ready = new @Promise (resolve, reject) =>
       errorListener = (e) -> reject e
       count = 0
@@ -150,7 +151,7 @@ class RedisStorage
       }
     catch e
       if e.message.indexOf("OVERWEIGHT") == 0
-        [overweight, weight, maxConcurrent] = e.message.split " "
+        [overweight, weight, maxConcurrent] = e.message.split ":"
         throw new BottleneckError("Impossible to add a job having a weight of #{weight} to a limiter having a maxConcurrent setting of #{maxConcurrent}")
       else
         throw e

@@ -25,6 +25,7 @@
       constructor(options = {}, ...invalid) {
         var sDefaults;
         this.ready = this.ready.bind(this);
+        this.clients = this.clients.bind(this);
         this.disconnect = this.disconnect.bind(this);
         this.chain = this.chain.bind(this);
         this.queued = this.queued.bind(this);
@@ -64,6 +65,10 @@
 
       ready() {
         return this._store.ready;
+      }
+
+      clients() {
+        return this._store.clients;
       }
 
       async disconnect(flush) {
@@ -227,7 +232,7 @@
               }
             ]);
             if (this._limiter != null) {
-              return this._limiter.submit.apply(this._limiter, Array.prototype.concat(next.task, next.args, completed));
+              return this._limiter.submit.apply(this._limiter, Array.prototype.concat(next.options, next.task, next.args, completed));
             } else {
               return next.task.apply({}, next.args.concat(completed));
             }
@@ -641,6 +646,7 @@
       this._executing = {};
       this._unblockTime = 0;
       this.ready = this.yieldLoop();
+      this.clients = {};
     }
 
     disconnect(flush) {
@@ -827,7 +833,7 @@
   };
 
   // Runs as-is in Node, but it also gets preprocessed by brfs
-  // brfs looks for the pattern "fs.readFile [string], [function]", can't use variables here
+  // brfs looks for the exact pattern "fs.readFile [string], [function]", can't use variables here
   process.nextTick(function(){(function (err, data) {
     if (err != null) {
         throw err;
@@ -882,7 +888,7 @@
     } else {
         return scripts['submit'].code = data.toString('utf8');
     }
-})(null,Buffer("bG9jYWwgc2V0dGluZ3Nfa2V5ID0gS0VZU1sxXQpsb2NhbCBydW5uaW5nX2tleSA9IEtFWVNbMl0KbG9jYWwgZXhlY3V0aW5nX2tleSA9IEtFWVNbM10KCmxvY2FsIHF1ZXVlTGVuZ3RoID0gdG9udW1iZXIoQVJHVlsxXSkKbG9jYWwgd2VpZ2h0ID0gdG9udW1iZXIoQVJHVlsyXSkKbG9jYWwgbm93ID0gdG9udW1iZXIoQVJHVlszXSkKCmxvY2FsIHJ1bm5pbmcgPSB0b251bWJlcihyZWZyZXNoX3J1bm5pbmcoZXhlY3V0aW5nX2tleSwgcnVubmluZ19rZXksIHNldHRpbmdzX2tleSwgbm93KSkKbG9jYWwgc2V0dGluZ3MgPSByZWRpcy5jYWxsKCdobWdldCcsIHNldHRpbmdzX2tleSwKICAnbWF4Q29uY3VycmVudCcsCiAgJ2hpZ2hXYXRlcicsCiAgJ3Jlc2Vydm9pcicsCiAgJ25leHRSZXF1ZXN0JywKICAnc3RyYXRlZ3knLAogICd1bmJsb2NrVGltZScsCiAgJ3BlbmFsdHknLAogICdtaW5UaW1lJwopCmxvY2FsIG1heENvbmN1cnJlbnQgPSB0b251bWJlcihzZXR0aW5nc1sxXSkKbG9jYWwgaGlnaFdhdGVyID0gdG9udW1iZXIoc2V0dGluZ3NbMl0pCmxvY2FsIHJlc2Vydm9pciA9IHRvbnVtYmVyKHNldHRpbmdzWzNdKQpsb2NhbCBuZXh0UmVxdWVzdCA9IHRvbnVtYmVyKHNldHRpbmdzWzRdKQpsb2NhbCBzdHJhdGVneSA9IHRvbnVtYmVyKHNldHRpbmdzWzVdKQpsb2NhbCB1bmJsb2NrVGltZSA9IHRvbnVtYmVyKHNldHRpbmdzWzZdKQpsb2NhbCBwZW5hbHR5ID0gdG9udW1iZXIoc2V0dGluZ3NbN10pCmxvY2FsIG1pblRpbWUgPSB0b251bWJlcihzZXR0aW5nc1s4XSkKCmlmIG1heENvbmN1cnJlbnQgfj0gbmlsIGFuZCB3ZWlnaHQgPiBtYXhDb25jdXJyZW50IHRoZW4KICByZXR1cm4gcmVkaXMuZXJyb3JfcmVwbHkoJ09WRVJXRUlHSFQgJy4ud2VpZ2h0Li4nICcuLm1heENvbmN1cnJlbnQpCmVuZAoKbG9jYWwgcmVhY2hlZEhXTSA9IChoaWdoV2F0ZXIgfj0gbmlsIGFuZCBxdWV1ZUxlbmd0aCA9PSBoaWdoV2F0ZXIKICBhbmQgbm90ICgKICAgIGNvbmRpdGlvbnNfY2hlY2sod2VpZ2h0LCBtYXhDb25jdXJyZW50LCBydW5uaW5nLCByZXNlcnZvaXIpCiAgICBhbmQgbmV4dFJlcXVlc3QgLSBub3cgPD0gMAogICkKKQoKbG9jYWwgYmxvY2tlZCA9IHN0cmF0ZWd5ID09IDMgYW5kIChyZWFjaGVkSFdNIG9yIHVuYmxvY2tUaW1lID49IG5vdykKCmlmIGJsb2NrZWQgdGhlbgogIGxvY2FsIGNvbXB1dGVkUGVuYWx0eSA9IHBlbmFsdHkKICBpZiBjb21wdXRlZFBlbmFsdHkgPT0gbmlsIHRoZW4KICAgIGlmIG1pblRpbWUgPT0gMCB0aGVuCiAgICAgIGNvbXB1dGVkUGVuYWx0eSA9IDUwMDAKICAgIGVsc2UKICAgICAgY29tcHV0ZWRQZW5hbHR5ID0gMTUgKiBtaW5UaW1lCiAgICBlbmQKICBlbmQKCiAgcmVkaXMuY2FsbCgnaG1zZXQnLCBzZXR0aW5nc19rZXksCiAgICAndW5ibG9ja1RpbWUnLCBub3cgKyBjb21wdXRlZFBlbmFsdHksCiAgICAnbmV4dFJlcXVlc3QnLCB1bmJsb2NrVGltZSArIG1pblRpbWUKICApCmVuZAoKcmV0dXJuIHtyZWFjaGVkSFdNLCBibG9ja2VkLCBzdHJhdGVneX0K","base64"))});
+})(null,Buffer("bG9jYWwgc2V0dGluZ3Nfa2V5ID0gS0VZU1sxXQpsb2NhbCBydW5uaW5nX2tleSA9IEtFWVNbMl0KbG9jYWwgZXhlY3V0aW5nX2tleSA9IEtFWVNbM10KCmxvY2FsIHF1ZXVlTGVuZ3RoID0gdG9udW1iZXIoQVJHVlsxXSkKbG9jYWwgd2VpZ2h0ID0gdG9udW1iZXIoQVJHVlsyXSkKbG9jYWwgbm93ID0gdG9udW1iZXIoQVJHVlszXSkKCmxvY2FsIHJ1bm5pbmcgPSB0b251bWJlcihyZWZyZXNoX3J1bm5pbmcoZXhlY3V0aW5nX2tleSwgcnVubmluZ19rZXksIHNldHRpbmdzX2tleSwgbm93KSkKbG9jYWwgc2V0dGluZ3MgPSByZWRpcy5jYWxsKCdobWdldCcsIHNldHRpbmdzX2tleSwKICAnbWF4Q29uY3VycmVudCcsCiAgJ2hpZ2hXYXRlcicsCiAgJ3Jlc2Vydm9pcicsCiAgJ25leHRSZXF1ZXN0JywKICAnc3RyYXRlZ3knLAogICd1bmJsb2NrVGltZScsCiAgJ3BlbmFsdHknLAogICdtaW5UaW1lJwopCmxvY2FsIG1heENvbmN1cnJlbnQgPSB0b251bWJlcihzZXR0aW5nc1sxXSkKbG9jYWwgaGlnaFdhdGVyID0gdG9udW1iZXIoc2V0dGluZ3NbMl0pCmxvY2FsIHJlc2Vydm9pciA9IHRvbnVtYmVyKHNldHRpbmdzWzNdKQpsb2NhbCBuZXh0UmVxdWVzdCA9IHRvbnVtYmVyKHNldHRpbmdzWzRdKQpsb2NhbCBzdHJhdGVneSA9IHRvbnVtYmVyKHNldHRpbmdzWzVdKQpsb2NhbCB1bmJsb2NrVGltZSA9IHRvbnVtYmVyKHNldHRpbmdzWzZdKQpsb2NhbCBwZW5hbHR5ID0gdG9udW1iZXIoc2V0dGluZ3NbN10pCmxvY2FsIG1pblRpbWUgPSB0b251bWJlcihzZXR0aW5nc1s4XSkKCmlmIG1heENvbmN1cnJlbnQgfj0gbmlsIGFuZCB3ZWlnaHQgPiBtYXhDb25jdXJyZW50IHRoZW4KICByZXR1cm4gcmVkaXMuZXJyb3JfcmVwbHkoJ09WRVJXRUlHSFQ6Jy4ud2VpZ2h0Li4nOicuLm1heENvbmN1cnJlbnQpCmVuZAoKbG9jYWwgcmVhY2hlZEhXTSA9IChoaWdoV2F0ZXIgfj0gbmlsIGFuZCBxdWV1ZUxlbmd0aCA9PSBoaWdoV2F0ZXIKICBhbmQgbm90ICgKICAgIGNvbmRpdGlvbnNfY2hlY2sod2VpZ2h0LCBtYXhDb25jdXJyZW50LCBydW5uaW5nLCByZXNlcnZvaXIpCiAgICBhbmQgbmV4dFJlcXVlc3QgLSBub3cgPD0gMAogICkKKQoKbG9jYWwgYmxvY2tlZCA9IHN0cmF0ZWd5ID09IDMgYW5kIChyZWFjaGVkSFdNIG9yIHVuYmxvY2tUaW1lID49IG5vdykKCmlmIGJsb2NrZWQgdGhlbgogIGxvY2FsIGNvbXB1dGVkUGVuYWx0eSA9IHBlbmFsdHkKICBpZiBjb21wdXRlZFBlbmFsdHkgPT0gbmlsIHRoZW4KICAgIGlmIG1pblRpbWUgPT0gMCB0aGVuCiAgICAgIGNvbXB1dGVkUGVuYWx0eSA9IDUwMDAKICAgIGVsc2UKICAgICAgY29tcHV0ZWRQZW5hbHR5ID0gMTUgKiBtaW5UaW1lCiAgICBlbmQKICBlbmQKCiAgcmVkaXMuY2FsbCgnaG1zZXQnLCBzZXR0aW5nc19rZXksCiAgICAndW5ibG9ja1RpbWUnLCBub3cgKyBjb21wdXRlZFBlbmFsdHksCiAgICAnbmV4dFJlcXVlc3QnLCB1bmJsb2NrVGltZSArIG1pblRpbWUKICApCmVuZAoKcmV0dXJuIHtyZWFjaGVkSFdNLCBibG9ja2VkLCBzdHJhdGVneX0K","base64"))});
 
   process.nextTick(function(){(function (err, data) {
     if (err != null) {
@@ -926,6 +932,10 @@
       this.client = redis.createClient(this.clientOptions);
       this.subClient = redis.createClient(this.clientOptions);
       this.shas = {};
+      this.clients = {
+        client: this.client,
+        subscriber: this.subClient
+      };
       this.ready = new this.Promise((resolve, reject) => {
         var count, done, errorListener;
         errorListener = function(e) {
@@ -1090,7 +1100,7 @@
       } catch (error) {
         e = error;
         if (e.message.indexOf("OVERWEIGHT") === 0) {
-          [overweight, weight, maxConcurrent] = e.message.split(" ");
+          [overweight, weight, maxConcurrent] = e.message.split(":");
           throw new BottleneckError(`Impossible to add a job having a weight of ${weight} to a limiter having a maxConcurrent setting of ${maxConcurrent}`);
         } else {
           throw e;
@@ -1116,12 +1126,10 @@
 },{"./BottleneckError":2,"./DLList":3,"./parser":9,"_process":13,"buffer":11,"redis":undefined}],7:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.2
 (function() {
-  var BottleneckError, DLList, Sync,
+  var DLList, Sync,
     slice = [].slice;
 
   DLList = require("./DLList");
-
-  BottleneckError = require("./BottleneckError");
 
   Sync = class Sync {
     constructor(name) {
@@ -1184,7 +1192,7 @@
 
 }).call(this);
 
-},{"./BottleneckError":2,"./DLList":3}],8:[function(require,module,exports){
+},{"./DLList":3}],8:[function(require,module,exports){
 // Generated by CoffeeScript 2.0.2
 (function() {
   module.exports = require("./Bottleneck");
@@ -3323,7 +3331,7 @@ process.umask = function() { return 0; };
 },{}],14:[function(require,module,exports){
 module.exports={
   "name": "bottleneck",
-  "version": "2.0.0-beta.1",
+  "version": "2.0.0-beta.2",
   "description": "Distributed task scheduler and rate limiter",
   "main": "lib/index.js",
   "typings": "bottleneck.d.ts",
