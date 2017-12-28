@@ -5,7 +5,7 @@
 [![License][npm-license]][license-url]
 [![Gitter][gitter-image]][gitter-url]
 
-__You are currently viewing the Version 2 Beta 2 docs.__
+__You are currently viewing the Version 2 Beta 3 docs.__
 
 __Please report any bugs you may find. Your feedback is important.__
 
@@ -31,7 +31,7 @@ Version 1 is still maintained, but will not be receiving any new features. [Brow
 ## Install
 
 ```
-npm install --save git://github.com/SGrondin/bottleneck.git#v2.0.0-beta.2
+npm install --save git://github.com/SGrondin/bottleneck.git#v2.0.0-beta.3
 ```
 
 
