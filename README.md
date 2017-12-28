@@ -13,7 +13,7 @@ Bottleneck is a tiny and efficient Task Scheduler and Rate Limiter for Node.js a
 
 Bottleneck is the easiest solution as it doesn't add much complexity to the code.
 
-It's battle-hardened, reliable and production-ready. It's used on a large scale in both private companies and open source software.
+It's battle-hardened, reliable and production-ready. It's used on a large scale in both private companies and open source software. [Hundreds of projects rely on it.](https://github.com/SGrondin/bottleneck/network/dependents)
 
 It also supports distributed applications through the new Clustering feature in v2.
 

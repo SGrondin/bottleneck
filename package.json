@@ -1,6 +1,6 @@
 {
   "name": "bottleneck",
-  "version": "2.0.0-beta.2",
+  "version": "2.0.0-beta.3",
   "description": "Distributed task scheduler and rate limiter",
   "main": "lib/index.js",
   "typings": "bottleneck.d.ts",
@@ -35,7 +35,6 @@
   },
   "devDependencies": {
     "assert": "1.4.x",
-    "brfs": "^1.4.3",
     "browserify": "*",
     "coffeescript": "2.0.x",
     "mocha": "4.x",

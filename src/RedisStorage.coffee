@@ -2,51 +2,47 @@ parser = require "./parser"
 DLList = require "./DLList"
 BottleneckError = require "./BottleneckError"
 
-fs = require "fs"
-libraries = {}
+lua = require "./lua.json"
+libraries =
+  refresh_running: lua["refresh_running.lua"]
+  conditions_check: lua["conditions_check.lua"]
 scripts =
   init:
     keys: ["b_settings", "b_running", "b_executing"]
     libs: []
-  updateSettings:
+    code: lua["init.lua"]
+  update_settings:
     keys: ["b_settings"]
     libs: []
+    code: lua["update_settings.lua"]
   running:
     keys: ["b_settings", "b_running", "b_executing"]
     libs: ["refresh_running"]
+    code: lua["running.lua"]
   check:
     keys: ["b_settings", "b_running", "b_executing"]
     libs: ["refresh_running", "conditions_check"]
+    code: lua["check.lua"]
   submit:
     keys: ["b_settings", "b_running", "b_executing"]
     libs: ["refresh_running", "conditions_check"]
+    code: lua["submit.lua"]
   register:
     keys: ["b_settings", "b_running", "b_executing"]
     libs: ["refresh_running", "conditions_check"]
+    code: lua["register.lua"]
   free:
     keys: ["b_settings", "b_running", "b_executing"]
     libs: ["refresh_running"]
+    code: lua["free.lua"]
   current_reservoir:
     keys: ["b_settings"]
     libs: []
+    code: lua["current_reservoir.lua"]
   increment_reservoir:
     keys: ["b_settings"]
     libs: []
-
-# Runs as-is in Node, but it also gets preprocessed by brfs
-# brfs looks for the exact pattern "fs.readFile [string], [function]", can't use variables here
-fs.readFile "./src/redis/refresh_running.lua", (err, data) -> if err? then throw err else libraries["refresh_running"] = data.toString "utf8"
-fs.readFile "./src/redis/conditions_check.lua", (err, data) -> if err? then throw err else libraries["conditions_check"] = data.toString "utf8"
-
-fs.readFile "./src/redis/init.lua", (err, data) -> if err? then throw err else scripts["init"].code = data.toString "utf8"
-fs.readFile "./src/redis/running.lua", (err, data) -> if err? then throw err else scripts["running"].code = data.toString "utf8"
-fs.readFile "./src/redis/update_settings.lua", (err, data) -> if err? then throw err else scripts["updateSettings"].code = data.toString "utf8"
-fs.readFile "./src/redis/check.lua", (err, data) -> if err? then throw err else scripts["check"].code = data.toString "utf8"
-fs.readFile "./src/redis/submit.lua", (err, data) -> if err? then throw err else scripts["submit"].code = data.toString "utf8"
-fs.readFile "./src/redis/register.lua", (err, data) -> if err? then throw err else scripts["register"].code = data.toString "utf8"
-fs.readFile "./src/redis/free.lua", (err, data) -> if err? then throw err else scripts["free"].code = data.toString "utf8"
-fs.readFile "./src/redis/current_reservoir.lua", (err, data) -> if err? then throw err else scripts["current_reservoir"].code = data.toString "utf8"
-fs.readFile "./src/redis/increment_reservoir.lua", (err, data) -> if err? then throw err else scripts["increment_reservoir"].code = data.toString "utf8"
+    code: lua["increment_reservoir.lua"]
 
 class RedisStorage
   constructor: (@instance, initSettings, options) ->
@@ -124,7 +120,7 @@ class RedisStorage
 
   convertBool: (b) -> !!b
 
-  __updateSettings__: (options) -> await @runScript "updateSettings", @prepareObject options
+  __updateSettings__: (options) -> await @runScript "update_settings", @prepareObject options
 
   __running__: -> await @runScript "running", [Date.now()]
 
