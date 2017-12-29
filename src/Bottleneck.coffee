@@ -49,7 +49,7 @@ class Bottleneck
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
   ready: => @_store.ready
   clients: => @_store.clients
-  disconnect: (flush) => await @_store.disconnect flush
+  disconnect: (flush=true) => await @_store.disconnect flush
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
     @_events[name].push {cb, status}

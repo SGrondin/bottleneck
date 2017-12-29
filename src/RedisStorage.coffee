@@ -84,7 +84,7 @@ class RedisStorage
       args.unshift (if options.clearDatastore then 1 else 0)
       @runScript "init", args
     .then (results) =>
-      @client
+      @clients
 
   disconnect: (flush) ->
     @client.end flush

@@ -182,7 +182,7 @@ const limiter = new Bottleneck({
 
 ### wrap()
 
-Takes a function that returns a promise. Returns a function identical to the original, but is rate limited.
+Takes a function that returns a promise. Returns a function identical to the original, but rate limited.
 
 ```js
 const wrapped = limiter.wrap(fn)
@@ -360,6 +360,8 @@ limiterB.chain(limiterC);
 // Requests added to limiterC must follow the C rate limits.
 ```
 
+To unchain, call `limiter.chain(null);`.
+
 
 ## Clustering
 
@@ -422,6 +424,8 @@ This helper method calls the `.end(flush)` method on the Redis clients used by a
 ```js
 limiter.disconnect(true)
 ```
+
+The `flush` argument is optional and defaults to `true`.
 
 ###### `.clients()`
 
@@ -549,7 +553,7 @@ The return value of `.key(str)` is a limiter. If it doesn't already exist, it is
 
 __stopAutoCleanup()__
 
-Calling `stopAutoCleanup()` on a group will turn off its garbage collection, so limiters for keys that have not been used in over **5 minutes** will NOT be deleted anymore. It can be reenabled by calling `startAutoCleanup()`. The `5 minutes` figure can be modified by calling `updateTimeout()`.
+Calling `stopAutoCleanup()` on a group will turn off its garbage collection, so limiters for keys that have not been used in over **5 minutes** will NOT be deleted anymore. It can be reenabled by calling `startAutoCleanup()`. The `5 minutes` figure can be modified by calling `updateSettings()`.
 
 
 __startAutoCleanup()__
@@ -627,7 +631,9 @@ Suggestions and bug reports are also welcome.
 
 To work on the Bottleneck code, simply clone the repo, and run `./scripts/build.sh && npm test` to ensure that everything is set up correctly.
 
-Make your changes to the files localted in `src/` only, then run `./scripts/build.sh && npm test` to compile and test them.
+Make your changes to the files localted in `src/` only, then run `./scripts/build.sh && npm test` to build and test them.
+
+To speed up compilation time, run `./scripts/build.sh compile`. It only recompiles the `src/` files and skips the `bottleneck.d.ts` tests and the browser bundle generation.
 
 The tests must also pass in Clustering mode. You'll need a Redis server running on `127.0.0.1:6379`, then run `./scripts/build.sh && DATASTORE=redis npm test`.
 

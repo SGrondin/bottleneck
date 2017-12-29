@@ -8,6 +8,8 @@ if [ ! -d node_modules ]; then
 	npm install
 fi
 
+node_modules/ejs-cli/bin/ejs-cli bottleneck.d.ts.ejs > bottleneck.d.ts
+
 node_modules/coffeescript/bin/coffee -c src/*.coffee
 
 rm -rf lib/*
@@ -18,6 +20,7 @@ if [[ $1 = 'compile' ]]; then
   echo 'Compiling bottleneck...'
 else
   echo 'Building bottleneck...'
+  node_modules/typescript/bin/tsc --noEmit --strictNullChecks test.ts
   node_modules/browserify/bin/cmd.js -u redis lib/index.js > bottleneck.js
   node_modules/uglify-es/bin/uglifyjs bottleneck.js -o bottleneck.min.js
 fi

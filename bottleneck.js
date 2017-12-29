@@ -71,7 +71,7 @@
         return this._store.clients;
       }
 
-      async disconnect(flush) {
+      async disconnect(flush = true) {
         return (await this._store.disconnect(flush));
       }
 
@@ -903,7 +903,7 @@
         args.unshift((options.clearDatastore ? 1 : 0));
         return this.runScript("init", args);
       }).then((results) => {
-        return this.client;
+        return this.clients;
       });
     }
 
@@ -1196,11 +1196,14 @@ module.exports={
     "url": "https://github.com/SGrondin/bottleneck/issues"
   },
   "devDependencies": {
+    "@types/es6-promise": "0.0.33",
     "assert": "1.4.x",
     "browserify": "*",
     "coffeescript": "2.0.x",
+    "ejs-cli": "^2.0.0",
     "mocha": "4.x",
     "redis": "^2.8.0",
+    "typescript": "^2.6.2",
     "uglify-es": "3.x"
   },
   "dependencies": {}
