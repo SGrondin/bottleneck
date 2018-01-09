@@ -9,22 +9,22 @@ __You are currently viewing the Version 2 Beta 4 docs.__
 
 __Please report any bugs you may find. Your feedback is important.__
 
-Bottleneck is a tiny and efficient Task Scheduler and Rate Limiter for Node.js and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded. Bottleneck also makes scheduling asynchronous jobs easier.
+Bottleneck is a tiny and efficient Task Scheduler and Rate Limiter for Node.js and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded.
 
-Bottleneck is the easiest solution as it doesn't add much complexity to the code.
+Bottleneck is an easy solution as it does not add much complexity to the code.
 
-It's battle-hardened, reliable and production-ready. It's used on a large scale in both private companies and open source software. [Hundreds of projects rely on it.](https://github.com/SGrondin/bottleneck/network/dependents)
+It is battle-hardened, reliable and production-ready. [Hundreds of projects rely on it](https://github.com/SGrondin/bottleneck/network/dependents) and it is used on a large scale in both private companies and open source software.
 
 It also supports distributed applications through the new Clustering feature in v2.
 
 __Bottleneck Version 2__
-This new version is almost 100% compatible with Version 1, but it adds some very interesting features such as:
+This new version is almost 100% compatible with Version 1 and it adds some powerful features such as:
 - **True [Clustering](#clustering) support.** You can now rate limit and schedule jobs across multiple Node.js instances. It uses strictly atomic operations to stay reliable in the presence of unreliable clients. 100% of Bottleneck's features are supported.
 - **Support for custom job _weights_.** Not all jobs are equally resource intensive.
 - **Support for job timeouts.** Bottleneck can automatically cancel jobs if they exceed their execution time limit.
-- Many improvements to the interface, such as better method names and errors, better debugging tools.
+- Many improvements to the interface, such as better method names and errors, improved debugging tools.
 
-[Quickly upgrade your application code from v1 to v2 of Bottleneck.](#upgrading-to-v2)
+**[Quickly upgrade your application code from v1 to v2 of Bottleneck](#upgrading-to-v2)**
 
 Version 1 is still maintained, but will not be receiving any new features. [Browse the v1 documentation](https://github.com/SGrondin/bottleneck/tree/version-1).
 
@@ -50,31 +50,31 @@ const limiter = new Bottleneck({
 });
 ```
 
-Instead of doing
+Instead of this:
 ```js
 someAsyncCall(arg1, arg2, callback);
 ```
-You do
+Do this:
 ```js
 limiter.submit(someAsyncCall, arg1, arg2, callback);
 ```
 And now you can be assured that someAsyncCall will abide by your rate guidelines!
 
-[More information about using Bottleneck with callbacks.](#submit)
+[More information about using Bottleneck with callbacks](#submit)
 
 #### Promises example
 
-Instead of doing
+Instead of this:
 ```js
 myFunction(arg1, arg2)
 .then((result) => { /* handle result */ })
 ```
-You do
+Do this:
 ```js
 limiter.schedule((arg1, arg2) => { myFunction(arg1, arg2) }, arg1, arg2)
 .then((result) => { /* handle result */ })
 ```
-Or
+Or this:
 ```js
 const throttledMyFunction = limiter.wrap(myFunction)
 
@@ -82,7 +82,7 @@ throttledMyFunction(arg1, arg2)
 .then((result) => { /* handle result */ })
 ```
 
-[More information about using Bottleneck with promises.](#schedule)
+[More information about using Bottleneck with promises](#schedule)
 
 #### Remember...
 
@@ -94,9 +94,9 @@ This is sufficient for the vast majority of applications. **Read the 'Gotchas' s
 
 * Make sure you're catching `error` events emitted by limiters! See [Debugging your application](#debugging-your-application)
 
-* **When using `submit`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work if you forget to do this.
+* **When using `submit`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work otherwise.
 
-* **When using `submit`**, make sure that all the jobs will eventually complete by calling their callback (or have a [`timeout`](#job-options)). Again, even if you `submit`ted your job with a `null` callback , it still needs to call its callback. This is very important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run. It's safe to call the callback more than once, subsequent calls are ignored.
+* **When using `submit`**, make sure all the jobs will eventually complete by calling their callback (or have a [`timeout`](#job-options)). Again, even if you `submit`ted your job with a `null` callback , it still needs to call its callback. This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run. It's safe to call the callback more than once, subsequent calls are ignored.
 
 * **When using `schedule` or `wrap`**, make sure that all the jobs will eventually complete (resolving or rejecting) or have a [`timeout`](#job-options). This is very important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run.
 
@@ -120,7 +120,7 @@ Basic options:
 | `highWater` | `null` | How long can the queue get? When the queue length exceeds that value, the selected `strategy` is executed to shed the load. |
 | `strategy` | `Bottleneck.strategy.LEAK` | Which strategy to use if the queue gets longer than the high water mark. [Read about strategies](#strategies). |
 | `penalty` | `15 * minTime`, or `5000` when `minTime` is `null` | The `penalty` value used by the `Bottleneck.strategy.BLOCK` strategy. |
-| `reservoir` | `null` (unlimited) | How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no more `0`. |
+| `reservoir` | `null` (unlimited) | How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no longer `0`. |
 
 
 ### submit()
@@ -151,7 +151,7 @@ limiter.schedule(fn, arg1, arg2)
 })
 ```
 
-Simply, `schedule` takes a function Fn and a list of arguments. Fn must return a promise. `schedule` returns a promise that will be executed according to the rate limits.
+Simply put, `schedule` takes a function Fn and a list of arguments. Fn must return a promise. `schedule` returns a promise that will be executed according to the rate limits.
 
 `submit` can also accept some advanced options. See [Job Options](#job-options).
 
@@ -211,9 +211,9 @@ limiter.schedule(options, fn, arg1, arg2);
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `priority` | `5` | A priority between `0` and `9`. A job with a priority of `4` will **always** be executed before a job with a priority of `5`. |
+| `priority` | `5` | A priority between `0` and `9`. A job with a priority of `4` will _always_ be executed before a job with a priority of `5`. |
 | `weight` | `1` | Must be an integer equal to or higher than `0`. The `weight` is what increases the number of running jobs (up to `maxConcurrent`, if using) and decreases the `reservoir` value (if using). |
-| `expiration` | `null` (unlimited) | Once a job starts running, how many milliseconds does it have to finish? Jobs that take longer than their `expiration` will be failed with a `BottleneckError`. |
+| `expiration` | `null` (unlimited) | The number milliseconds a job has to finish. Jobs that take longer than their `expiration` will be failed with a `BottleneckError`. |
 | `id` | `<no-id>` | You can give an ID to your jobs, for easier debugging. See [Debugging your application](#debugging-your-application). |
 
 ### Strategies
@@ -221,10 +221,10 @@ limiter.schedule(options, fn, arg1, arg2);
 A strategy is a simple algorithm that is executed every time adding a job would cause the number of queued jobs to exceed `highWater`. See [Events](#events).
 
 #### Bottleneck.strategy.LEAK
-When adding a new job to a limiter, if the queue length reaches `highWater`, drop the oldest job with the lowest priority. This is useful when jobs that have been waiting for too long are not important anymore. If all the queued up jobs are more important (based on their `priority` value) than the one being added, it won't be added.
+When adding a new job to a limiter, if the queue length reaches `highWater`, drop the oldest job with the lowest priority. This is useful when jobs that have been waiting for too long are not important anymore. If all the queued jobs are more important (based on their `priority` value) than the one being added, it will not be added.
 
 #### Bottleneck.strategy.OVERFLOW_PRIORITY
-Same as `LEAK`, except that it will only drop jobs that are *less important* than the one being added. If all the queued up jobs are as important or more than the new one, it won't be added.
+Same as `LEAK`, except it will only drop jobs that are *less important* than the one being added. If all the queued jobs are as or more important than the new one, it will not be added.
 
 #### Bottleneck.strategy.OVERFLOW
 When adding a new job to a limiter, if the queue length reaches `highWater`, do not add the new job. This strategy totally ignores priority levels.
@@ -241,7 +241,7 @@ const count = limiter.queued(priority);
 console.log(count);
 ```
 
-`priority` is optional. Without that argument, it returns return the total number of jobs waiting to be executed, otherwise it only counts the number of jobs with that specific priority.
+`priority` is optional. Without that argument, it returns the total number of jobs waiting to be executed, otherwise it only counts the number of jobs with that specific priority.
 
 ### running()
 
@@ -258,7 +258,7 @@ Returns a promise that returns the number of jobs currently running in the limit
 limiter.check()
 .then((wouldRunNow) => console.log(wouldRunNow));
 ```
-If a job was added right now, would it be run immediately? Returns a promise that returns a boolean.
+Checks if a new job would be run immediately once if it was now. Returns a promise that returns a boolean.
 
 
 ### Events
@@ -365,7 +365,7 @@ To unchain, call `limiter.chain(null);`.
 
 ## Clustering
 
-Clustering lets many limiters access the same shared state, stored in a Redis server or Redis cluster. Changes to the state are Atomic, Consistent and Isolated (and fully [ACID](https://en.wikipedia.org/wiki/ACID) with the right redis [Durability](https://redis.io/topics/persistence) configuration) to eliminate any chances of race conditions or state corruption. Your settings, such as `maxConcurrent`, `minTime`, etc., are shared across the whole cluster, which means -for example- that `{ maxConcurrent: 5 }` guarantees no more than 5 jobs can ever run at a time in the entire cluster of limiters. 100% of Bottleneck's features are supported in Clustering mode. Enabling Clustering is as simple as changing a few settings. It's also a convenient way to store or export state for later use.
+Clustering lets many limiters access the same shared state, stored in a Redis server or Redis cluster. Changes to the state are Atomic, Consistent and Isolated (and fully [ACID](https://en.wikipedia.org/wiki/ACID) with the right redis [Durability](https://redis.io/topics/persistence) configuration), to eliminate any chances of race conditions or state corruption. Your settings, such as `maxConcurrent`, `minTime`, etc., are shared across the whole cluster, which means—for example—that `{ maxConcurrent: 5 }` guarantees no more than 5 jobs can ever run at a time in the entire cluster of limiters. 100% of Bottleneck's features are supported in Clustering mode. Enabling Clustering is as simple as changing a few settings. It's also a convenient way to store or export state for later use.
 
 ##### Enabling Clustering
 
@@ -442,26 +442,26 @@ Just like `.ready()`, calling `.clients()` when using the `local` datastore won'
 
 The first limiter connecting to Redis will store its constructor options ([Constructor](#constructor)) on Redis and all subsequent limiters will be using those settings. You can alter the constructor options used by all the connected limiters by calling `updateSettings`. The `clearDatastore` option instructs a new limiter to wipe any previous Bottleneck data, including previously stored settings.
 
-Queued jobs are **NOT** stored on Redis. They are local to each limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run a job across a different Node.js process than the one it originated on. Bottleneck doesn't keep track of the queue contents of the limiters on a cluster, for performance reasons and because the reliability tradeoffs were simply too great.
+Queued jobs are **NOT** stored on Redis. They are local to each limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run a job across a different Node.js process than the one it originated on. Bottleneck doesn't keep track of the queue contents of the limiters on a cluster for performance and reliability reasons.
 
-For those reasons, functionality relying on the queue length happen purely locally:
+Due to the above, functionality relying on the queue length happen purely locally:
 - Priorities are local. A higher priority job will run before a lower priority job **on the same limiter**. Another limiter on the cluster might run a lower priority before our higher priority one.
 - (Assuming default priority levels) Bottleneck guarantees that jobs will be run in the order they were queued **on the same limiter**. Another limiter on the cluster might run a job queued later before ours runs.
 - `highWater` and load shedding ([strategies](#strategies)) are per limiter. However, one limiter entering Blocked mode will put the entire cluster in Blocked mode until `penalty` milliseconds have passed. See [Strategies](#strategies).
 - The `empty` event is triggered when the (local) queue is empty.
 - The `idle` event is triggered when the (local) queue is empty *and* no jobs are currently running anywhere in the cluster.
 
-The above limitations should hopefully be possible to work around in your application code, if necessary.
+You must work around these limitations in your application code if they are an issue to you.
 
-The current design was chosen because it guarantees reliability and lets clients (limiters) come and go. Your application can scale up or down, and clients can be disconnected without issues.
+The current design guarantees reliability and lets clients (limiters) come and go. Your application can scale up or down, and clients can be disconnected without issues.
 
 It is **strongly recommended** that you set a `timeout` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using timeouts, those lost jobs are automatically cleared after the timeout. Using timeouts is essential to keeping a cluster reliable in the face of unpredictable application bugs, network hiccups, and so on.
 
-Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). Bottleneck performs the absolute minimum number of state accesses, to minize the impact of latency, but keeping the Redis server close to your limiters will help you get a more consistent experience.
+Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience.
 
 It is **strongly recommended** to [set up an `error` listener](#events).
 
-Bottleneck doesn't guarantee that the concurrency will be spread evenly across limiters. With `{ maxConcurrent: 5 }`, it's absolutely possible for a single limiter to end up running 5 jobs simultaneously while the other limiters in the cluster sit idle. To spread the load, use the `.chain()` method:
+Bottleneck does not guarantee that the concurrency will be spread evenly across limiters. With `{ maxConcurrent: 5 }`, it's absolutely possible for a single limiter to end up running 5 jobs simultaneously while the other limiters in the cluster sit idle. To spread the load, use the `.chain()` method:
 
 ```js
 const clusterLimiter = new Bottleneck({ maxConcurrent: 5, datastore: 'redis' });
@@ -484,17 +484,17 @@ clusterLimiter.ready()
 
 - Bottleneck is compatible with [Redis Clusters](https://redis.io/topics/cluster-tutorial).
 - Bottleneck's data is stored in Redis keys beginning with `b_` and it uses the `bottleneck` pub/sub channel. It will not interfere with any other data stored on the server.
-- Bottleneck loads a few Lua scripts on the Redis server using the `SCRIPT LOAD` command. These scripts only take up a few Kb of memory. Running the `SCRIPT FLUSH` command will obviously cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
-- The Lua scripts are highly optimized and designed to use as little resources (CPU, especially) as possible.
+- Bottleneck loads a few Lua scripts on the Redis server using the `SCRIPT LOAD` command. These scripts only take up a few Kb of memory. Running the `SCRIPT FLUSH` command will cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
+- The Lua scripts are highly optimized and designed to use as few resources (CPU, especially) as possible.
 
 
 ## Debugging your application
 
-Debugging complex scheduling logic can be difficult, especially when priorities, weights, and network latency all interact together.
+Debugging complex scheduling logic can be difficult, especially when priorities, weights, and network latency all interact.
 
 If your application is not behaving as expected, start by making sure you're catching `error` [events emitted](#events) by your limiters. Those errors are most likely uncaught exceptions from your application code.
 
-To see exactly what a limiter is doing in real time, listen to the `debug` event. It contains detailed information about how the limiter is executing your code. Adding [job IDs](#job-options) to all your jobs makes the debug output a lot more readable.
+To see exactly what a limiter is doing in real time, listen to the `debug` event. It contains detailed information about how the limiter is executing your code. Adding [job IDs](#job-options) to all your jobs makes the debug output more readable.
 
 When Bottleneck has to fail one of your jobs, it does so by using `BottleneckError` objects. This lets you tell those errors apart from your own code's errors:
 
@@ -508,7 +508,7 @@ limiter.schedule(fn)
 })
 ```
 
-Some Promise libraries also support selective `catch()` blocks that only catch a specific type of errors:
+Some Promise libraries also support selective `catch()` blocks that only catch a specific type of error:
 
 ```js
 limiter.schedule(fn)
@@ -527,7 +527,7 @@ You can also set the constructor option `rejectOnDrop` to `false`, and Bottlenec
 
 The `Group` feature of Bottleneck manages many limiters automatically for you. It creates limiters dynamically and transparently.
 
-Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse and where incoming DNS requests need to be rate limited. Bottleneck is so tiny, it's perfectly fine to create one limiter for each origin IP, even if it means creating thousands and thousands of limiters. The `Group` feature is perfect for this use case. We can create one group and then use the origin IP to rate limit each IP independently. Each call with the same key (IP) will be routed to the same underlying limiter. A group is created exactly like a limiter:
+Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse and where incoming DNS requests need to be rate limited. Bottleneck is so tiny, it's acceptable to create one limiter for each origin IP, even if it means creating thousands of limiters. The `Group` feature is perfect for this use case. Create one group and use the origin IP to rate limit each IP independently. Each call with the same key (IP) will be routed to the same underlying limiter. A group is created like a limiter:
 
 
 ```js
@@ -548,17 +548,17 @@ __key()__
 
 * `str` : The key to use. All jobs added with the same key will use the same underlying limiter. *Default: `""`*
 
-The return value of `.key(str)` is a limiter. If it doesn't already exist, it is created on the fly. Limiters that have been idle for a long time are deleted to avoid memory leaks.
+The return value of `.key(str)` is a limiter. If it doesn't already exist, it is generated for you. Limiters that have been idle for longer than 5 minutes are deleted to avoid memory leaks.
 
 
 __stopAutoCleanup()__
 
-Calling `stopAutoCleanup()` on a group will turn off its garbage collection, so limiters for keys that have not been used in over **5 minutes** will NOT be deleted anymore. It can be reenabled by calling `startAutoCleanup()`. The `5 minutes` figure can be modified by calling `updateSettings()`.
+Calling `stopAutoCleanup()` on a group will turn off its garbage collection, so limiters for keys that have not been used in over **5 minutes** will no longer be deleted. It can be reenabled by calling `startAutoCleanup()`. The `5 minutes` figure can be modified by calling `updateSettings()`.
 
 
 __startAutoCleanup()__
 
-Reactivate the group's garbage collection..
+Reactivate the group's garbage collection.
 
 __updateSettings()__
 
@@ -566,9 +566,9 @@ __updateSettings()__
 group.updateSettings({ timeout: 60000 })
 ```
 
-* `timeout`: The expiration time for unused limiters, in milliseconds. By default it is `300000` (5 minutes).
+* `timeout`: The expiration time for unused limiters, in milliseconds. By default, it is `300000` (5 minutes).
 
-When autocleanup is enabled, limiters having not been used in the last `timeout` milliseconds will be deleted to avoid memory leaks.
+When autocleanup is enabled, limiters not used in the last `timeout` milliseconds will be deleted to avoid memory leaks.
 
 
 __deleteKey()__
@@ -594,7 +594,7 @@ console.log(limiters)
 
 ## Upgrading to v2
 
-The internal algorithms essentially haven't changed from v1, but many small changes to the interface had to be done to make the new features possible.
+The internal algorithms essentially haven't changed from v1, but many small changes to the interface were made to introduce new features.
 
 All the breaking changes:
 - Bottleneck v2 uses ES6/ES2015. v1 will continue to use ES5 only.
@@ -605,20 +605,20 @@ All the breaking changes:
 - The `rejectOnDrop` option is now `true` by default.
 - Use `null` instead of `0` to indicate an unlimited `maxConcurrent` value.
 - Use `null` instead of `-1` to indicate an unlimited `highWater` value.
-- Renamed `changeSettings()` to `updateSettings()` and it now returns a promise to indicate completion. It takes the same options object as the constructor.
+- Renamed `changeSettings()` to `updateSettings()`, it now returns a promise to indicate completion. It takes the same options object as the constructor.
 - Renamed `nbQueued()` to `queued()`.
-- Renamed `nbRunning` to `running()`, it also now returns its result using a promise.
+- Renamed `nbRunning` to `running()`, it now returns its result using a promise.
 - Removed `isBlocked()`.
-- Changing the Promise library is now done through the options object like any other limiter settings.
-- Removed `changePenalty()`, it is now done through the options object like any other limiter settings.
-- Removed `changeReservoir()`, it is now done through the options object like any other limiter settings.
-- Removed `stopAll()`, as its implementation was flawed and misleading. Use the `reservoir` feature to disable execution instead.
-- `check()` now accepts an optional `weight` argument, and now also returns its result using a promise.
+- Changing the Promise library is now done through the options object like any other limiter setting.
+- Removed `changePenalty()`, it is now done through the options object like any other limiter setting.
+- Removed `changeReservoir()`, it is now done through the options object like any other limiter setting.
+- Removed `stopAll()`. Use the `reservoir` feature to disable execution instead.
+- `check()` now accepts an optional `weight` argument, and returns its result using a promise.
 - The `Cluster` feature is now called `Group`. This is to distinguish it from the new v2 [Clustering](#clustering) feature.
-- The `Group` constructor takes an options object, to match the limiter constructor.
+- The `Group` constructor takes an options object to match the limiter constructor.
 - Renamed the `Group` `changeTimeout()` method to `updateSettings()`, it now takes an options object. See [Group](#group).
 
-Version 2 is more user-friendly, powerful and reliable than ever.
+Version 2 is more user-friendly, powerful and reliable.
 
 After upgrading your code, please take a minute to read the [Debugging your application](#debugging-your-application) chapter.
 
@@ -631,11 +631,13 @@ Suggestions and bug reports are also welcome.
 
 To work on the Bottleneck code, simply clone the repo, and run `./scripts/build.sh && npm test` to ensure that everything is set up correctly.
 
-Make your changes to the files localted in `src/` only, then run `./scripts/build.sh && npm test` to build and test them.
+Make your changes to the files located in `src/` only, then run `./scripts/build.sh && npm test` to build and test them.
 
 To speed up compilation time, run `./scripts/build.sh compile`. It only recompiles the `src/` files and skips the `bottleneck.d.ts` tests and the browser bundle generation.
 
 The tests must also pass in Clustering mode. You'll need a Redis server running on `127.0.0.1:6379`, then run `./scripts/build.sh && DATASTORE=redis npm test`.
+
+All contributions are appreciated and will be considered.
 
 [license-url]: https://github.com/SGrondin/bottleneck/blob/master/LICENSE
 
