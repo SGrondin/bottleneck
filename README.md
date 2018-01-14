@@ -16,7 +16,7 @@ It's battle-hardened, reliable and production-ready. It's used on a large scale 
 
 __Node__
 ```
-npm install bottleneck
+npm install --save bottleneck@1.x
 ```
 __Browser__
 ```
