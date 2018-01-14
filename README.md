@@ -5,13 +5,10 @@
 [![License][npm-license]][license-url]
 [![Gitter][gitter-image]][gitter-url]
 
-__You are currently viewing the Version 2 Beta 4 docs.__
-
-__Please report any bugs you may find. Your feedback is important.__
 
 Bottleneck is a tiny and efficient Task Scheduler and Rate Limiter for Node.js and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded.
 
-Bottleneck is an easy solution as it does not add much complexity to the code.
+Bottleneck is an easy solution as it does not add much complexity to your code.
 
 It is battle-hardened, reliable and production-ready. [Hundreds of projects rely on it](https://github.com/SGrondin/bottleneck/network/dependents) and it is used on a large scale in both private companies and open source software.
 
@@ -31,7 +28,7 @@ Version 1 is still maintained, but will not be receiving any new features. [Brow
 ## Install
 
 ```
-npm install --save git://github.com/SGrondin/bottleneck.git#v2.0.0-beta.4
+npm install --save bottleneck
 ```
 
 
