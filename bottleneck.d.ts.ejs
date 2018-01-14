@@ -1,23 +1,72 @@
 declare module "bottleneck" {
     namespace Bottleneck {
         type ConstructorOptions = {
+            /**
+             * How many jobs can be running at the same time.
+             */
             readonly maxConcurrent?: number;
+            /**
+             * How long to wait after launching a job before launching another one.
+             */
             readonly minTime?: number;
+            /**
+             * How long can the queue get? When the queue length exceeds that value, the selected `strategy` is executed to shed the load.
+             */
             readonly highWater?: number;
+            /**
+             * Which strategy to use if the queue gets longer than the high water mark.
+             */
             readonly strategy?: Bottleneck.Strategy;
+            /**
+             * The `penalty` value used by the `Bottleneck.strategy.BLOCK` strategy.
+             */
             readonly penalty?: number;
+            /**
+             * How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no longer `0`.
+             */
             readonly reservoir?: number;
-            readonly datastore?: string;
+            /**
+             * Optional identifier
+             */
             readonly id?: string;
+            /**
+             * Set to true to leave your failed jobs hanging instead of failing them.
+             */
             readonly rejectOnDrop?: boolean;
+            /**
+             * Where the limiter stores its internal state. The default (`local`) keeps the state in the limiter itself. Set it to `redis` to enable Clustering.
+             */
+            readonly datastore?: string;
+            /**
+             * Override the Promise library used by Bottleneck.
+             */
+            readonly Promise?: any;
+            /**
+             * This object is passed directly to NodeRedis's `redis.createClient()` method.
+             */
             readonly clientOptions?: any;
+            /**
+             * When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db.
+             */
             readonly clearDatastore?: boolean;
             [propName: string]: any;
         };
         type JobOptions = {
+            /**
+             * A priority between `0` and `9`. A job with a priority of `4` will _always_ be executed before a job with a priority of `5`.
+             */
             readonly priority?: number;
+            /**
+             * Must be an integer equal to or higher than `0`. The `weight` is what increases the number of running jobs (up to `maxConcurrent`, if using) and decreases the `reservoir` value (if using).
+             */
             readonly weight?: number;
+            /**
+             * The number milliseconds a job has to finish. Jobs that take longer than their `expiration` will be failed with a `BottleneckError`.
+             */
             readonly expiration?: number;
+            /**
+             * Optional identifier, helps with debug output.
+             */
             readonly id?: string;
         };
         type GroupOptions = {
@@ -74,19 +123,19 @@ declare module "bottleneck" {
     class Bottleneck {
         public static readonly strategy: {
             /**
-             * When submitting a new request, if the queue length reaches highWater, drop the oldest request with the lowest priority. This is useful when requests that have been waiting for too long are not important anymore. If all the queued up requests are more important than the one being added, it won't be added.
+             * When adding a new job to a limiter, if the queue length reaches `highWater`, drop the oldest job with the lowest priority. This is useful when jobs that have been waiting for too long are not important anymore. If all the queued jobs are more important (based on their `priority` value) than the one being added, it will not be added.
              */
             readonly LEAK: Bottleneck.Strategy;
             /**
-             * Same as LEAK, except that it will only drop requests that are less important than the one being added. If all the queued up requests are as important or more than the new one, it won't be added.
+             * Same as `LEAK`, except it will only drop jobs that are less important than the one being added. If all the queued jobs are as or more important than the new one, it will not be added.
              */
             readonly OVERFLOW_PRIORITY: Bottleneck.Strategy;
             /**
-             * When submitting a new request, if the queue length reaches highWater, do not add the new request. This strategy totally ignores priority levels.
+             * When adding a new job to a limiter, if the queue length reaches `highWater`, do not add the new job. This strategy totally ignores priority levels.
              */
             readonly OVERFLOW: Bottleneck.Strategy;
             /**
-             * When submitting a new request, if the queue length reaches highWater, the limiter falls into "blocked mode". All queued requests are dropped and no new requests will be accepted until the limiter unblocks. It will unblock after penalty milliseconds have passed without receiving a new request. penalty is equal to 15 * minTime (or 5000 if minTime is 0) by default and can be changed by calling changePenalty(). This strategy is ideal when bruteforce attacks are to be expected. This strategy totally ignores priority levels.
+             * When adding a new job to a limiter, if the queue length reaches `highWater`, the limiter falls into "blocked mode". All queued jobs are dropped and no new jobs will be accepted until the limiter unblocks. It will unblock after `penalty` milliseconds have passed without receiving a new job. `penalty` is equal to `15 * minTime` (or `5000` if `minTime` is `0`) by default and can be changed by calling `changePenalty()`. This strategy is ideal when bruteforce attacks are to be expected. This strategy totally ignores priority levels.
              */
             readonly BLOCK: Bottleneck.Strategy;
         };

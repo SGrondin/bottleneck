@@ -126,7 +126,33 @@ describe('Group', function () {
       c.mustEqual(limiter.key, keys[i])
       assert(limiter.limiter instanceof Bottleneck)
     })
+  })
 
+  it('Should call autocleanup', function () {
+    c = makeTest()
+    var KEY = 'test-key'
+    var group = new Bottleneck.Group({
+      maxConcurrent: 1
+    })
+    group.updateSettings({ timeout: 50 })
+
+    return c.limiter.ready()
+    .then(function () {
+      group.instances[KEY] = c.limiter
+
+      return group.key(KEY).schedule(function () {
+        return Promise.resolve()
+      })
+    })
+    .then(function () {
+      assert(group.instances[KEY] != null)
+      return new Promise(function (resolve, reject) {
+        setTimeout(resolve, 100)
+      })
+    })
+    .then(function () {
+      assert(group.instances[KEY] == null)
+    })
   })
 
 })

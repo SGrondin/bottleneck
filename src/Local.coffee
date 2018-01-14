@@ -27,6 +27,10 @@ class Local
     await @yieldLoop()
     @_running
 
+  __groupCheck__: ->
+    await @yieldLoop()
+    @_nextRequest
+
   conditionsCheck: (weight) ->
     ((not @maxConcurrent? or @_running+weight <= @maxConcurrent) and
     (not @reservoir? or @reservoir-weight >= 0))

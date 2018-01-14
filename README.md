@@ -457,7 +457,7 @@ The current design guarantees reliability and lets clients (limiters) come and g
 
 It is **strongly recommended** that you set a `timeout` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using timeouts, those lost jobs are automatically cleared after the timeout. Using timeouts is essential to keeping a cluster reliable in the face of unpredictable application bugs, network hiccups, and so on.
 
-Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience.
+Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience. Keeping the clients' server time consistent will also help.
 
 It is **strongly recommended** to [set up an `error` listener](#events).
 

@@ -7,7 +7,9 @@ class Group
     @Bottleneck = require "./Bottleneck"
     @startAutoCleanup()
   key: (key="") => @instances[key] ? (@instances[key] = new @Bottleneck @limiterOptions)
-  deleteKey: (key="") => delete @instances[key]
+  deleteKey: (key="") =>
+    @instances[key]?.disconnect()
+    delete @instances[key]
   limiters: =>
     for k,v of @instances then { key: k, limiter: v }
   keys: => Object.keys @instances
@@ -16,8 +18,12 @@ class Group
     (@interval = setInterval =>
       time = Date.now()
       for k,v of @instances
-        if (v._nextRequest + @timeout) < time then @deleteKey k
-    , (@timeout / 10)).unref?()
+        try
+          check = await v._store.__groupCheck__()
+          if (check + @timeout) < time then @deleteKey k
+        catch e
+          v._trigger "error", [e]
+    , (@timeout / 2)).unref?()
   stopAutoCleanup: => clearInterval @interval
   updateSettings: (options={}) =>
     parser.overwrite options, @defaults, @

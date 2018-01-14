@@ -4,6 +4,7 @@ BottleneckError = require "./BottleneckError"
 
 lua = require "./lua.json"
 libraries =
+  get_time: lua["get_time.lua"]
   refresh_running: lua["refresh_running.lua"]
   conditions_check: lua["conditions_check.lua"]
 scripts =
@@ -19,6 +20,10 @@ scripts =
     keys: ["b_settings", "b_running", "b_executing"]
     libs: ["refresh_running"]
     code: lua["running.lua"]
+  group_check:
+    keys: ["b_settings"]
+    libs: []
+    code: lua["group_check.lua"]
   check:
     keys: ["b_settings", "b_running", "b_executing"]
     libs: ["refresh_running", "conditions_check"]
@@ -123,6 +128,8 @@ class RedisStorage
   __updateSettings__: (options) -> await @runScript "update_settings", @prepareObject options
 
   __running__: -> await @runScript "running", [Date.now()]
+
+  __groupCheck__: -> parseInt (await @runScript "group_check", []), 10
 
   __incrementReservoir__: (incr) -> await @runScript "increment_reservoir", [incr]
 

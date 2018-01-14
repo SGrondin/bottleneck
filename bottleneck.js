@@ -246,8 +246,8 @@
 
       _drainOne(freed) {
         return this._registerLock.schedule(() => {
-          var args, index, options, queue, queued;
-          if ((queued = this.queued()) === 0) {
+          var args, index, options, queue;
+          if (this.queued() === 0) {
             return this.Promise.resolve(false);
           }
           queue = this._getFirst(this._queues);
@@ -561,6 +561,10 @@
       }
 
       deleteKey(key = "") {
+        var ref;
+        if ((ref = this.instances[key]) != null) {
+          ref.disconnect();
+        }
         return delete this.instances[key];
       }
 
@@ -585,21 +589,27 @@
       startAutoCleanup() {
         var base;
         this.stopAutoCleanup();
-        return typeof (base = (this.interval = setInterval(() => {
-          var k, ref, results, time, v;
+        return typeof (base = (this.interval = setInterval(async() => {
+          var check, e, k, ref, results, time, v;
           time = Date.now();
           ref = this.instances;
           results = [];
           for (k in ref) {
             v = ref[k];
-            if ((v._nextRequest + this.timeout) < time) {
-              results.push(this.deleteKey(k));
-            } else {
-              results.push(void 0);
+            try {
+              check = (await v._store.__groupCheck__());
+              if ((check + this.timeout) < time) {
+                results.push(this.deleteKey(k));
+              } else {
+                results.push(void 0);
+              }
+            } catch (error) {
+              e = error;
+              results.push(v._trigger("error", [e]));
             }
           }
           return results;
-        }, this.timeout / 10))).unref === "function" ? base.unref() : void 0;
+        }, this.timeout / 2))).unref === "function" ? base.unref() : void 0;
       }
 
       stopAutoCleanup() {
@@ -673,6 +683,11 @@
     async __running__() {
       await this.yieldLoop();
       return this._running;
+    }
+
+    async __groupCheck__() {
+      await this.yieldLoop();
+      return this._nextRequest;
     }
 
     conditionsCheck(weight) {
@@ -791,6 +806,7 @@
   lua = require("./lua.json");
 
   libraries = {
+    get_time: lua["get_time.lua"],
     refresh_running: lua["refresh_running.lua"],
     conditions_check: lua["conditions_check.lua"]
   };
@@ -810,6 +826,11 @@
       keys: ["b_settings", "b_running", "b_executing"],
       libs: ["refresh_running"],
       code: lua["running.lua"]
+    },
+    group_check: {
+      keys: ["b_settings"],
+      libs: [],
+      code: lua["group_check.lua"]
     },
     check: {
       keys: ["b_settings", "b_running", "b_executing"],
@@ -988,6 +1009,10 @@
       return (await this.runScript("running", [Date.now()]));
     }
 
+    async __groupCheck__() {
+      return parseInt((await this.runScript("group_check", [])), 10);
+    }
+
     async __incrementReservoir__(incr) {
       return (await this.runScript("increment_reservoir", [incr]));
     }
@@ -1125,6 +1150,8 @@ module.exports={
   "conditions_check.lua": "local conditions_check = function (weight, maxConcurrent, running, reservoir)\n  return (\n    (maxConcurrent == nil or running + weight <= maxConcurrent) and\n    (reservoir == nil or reservoir - weight >= 0)\n  )\nend\n",
   "current_reservoir.lua": "local settings_key = KEYS[1]\n\nreturn tonumber(redis.call('hget', settings_key, 'reservoir'))\n",
   "free.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal index = ARGV[1]\nlocal now = ARGV[2]\n\nredis.call('zadd', executing_key, 0, index)\n\nreturn refresh_running(executing_key, running_key, settings_key, now)\n",
+  "get_time.lua": "redis.replicate_commands()\n\nlocal get_time = function ()\n  local time = redis.call('time')\n\n  return tonumber(time[1]..string.sub(time[2], 1, 3))\nend\n",
+  "group_check.lua": "local settings_key = KEYS[1]\n\nreturn redis.call('hget', settings_key, 'nextRequest')\n",
   "increment_reservoir.lua": "local settings_key = KEYS[1]\nlocal incr = ARGV[1]\n\nreturn redis.call('hincrby', settings_key, 'reservoir', incr)\n",
   "init.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal clear = tonumber(ARGV[1])\n\nif clear == 1 then\n  redis.call('del', settings_key, running_key, executing_key)\nend\n\nif redis.call('exists', settings_key) == 0 then\n  local args = {'hmset', settings_key}\n\n  for i = 2, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\nend\n\nreturn {}\n",
   "refresh_running.lua": "local refresh_running = function (executing_key, running_key, settings_key, now)\n\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired == 0 then\n    return redis.call('hget', settings_key, 'running')\n  else\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local args = {'hmget', running_key}\n    for i = 1, #expired do\n      table.insert(args, expired[i])\n    end\n\n    local weights = redis.call(unpack(args))\n\n    args[1] = 'hdel'\n    local deleted = redis.call(unpack(args))\n\n    local total = 0\n    for i = 1, #weights do\n      total = total + (tonumber(weights[i]) or 0)\n    end\n    local incr = -total\n    if total == 0 then\n      incr = 0\n    else\n      redis.call('publish', 'bottleneck', 'freed:'..total)\n    end\n\n    return redis.call('hincrby', settings_key, 'running', incr)\n  end\n\nend\n",

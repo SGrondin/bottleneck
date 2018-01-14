@@ -104,7 +104,7 @@ class Bottleneck
       job: next
   _drainOne: (freed) =>
     @_registerLock.schedule =>
-      if (queued = @queued()) == 0 then return @Promise.resolve false
+      if @queued() == 0 then return @Promise.resolve false
       queue = @_getFirst @_queues
       { options, args } = queue.first()
       if freed? and options.weight > freed then return @Promise.resolve false
