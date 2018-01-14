@@ -38,11 +38,10 @@
     "assert": "1.4.x",
     "browserify": "*",
     "coffeescript": "2.0.x",
-    "ejs-cli": "^2.0.0",
+    "ejs-cli": "git://github.com/SGrondin/ejs-cli.git",
     "mocha": "4.x",
     "redis": "^2.8.0",
     "typescript": "^2.6.2",
     "uglify-es": "3.x"
-  },
-  "dependencies": {}
+  }
 }
