@@ -1189,7 +1189,7 @@ module.exports={
 },{}],11:[function(require,module,exports){
 module.exports={
   "name": "bottleneck",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Distributed task scheduler and rate limiter",
   "main": "lib/index.js",
   "typings": "bottleneck.d.ts",
@@ -1227,13 +1227,12 @@ module.exports={
     "assert": "1.4.x",
     "browserify": "*",
     "coffeescript": "2.0.x",
-    "ejs-cli": "^2.0.0",
+    "ejs-cli": "git://github.com/SGrondin/ejs-cli.git",
     "mocha": "4.x",
     "redis": "^2.8.0",
     "typescript": "^2.6.2",
     "uglify-es": "3.x"
-  },
-  "dependencies": {}
+  }
 }
 
 },{}]},{},[8]);
