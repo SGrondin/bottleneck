@@ -229,7 +229,7 @@ declare module "bottleneck" {
         chain(limiter?: Bottleneck): Bottleneck;
 
         <%_ for (var count of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) { _%>
-        wrap<R<%_ for (var idx = 1; idx <= count; idx++) { _%>, A<%= idx %><%_ } _%>>(fn: (<%= Array.apply(null, Array(count)).map((e, i) => i+1).map(i => `arg${i}: A${i}`).join(", ") %>) => PromiseLike<R>): (<%_ for (var idx = 1; idx <= count; idx++) { _%><% if (idx > 1) { %>, <% } %>A<%= idx %><% } _%>) => Promise<R>;
+        wrap<R<%_ for (var idx = 1; idx <= count; idx++) { _%>, A<%= idx %><%_ } _%>>(fn: (<%= Array.apply(null, Array(count)).map((e, i) => i+1).map(i => `arg${i}: A${i}`).join(", ") %>) => PromiseLike<R>): (<%_ for (var idx = 1; idx <= count; idx++) { _%><% if (idx > 1) { %>, <% } %>arg<%= idx %>: A<%= idx %><% } _%>) => Promise<R>;
         <%_ } _%>
 
         <%_ for (var count of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) { _%>
