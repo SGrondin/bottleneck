@@ -6,7 +6,7 @@
 [![Gitter][gitter-image]][gitter-url]
 
 
-Bottleneck is a tiny and efficient Task Scheduler and Rate Limiter for Node.js and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded.
+Bottleneck is a lightweight and efficient Task Scheduler and Rate Limiter for Node.js and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded.
 
 Bottleneck is an easy solution as it does not add much complexity to your code.
 
@@ -68,14 +68,14 @@ myFunction(arg1, arg2)
 ```
 Do this:
 ```js
-limiter.schedule((arg1, arg2) => { myFunction(arg1, arg2) }, arg1, arg2)
+limiter.schedule(() => myFunction(arg1, arg2))
 .then((result) => { /* handle result */ })
 ```
 Or this:
 ```js
-const throttledMyFunction = limiter.wrap(myFunction)
+const wrapped = limiter.wrap(myFunction)
 
-throttledMyFunction(arg1, arg2)
+wrapped(arg1, arg2)
 .then((result) => { /* handle result */ })
 ```
 
@@ -105,7 +105,7 @@ This is sufficient for the vast majority of applications. **Read the 'Gotchas' s
 ### Constructor
 
 ```js
-const limiter = new Bottleneck(options);
+const limiter = new Bottleneck({ /* options */ });
 ```
 
 Basic options:
