@@ -150,7 +150,7 @@ limiter.schedule(fn, arg1, arg2)
 
 Simply put, `schedule` takes a function Fn and a list of arguments. Fn must return a promise. `schedule` returns a promise that will be executed according to the rate limits.
 
-`submit` can also accept some advanced options. See [Job Options](#job-options).
+`schedule` can also accept some advanced options. See [Job Options](#job-options).
 
 It's safe to mix `submit` and `schedule` in the same limiter.
 
