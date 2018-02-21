@@ -111,9 +111,10 @@ class Bottleneck
       @_trigger "debug", ["Draining #{options.id}", { args, options }]
       index = @_randomIndex()
       @_store.__register__ index, options.weight, options.expiration
-      .then ({ success, wait }) =>
+      .then ({ success, wait, reservoir }) =>
         @_trigger "debug", ["Drained #{options.id}", { success, args, options }]
         if success
+          if reservoir == 0 then @_trigger "depleted", []
           next = queue.shift()
           if @queued() == 0 and @_submitLock._queue.length == 0 then @_trigger "empty", []
           @_run next, wait, index

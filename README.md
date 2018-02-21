@@ -295,6 +295,13 @@ limiter.on('dropped', function (dropped) {
 })
 ```
 
+__depleted__
+```js
+limiter.on('depleted', function (dropped) {
+  // This will be called every time the reservoir drops to 0.
+})
+```
+
 __debug__
 ```js
 limiter.on('debug', function (message, data) {

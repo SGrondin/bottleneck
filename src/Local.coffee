@@ -67,7 +67,7 @@ class Local
       if @reservoir? then @reservoir -= weight
       wait = Math.max @_nextRequest-now, 0
       @_nextRequest = now + wait + @minTime
-      { success: true, wait }
+      { success: true, wait, @reservoir }
     else { success: false }
 
   strategyIsBlock: -> @strategy == 3

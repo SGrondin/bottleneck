@@ -34,13 +34,14 @@ if conditions_check(weight, maxConcurrent, running, reservoir) then
     'nextRequest', now + wait + minTime
     )
   else
+    reservoir = reservoir - weight
     redis.call('hmset', settings_key,
-      'reservoir', reservoir - weight,
+      'reservoir', reservoir,
       'nextRequest', now + wait + minTime
     )
   end
 
-  return {true, wait}
+  return {true, wait, reservoir}
 
 else
   return {false}

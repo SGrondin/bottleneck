@@ -115,11 +115,13 @@ describe('General', function () {
       c = makeTest({maxConcurrent: 1, minTime: 100})
       var calledEmpty = 0
       var calledIdle = 0
+      var calledDepleted = 0
 
       return c.limiter.ready()
       .then(function () {
         c.limiter.on('empty', function () { calledEmpty++ })
         c.limiter.on('idle', function () { calledIdle++ })
+        c.limiter.on('depleted', function () { calledDepleted++ })
 
         return c.pNoErrVal(c.limiter.schedule({id: 1}, c.slowPromise, 50, null, 1), 1)
       })
@@ -139,6 +141,7 @@ describe('General', function () {
         c.checkResultsOrder([[1], [2], [3]])
         c.mustEqual(calledEmpty, 3)
         c.mustEqual(calledIdle, 2)
+        c.mustEqual(calledDepleted, 0)
         return c.last()
       })
       .catch(function (err) {
@@ -152,6 +155,7 @@ describe('General', function () {
       var calledIdleOnce = 0
       var calledEmpty = 0
       var calledIdle = 0
+      var calledDepleted = 0
 
       return c.limiter.ready()
       .then(function () {
@@ -159,6 +163,7 @@ describe('General', function () {
         c.limiter.once('idle', function () { calledIdleOnce++ })
         c.limiter.on('empty', function () { calledEmpty++ })
         c.limiter.on('idle', function () { calledIdle++ })
+        c.limiter.on('depleted', function () { calledDepleted++ })
 
         c.pNoErrVal(c.limiter.schedule(c.slowPromise, 50, null, 1), 1)
         return c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
@@ -177,6 +182,7 @@ describe('General', function () {
         c.mustEqual(calledIdleOnce, 1)
         c.mustEqual(calledEmpty, 2)
         c.mustEqual(calledIdle, 2)
+        c.mustEqual(calledDepleted, 0)
       })
     })
   })
@@ -272,6 +278,9 @@ describe('General', function () {
         reservoir: 3
       })
 
+      var calledDepleted = 0
+      c.limiter.on('depleted', function () { calledDepleted++ })
+
       return c.limiter.ready()
       .then(function () {
         c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
@@ -290,12 +299,14 @@ describe('General', function () {
       })
       .then(function (reservoir) {
         c.mustEqual(reservoir, 0)
+        c.mustEqual(calledDepleted, 1)
         return c.limiter.incrementReservoir(1)
       })
       .then(function () {
         return c.last({ priority: 1, weight: 0 })
       })
       .then(function (results) {
+        c.mustEqual(calledDepleted, 3)
         c.mustEqual(c.limiter.queued(), 1)
         c.checkDuration(250)
         c.checkResultsOrder([[1], [2]])

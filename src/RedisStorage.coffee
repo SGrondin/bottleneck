@@ -138,10 +138,11 @@ class RedisStorage
   __check__: (weight) -> @convertBool await @runScript "check", @prepareArray [weight, Date.now()]
 
   __register__: (index, weight, expiration) ->
-    [success, wait] = await @runScript "register", @prepareArray [index, weight, expiration, Date.now()]
+    [success, wait, reservoir] = await @runScript "register", @prepareArray [index, weight, expiration, Date.now()]
     return {
       success: @convertBool(success),
-      wait
+      wait,
+      reservoir
     }
 
   __submit__: (queueLength, weight) ->
