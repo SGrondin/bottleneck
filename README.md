@@ -18,7 +18,7 @@ __Bottleneck Version 2__
 This new version is almost 100% compatible with Version 1 and it adds some powerful features such as:
 - **True [Clustering](#clustering) support.** You can now rate limit and schedule jobs across multiple Node.js instances. It uses strictly atomic operations to stay reliable in the presence of unreliable clients. 100% of Bottleneck's features are supported.
 - **Support for custom job _weights_.** Not all jobs are equally resource intensive.
-- **Support for job timeouts.** Bottleneck can automatically cancel jobs if they exceed their execution time limit.
+- **Support for job expirations.** Bottleneck can automatically cancel jobs if they exceed their execution time limit.
 - Many improvements to the interface, such as better method names and errors, improved debugging tools.
 
 **[Quickly upgrade your application code from v1 to v2 of Bottleneck](#upgrading-to-v2)**
@@ -93,9 +93,9 @@ This is sufficient for the vast majority of applications. **Read the 'Gotchas' s
 
 * **When using `submit`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work otherwise.
 
-* **When using `submit`**, make sure all the jobs will eventually complete by calling their callback (or have a [`timeout`](#job-options)). Again, even if you `submit`ted your job with a `null` callback , it still needs to call its callback. This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run. It's safe to call the callback more than once, subsequent calls are ignored.
+* **When using `submit`**, make sure all the jobs will eventually complete by calling their callback (or have an [`expiration`](#job-options)). Again, even if you `submit`ted your job with a `null` callback , it still needs to call its callback. This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run. It's safe to call the callback more than once, subsequent calls are ignored.
 
-* **When using `schedule` or `wrap`**, make sure that all the jobs will eventually complete (resolving or rejecting) or have a [`timeout`](#job-options). This is very important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run.
+* **When using `schedule` or `wrap`**, make sure that all the jobs will eventually complete (resolving or rejecting) or have an [`expiration`](#job-options). This is very important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run.
 
 * **Clustering** has its own share of gotchas. Read the [Clustering](#clustering) chapter carefully.
 
@@ -459,7 +459,7 @@ You must work around these limitations in your application code if they are an i
 
 The current design guarantees reliability and lets clients (limiters) come and go. Your application can scale up or down, and clients can be disconnected without issues.
 
-It is **strongly recommended** that you set a `timeout` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using timeouts, those lost jobs are automatically cleared after the timeout. Using timeouts is essential to keeping a cluster reliable in the face of unpredictable application bugs, network hiccups, and so on.
+It is **strongly recommended** that you set an `expiration` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using expirations, those lost jobs are automatically cleared after the specified time has passed. Using expirations is essential to keeping a cluster reliable in the face of unpredictable application bugs, network hiccups, and so on.
 
 Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience. Keeping the clients' server time consistent will also help.
 
