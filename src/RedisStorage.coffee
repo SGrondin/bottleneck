@@ -58,6 +58,7 @@ class RedisStorage
     @shas = {}
 
     @clients = { client: @client, subscriber: @subClient }
+    @isReady = false
     @ready = new @Promise (resolve, reject) =>
       errorListener = (e) -> reject e
       count = 0
@@ -87,6 +88,7 @@ class RedisStorage
 
       args = @prepareObject(initSettings)
       args.unshift (if options.clearDatastore then 1 else 0)
+      @isReady = true
       @runScript "init", args
     .then (results) =>
       @clients
@@ -116,7 +118,8 @@ class RedisStorage
     arr
 
   runScript: (name, args) ->
-    new @Promise (resolve, reject) =>
+    if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the 'ready' event to be triggered before submitting requests."
+    else new @Promise (resolve, reject) =>
       script = scripts[name]
       arr = [@shas[name], script.keys.length].concat script.keys, args, (err, replies) ->
         if err? then return reject err

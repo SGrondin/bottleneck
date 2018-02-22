@@ -11,6 +11,19 @@ if (process.env.DATASTORE === 'redis') {
       c.limiter.disconnect(false)
     })
 
+    it('Errors out if not ready', function () {
+      c = makeTest({ maxConcurrent: 2 })
+
+      return c.limiter.schedule({id: 1}, c.slowPromise, 100, null, 1)
+      .then(function (result) {
+        return Promise.reject('Should not have been ready')
+      })
+      .catch(function (err) {
+        c.mustEqual(err.message, 'This limiter is not done connecting to Redis yet. Wait for the \'ready\' event to be triggered before submitting requests.')
+        return Promise.resolve()
+      })
+    })
+
     it('Publishes running decreases', function () {
       c = makeTest({ maxConcurrent: 2 })
       var limiter2, p1, p2, p3, p4
