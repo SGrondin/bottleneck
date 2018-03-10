@@ -1,8 +1,10 @@
 parser = require "./parser"
 Events = require "./Events"
+BottleneckError = require "./BottleneckError"
 class Group
   defaults: { timeout: 1000 * 60 * 5 }
   constructor: (@limiterOptions={}, groupOptions={}) ->
+    if @limiterOptions.datastore == "redis" then throw new BottleneckError "Groups do not currently support Clustering. This will be implemented in a future version. Please open an issue at https://github.com/SGrondin/bottleneck/issues if you would like this feature to be implemented."
     parser.load groupOptions, @defaults, @
     @Events = new Events @
     @instances = {}

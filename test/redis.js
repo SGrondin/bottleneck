@@ -11,7 +11,7 @@ if (process.env.DATASTORE === 'redis') {
       c.limiter.disconnect(false)
     })
 
-    it('Errors out if not ready', function () {
+    it('Should error out if not ready', function () {
       c = makeTest({ maxConcurrent: 2 })
 
       return c.limiter.schedule({id: 1}, c.slowPromise, 100, null, 1)
@@ -24,7 +24,7 @@ if (process.env.DATASTORE === 'redis') {
       })
     })
 
-    it('Publishes running decreases', function () {
+    it('Should publish running decreases', function () {
       c = makeTest({ maxConcurrent: 2 })
       var limiter2, p1, p2, p3, p4
 
@@ -65,7 +65,7 @@ if (process.env.DATASTORE === 'redis') {
       })
     })
 
-    it('Uses shared settings', function () {
+    it('Should use shared settings', function () {
       c = makeTest({ maxConcurrent: 2 })
       var limiter2
 
@@ -90,7 +90,7 @@ if (process.env.DATASTORE === 'redis') {
       })
     })
 
-    it('Clears previous settings', function () {
+    it('Should clear previous settings', function () {
       c = makeTest({ maxConcurrent: 2 })
       var limiter2
 
@@ -115,7 +115,7 @@ if (process.env.DATASTORE === 'redis') {
       })
     })
 
-    it('Safely handles connection failures', function (done) {
+    it('Should safely handle connection failures', function (done) {
       c = makeTest()
       var limiter = new Bottleneck({ datastore: 'redis', clientOptions: { port: 1 }})
 
@@ -127,7 +127,7 @@ if (process.env.DATASTORE === 'redis') {
       })
     })
 
-    it('Chains local and distributed limiters (total concurrency)', function () {
+    it('Should chain local and distributed limiters (total concurrency)', function () {
       c = makeTest({ maxConcurrent: 3 })
       var limiter2 = new Bottleneck({ maxConcurrent: 1 })
       var limiter3 = new Bottleneck({ maxConcurrent: 2 })
@@ -162,7 +162,7 @@ if (process.env.DATASTORE === 'redis') {
       })
     })
 
-    it('Chains local and distributed limiters (partial concurrency)', function () {
+    it('Should chain local and distributed limiters (partial concurrency)', function () {
       c = makeTest({ maxConcurrent: 2 })
       var limiter2 = new Bottleneck({ maxConcurrent: 1 })
       var limiter3 = new Bottleneck({ maxConcurrent: 2 })
@@ -195,6 +195,23 @@ if (process.env.DATASTORE === 'redis') {
         assert(results.calls[4].time >= 300 && results.calls[4].time < 400)
         assert(results.calls[5].time >= 300 && results.calls[2].time < 400)
       })
+    })
+
+    it('Should not allow Groups (will be implemented later)', function (done) {
+      c = makeTest()
+      var message = 'Groups do not currently support Clustering. This will be implemented in a future version. Please open an issue at https://github.com/SGrondin/bottleneck/issues if you would like this feature to be implemented.'
+
+      try {
+        var group = new Bottleneck.Group({
+          datastore: 'redis',
+          clearDatastore: true
+        })
+        done(new Error('Should not allow Groups with Clustering'))
+      } catch (e) {
+        if (e.message === message) {
+          done()
+        }
+      }
     })
   })
 }
