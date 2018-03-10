@@ -65,6 +65,11 @@ let group = new Bottleneck.Group({
   strategy: Bottleneck.strategy.LEAK
 });
 
+group.on('created', (limiter, key) => {
+  assert(limiter.empty())
+  assert(key.length > 0)
+})
+
 group.key("foo").submit(withCb, 2, () => {}, (err, result) => {
     let s: string = `${result} foo`;
     console.log(s);

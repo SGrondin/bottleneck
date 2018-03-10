@@ -87,6 +87,28 @@ declare module "bottleneck" {
             key(str: string): Bottleneck;
 
             /**
+             * Register an event listener.
+             * @param name - The event name.
+             * @param fn - The callback function.
+             */
+            on(name: string, fn: Function): void;
+            on(name: "created", fn: (created: Bottleneck, key: string) => void): void;
+
+            /**
+             * Register an event listener for one event only.
+             * @param name - The event name.
+             * @param fn - The callback function.
+             */
+            once(name: string, fn: Function): void;
+            once(name: "created", fn: (created: Bottleneck, key: string) => void): void;
+
+            /**
+             * Removes all registered event listeners.
+             * @param name - The optional event name to remove listeners from.
+             */
+            removeAllListeners(name?: string): void;
+
+            /**
              * Disables limiter garbage collection.
              */
             stopAutoCleanup(): void;
@@ -166,6 +188,11 @@ declare module "bottleneck" {
         queued(priority?: number): number;
 
         /**
+         * Returns whether there are any jobs currently in the queue or in the process of being added to the queue.
+         */
+        empty(): boolean;
+
+        /**
          * Returns the number of requests running.
          */
         running(): Promise<number>;
@@ -181,30 +208,32 @@ declare module "bottleneck" {
          * @param name - The event name.
          * @param fn - The callback function.
          */
-        on(name: string, fn: Function): Bottleneck;
-        on(name: "error", fn: (error: any) => void): Bottleneck;
-        on(name: "empty", fn: () => void): Bottleneck;
-        on(name: "idle", fn: () => void): Bottleneck;
-        on(name: "dropped", fn: (dropped: any) => void): Bottleneck;
-        on(name: "debug", fn: (message: string, data: any) => void): Bottleneck;
+        on(name: string, fn: Function): void;
+        on(name: "error", fn: (error: any) => void): void;
+        on(name: "empty", fn: () => void): void;
+        on(name: "idle", fn: () => void): void;
+        on(name: "depleted", fn: (empty: boolean) => void): void;
+        on(name: "dropped", fn: (dropped: any) => void): void;
+        on(name: "debug", fn: (message: string, data: any) => void): void;
 
         /**
          * Register an event listener for one event only.
          * @param name - The event name.
          * @param fn - The callback function.
          */
-        once(name: string, fn: Function): Bottleneck;
-        once(name: "error", fn: (error: any) => void): Bottleneck;
-        once(name: "empty", fn: () => void): Bottleneck;
-        once(name: "idle", fn: () => void): Bottleneck;
-        once(name: "dropped", fn: (dropped: any) => void): Bottleneck;
-        once(name: "debug", fn: (message: string, data: any) => void): Bottleneck;
+        once(name: string, fn: Function): void;
+        once(name: "error", fn: (error: any) => void): void;
+        once(name: "empty", fn: () => void): void;
+        once(name: "idle", fn: () => void): void;
+        once(name: "depleted", fn: (empty: boolean) => void): void;
+        once(name: "dropped", fn: (dropped: any) => void): void;
+        once(name: "debug", fn: (message: string, data: any) => void): void;
 
         /**
          * Removes all registered event listeners.
          * @param name - The optional event name to remove listeners from.
          */
-        removeAllListeners(name?: string): Bottleneck;
+        removeAllListeners(name?: string): void;
 
         /**
          * Changes the settings for future requests.

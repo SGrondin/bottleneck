@@ -1,12 +1,17 @@
 parser = require "./parser"
+Events = require "./Events"
 class Group
   defaults: { timeout: 1000 * 60 * 5 }
   constructor: (@limiterOptions={}, groupOptions={}) ->
     parser.load groupOptions, @defaults, @
+    @Events = new Events @
     @instances = {}
     @Bottleneck = require "./Bottleneck"
     @startAutoCleanup()
-  key: (key="") => @instances[key] ? (@instances[key] = new @Bottleneck @limiterOptions)
+  key: (key="") => @instances[key] ? do =>
+    limiter = @instances[key] = new @Bottleneck @limiterOptions
+    @Events.trigger "created", [limiter, key]
+    limiter
   deleteKey: (key="") =>
     @instances[key]?.disconnect()
     delete @instances[key]

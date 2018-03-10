@@ -46,6 +46,41 @@ describe('Group', function () {
     }, null)
   })
 
+  it('Should pass new limiter to \'created\' event', function () {
+    c = makeTest()
+    var group = new Bottleneck.Group({
+      maxConcurrent: 1, minTime: 100
+    })
+
+    var keys = []
+    var ids = []
+    var promises = []
+    group.on('created', function (created, key) {
+      keys.push(key)
+      promises.push(
+        created.updateSettings({ id: key })
+        .then(function (limiter) {
+          ids.push(limiter.id)
+        })
+      )
+    })
+
+    group.key('A')
+    group.key('B')
+    group.key('A')
+    group.key('B')
+    group.key('B')
+    group.key('BB')
+    group.key('C')
+    group.key('A')
+
+    return Promise.all(promises)
+    .then(function () {
+      c.mustEqual()
+    })
+
+  })
+
   it('Should pass error on failure', function (done) {
     var failureMessage = 'SOMETHING BLEW UP!!'
     c = makeTest()

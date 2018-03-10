@@ -68,7 +68,7 @@ class RedisStorage
         if count == 2
           [@client, @subClient].forEach (client) =>
             client.removeListener "error", errorListener
-            client.on "error", (e) => @instance._trigger "error", [e]
+            client.on "error", (e) => @instance.Events.trigger "error", [e]
           resolve()
       @client.on "error", errorListener
       @client.on "ready", -> done()
@@ -125,7 +125,7 @@ class RedisStorage
       arr = [@shas[name], script.keys.length].concat script.keys, args, (err, replies) ->
         if err? then return reject err
         return resolve replies
-      @instance._trigger "debug", ["Calling Redis script: #{name}.lua", args]
+      @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
       @client.evalsha.bind(@client).apply {}, arr
 
   convertBool: (b) -> !!b

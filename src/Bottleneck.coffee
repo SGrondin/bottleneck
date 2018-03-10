@@ -3,6 +3,7 @@ DEFAULT_PRIORITY = 5
 parser = require "./parser"
 Local = require "./Local"
 RedisStorage = require "./RedisStorage"
+Events = require "./Events"
 DLList = require "./DLList"
 Sync = require "./Sync"
 packagejson = require "../package.json"
@@ -40,9 +41,9 @@ class Bottleneck
     @_queues = @_makeQueues()
     @_executing = {}
     @_limiter = null
-    @_events = {}
-    @_submitLock = new Sync("submit")
-    @_registerLock = new Sync("register")
+    @Events = new Events @
+    @_submitLock = new Sync "submit"
+    @_registerLock = new Sync "register"
     sDefaults = parser.load options, @storeDefaults, {}
     @_store = if @datastore == "local" then new Local parser.load options, @storeInstanceDefaults, sDefaults
     else if @datastore == "redis" then new RedisStorage @, sDefaults, parser.load options, @storeInstanceDefaults, {}
@@ -50,25 +51,6 @@ class Bottleneck
   ready: => @_store.ready
   clients: => @_store.clients
   disconnect: (flush=true) => await @_store.disconnect flush
-  _addListener: (name, status, cb) ->
-    @_events[name] ?= []
-    @_events[name].push {cb, status}
-    @
-  _trigger: (name, args) ->
-    if name != "debug" then @_trigger "debug", ["Event triggered: #{name}", args]
-    if name == "dropped" and @rejectOnDrop
-      args.forEach (job) -> job.cb.apply {}, [new Bottleneck::BottleneckError("This job has been dropped by Bottleneck")]
-    return unless @_events[name]?
-    @_events[name] = @_events[name].filter (listener) -> listener.status != "none"
-    @_events[name].forEach (listener) =>
-      return if listener.status == "none"
-      if listener.status == "once" then listener.status = "none"
-      try
-        ret = listener.cb.apply {}, args
-        if typeof ret?.then == "function"
-          ret.then(->).catch((e) => @_trigger "error", [e])
-      catch e
-        if "name" != "error" then @_trigger "error", [e]
   _makeQueues: -> new DLList() for i in [1..NUM_PRIORITIES]
   chain: (@_limiter) => @
   _sanitizePriority: (priority) ->
@@ -82,7 +64,7 @@ class Bottleneck
   _randomIndex: -> Math.random().toString(36).slice(2)
   check: (weight=1) => await @_store.__check__ weight
   _run: (next, wait, index) ->
-    @_trigger "debug", ["Scheduling #{next.options.id}", { args: next.args, options: next.options }]
+    @Events.trigger "debug", ["Scheduling #{next.options.id}", { args: next.args, options: next.options }]
     done = false
     completed = (args...) =>
       if not done
@@ -90,17 +72,17 @@ class Bottleneck
           done = true
           clearTimeout @_executing[index].expiration
           delete @_executing[index]
-          @_trigger "debug", ["Completed #{next.options.id}", { args: next.args, options: next.options }]
+          @Events.trigger "debug", ["Completed #{next.options.id}", { args: next.args, options: next.options }]
           { running } = await @_store.__free__ index, next.options.weight
-          @_trigger "debug", ["Freed #{next.options.id}", { args: next.args, options: next.options }]
-          @_drainAll().catch (e) => @_trigger "error", [e]
-          if running == 0 and @empty() then @_trigger "idle", []
+          @Events.trigger "debug", ["Freed #{next.options.id}", { args: next.args, options: next.options }]
+          @_drainAll().catch (e) => @Events.trigger "error", [e]
+          if running == 0 and @empty() then @Events.trigger "idle", []
           next.cb?.apply {}, args
         catch e
-          @_trigger "error", [e]
+          @Events.trigger "error", [e]
     @_executing[index] =
       timeout: setTimeout =>
-        @_trigger "debug", ["Executing #{next.options.id}", { args: next.args, options: next.options }]
+        @Events.trigger "debug", ["Executing #{next.options.id}", { args: next.args, options: next.options }]
         if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.options, next.task, next.args, completed
         else next.task.apply {}, next.args.concat completed
       , wait
@@ -114,16 +96,16 @@ class Bottleneck
       queue = @_getFirst @_queues
       { options, args } = queue.first()
       if freed? and options.weight > freed then return @Promise.resolve false
-      @_trigger "debug", ["Draining #{options.id}", { args, options }]
+      @Events.trigger "debug", ["Draining #{options.id}", { args, options }]
       index = @_randomIndex()
       @_store.__register__ index, options.weight, options.expiration
       .then ({ success, wait, reservoir }) =>
-        @_trigger "debug", ["Drained #{options.id}", { success, args, options }]
+        @Events.trigger "debug", ["Drained #{options.id}", { success, args, options }]
         if success
           next = queue.shift()
           empty = @empty()
-          if empty then @_trigger "empty", []
-          if reservoir == 0 then @_trigger "depleted", [empty]
+          if empty then @Events.trigger "empty", []
+          if reservoir == 0 then @Events.trigger "depleted", [empty]
           @_run next, wait, index
         @Promise.resolve success
   _drainAll: (freed) ->
@@ -131,7 +113,7 @@ class Bottleneck
     .then (success) =>
       if success then @_drainAll()
       else @Promise.resolve success
-    .catch (e) => @_trigger "error", [e]
+    .catch (e) => @Events.trigger "error", [e]
   submit: (args...) =>
     if typeof args[0] == "function"
       [task, args..., cb] = args
@@ -142,25 +124,25 @@ class Bottleneck
     job = { options, task, args, cb }
     options.priority = @_sanitizePriority options.priority
 
-    @_trigger "debug", ["Queueing #{options.id}", { args, options }]
+    @Events.trigger "debug", ["Queueing #{options.id}", { args, options }]
     @_submitLock.schedule =>
       try
         { reachedHWM, blocked, strategy } = await @_store.__submit__ @queued(), options.weight
-        @_trigger "debug", ["Queued #{options.id}", { args, options, reachedHWM, blocked }]
+        @Events.trigger "debug", ["Queued #{options.id}", { args, options, reachedHWM, blocked }]
       catch e
-        @_trigger "debug", ["Could not queue #{options.id}", { args, options, error: e }]
+        @Events.trigger "debug", ["Could not queue #{options.id}", { args, options, error: e }]
         job.cb e
         return false
 
       if blocked
         @_queues = @_makeQueues()
-        @_trigger "dropped", [job]
+        @Events.trigger "dropped", [job]
         return true
       else if reachedHWM
         shifted = if strategy == Bottleneck::strategy.LEAK then @_getFirst(@_queues[options.priority..].reverse()).shift()
         else if strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_getFirst(@_queues[(options.priority+1)..].reverse()).shift()
         else if strategy == Bottleneck::strategy.OVERFLOW then job
-        if shifted? then @_trigger "dropped", [shifted]
+        if shifted? then @Events.trigger "dropped", [shifted]
         if not shifted? or strategy == Bottleneck::strategy.OVERFLOW then return reachedHWM
       @_queues[options.priority].push job
       await @_drainAll()
@@ -179,22 +161,17 @@ class Bottleneck
     new @Promise (resolve, reject) =>
       @submit.apply {}, Array::concat options, wrapped, args, (args...) ->
         (if args[0]? then reject else args.shift(); resolve).apply {}, args
-      .catch (e) => @_trigger "error", [e]
+      .catch (e) => @Events.trigger "error", [e]
   wrap: (fn) => (args...) => @schedule.apply {}, Array::concat fn, args
   updateSettings: (options={}) =>
     await @_store.__updateSettings__ parser.overwrite options, @storeDefaults
     parser.overwrite options, @instanceDefaults, @
-    @_drainAll().catch (e) => @_trigger "error", [e]
+    @_drainAll().catch (e) => @Events.trigger "error", [e]
     @
   currentReservoir: => await @_store.__currentReservoir__()
   incrementReservoir: (incr=0) =>
     await @_store.__incrementReservoir__ incr
-    @_drainAll().catch (e) => @_trigger "error", [e]
-    @
-  on: (name, cb) => @_addListener name, "many", cb
-  once: (name, cb) => @_addListener name, "once", cb
-  removeAllListeners: (name=null) =>
-    if name? then delete @_events[name] else @_events = {}
+    @_drainAll().catch (e) => @Events.trigger "error", [e]
     @
 
 module.exports = Bottleneck

@@ -551,7 +551,7 @@ Let's take a DNS server as an example of how Bottleneck can be used. It's a serv
 
 
 ```js
-var group = new Bottleneck.Group(options);
+const group = new Bottleneck.Group(options);
 ```
 
 The `options` object will be used for every limiter created by the group.
@@ -563,13 +563,30 @@ The group is then used with the `.key(str)` method:
 group.key("77.66.54.32").submit(someAsyncCall, arg1, arg2, cb);
 ```
 
-
 __key()__
 
 * `str` : The key to use. All jobs added with the same key will use the same underlying limiter. *Default: `""`*
 
-The return value of `.key(str)` is a limiter. If it doesn't already exist, it is generated for you. Limiters that have been idle for longer than 5 minutes are deleted to avoid memory leaks.
+The return value of `.key(str)` is a limiter. If it doesn't already exist, it is generated for you. Calling `key()` is how limiters are created inside a Group. Limiters that have been idle for longer than 5 minutes are deleted to avoid memory leaks.
 
+__on('created')__
+
+```js
+group.on('created', (limiter, key) => {
+  console.log('A new limiter was created for key: ' + key)
+
+  // Prepare the limiter, for example we'll want to listen to its 'error' events!
+  limiter.on('error', (err) => {
+    // Handle errors here
+  })
+
+  //
+  // ...other operations to be executed when a new limiter is created...
+  //
+})
+```
+
+Listening for the `created` event is the recommended way to set up a new limiter. Your event handler is executed before `key()` returns the newly created limiter.
 
 __stopAutoCleanup()__
 
@@ -653,7 +670,7 @@ To work on the Bottleneck code, simply clone the repo, and run `./scripts/build.
 
 Make your changes to the files located in `src/` only, then run `./scripts/build.sh && npm test` to build and test them.
 
-To speed up compilation time, run `./scripts/build.sh compile`. It only recompiles the `src/` files and skips the `bottleneck.d.ts` tests and the browser bundle generation.
+To speed up compilation time during development, run `./scripts/build.sh dev` instead. Make sure to build and test without `dev` before submitting a PR.
 
 The tests must also pass in Clustering mode. You'll need a Redis server running on `127.0.0.1:6379`, then run `./scripts/build.sh && DATASTORE=redis npm test`.
 
