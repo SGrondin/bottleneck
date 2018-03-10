@@ -10,12 +10,13 @@ Bottleneck is a lightweight and efficient Task Scheduler and Rate Limiter for No
 
 Bottleneck is an easy solution as it does not add much complexity to your code.
 
-It is battle-hardened, reliable and production-ready. [Hundreds of projects rely on it](https://github.com/SGrondin/bottleneck/network/dependents) and it is used on a large scale in both private companies and open source software.
+It is battle-hardened, reliable and production-ready. [Hundreds of projects rely on it](https://github.com/SGrondin/bottleneck/network/dependents) and it is used on a large scale in private companies and open source software.
 
 It also supports distributed applications through the new Clustering feature in v2.
 
 __Bottleneck Version 2__
-This new version is almost 100% compatible with Version 1 and it adds some powerful features such as:
+
+This new version is almost 100% compatible with v1 and adds powerful features such as:
 - **True [Clustering](#clustering) support.** You can now rate limit and schedule jobs across multiple Node.js instances. It uses strictly atomic operations to stay reliable in the presence of unreliable clients. 100% of Bottleneck's features are supported.
 - **Support for custom job _weights_.** Not all jobs are equally resource intensive.
 - **Support for job expirations.** Bottleneck can automatically cancel jobs if they exceed their execution time limit.
@@ -23,7 +24,9 @@ This new version is almost 100% compatible with Version 1 and it adds some power
 
 **[Quickly upgrade your application code from v1 to v2 of Bottleneck](#upgrading-to-v2)**
 
-Version 1 is still maintained, but will not be receiving any new features. [Browse the v1 documentation](https://github.com/SGrondin/bottleneck/tree/version-1).
+Bottleneck v2 targets Node v6.0 or newer, and evergreen browsers. [Using an older version of Node? You should upgrade very soon!](https://github.com/nodejs/Release/blob/master/README.md)
+
+Bottleneck v1 targets ES5, which makes it compatible with any browser or Node version. It's still maintained, but it will not be receiving any new features. [Browse the v1 documentation](https://github.com/SGrondin/bottleneck/tree/version-1).
 
 ## Install
 
@@ -240,6 +243,18 @@ console.log(count);
 
 `priority` is optional. Without that argument, it returns the total number of jobs waiting to be executed, otherwise it only counts the number of jobs with that specific priority.
 
+Note: queueing up a job will not increment the number returned by queued() immediately, since queueing is an asynchronous operation. There are [Events](#events) available if you need to take action when `queued()` becomes `0` for example.
+
+### empty()
+
+```js
+if (limiter.empty()) {
+  // do something...
+}
+```
+
+Returns a boolean which indicates whether there are any jobs currently in the queue *or in the process of being added to the queue*.
+
 ### running()
 
 ```js
@@ -276,14 +291,14 @@ If using Clustering, errors thrown by the Redis client will emit an `error` even
 __empty__
 ```js
 limiter.on('empty', function () {
-  // This will be called when the queued() drops to 0.
+  // This will be called when `limiter.empty()` becomes true.
 })
 ```
 
 __idle__
 ```js
 limiter.on('idle', function () {
-  // This will be called when the queued() drops to 0 AND there is nothing currently running in the limiter.
+  // This will be called when `limiter.empty()` is `true` and `limiter.running()` is `0`.
 })
 ```
 
@@ -291,14 +306,15 @@ __dropped__
 ```js
 limiter.on('dropped', function (dropped) {
   // This will be called when a strategy was triggered.
-  // The dropped request is passed to this callback.
+  // The dropped request is passed to this event listener.
 })
 ```
 
 __depleted__
 ```js
-limiter.on('depleted', function (dropped) {
+limiter.on('depleted', function (empty) {
   // This will be called every time the reservoir drops to 0.
+  // The `empty` (boolean) argument indicates whether `limiter.empty()` is true.
 })
 ```
 

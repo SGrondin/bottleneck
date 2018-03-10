@@ -51,7 +51,8 @@ scripts =
 
 class RedisStorage
   constructor: (@instance, initSettings, options) ->
-    redis = require "redis"
+    r = require
+    redis = r do -> ["r", "e", "d", "i", "s"].join("") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
     parser.load options, options, @
     @client = redis.createClient @clientOptions
     @subClient = redis.createClient @clientOptions
@@ -124,6 +125,7 @@ class RedisStorage
       arr = [@shas[name], script.keys.length].concat script.keys, args, (err, replies) ->
         if err? then return reject err
         return resolve replies
+      @instance._trigger "debug", ["Calling Redis script: #{name}.lua", args]
       @client.evalsha.bind(@client).apply {}, arr
 
   convertBool: (b) -> !!b

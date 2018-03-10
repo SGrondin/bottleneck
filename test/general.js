@@ -185,6 +185,50 @@ describe('General', function () {
         c.mustEqual(calledDepleted, 0)
       })
     })
+
+    it('Should support faulty event listeners', function (done) {
+      c = makeTest({maxConcurrent: 1, minTime: 100, errorEventsExpected: true})
+      var calledError = 0
+
+      c.limiter.on('error', function (err) {
+        calledError++
+        if (err.message === 'Oh noes!' && calledError === 1) {
+          done()
+        }
+      })
+      c.limiter.on('empty', function () {
+        throw new Error('Oh noes!')
+      })
+
+      c.limiter.ready()
+      .then(function () {
+        return c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+      })
+    })
+
+    it('Should wait for async event listeners', function (done) {
+      c = makeTest({maxConcurrent: 1, minTime: 100, errorEventsExpected: true})
+      var calledError = 0
+
+      c.limiter.on('error', function (err) {
+        calledError++
+        if (err.message === 'It broke!' && calledError === 1) {
+          done()
+        }
+      })
+      c.limiter.on('empty', function () {
+        return c.slowPromise(100, null, 1, 2)
+        .then(function (x) {
+          c.mustEqual(x, [1, 2])
+          return Promise.reject(new Error('It broke!'))
+        })
+      })
+
+      c.limiter.ready()
+      .then(function () {
+        return c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+      })
+    })
   })
 
   describe('High water limit', function () {
@@ -279,7 +323,11 @@ describe('General', function () {
       })
 
       var calledDepleted = 0
-      c.limiter.on('depleted', function () { calledDepleted++ })
+      var emptyArguments = []
+      c.limiter.on('depleted', function (empty) {
+        emptyArguments.push(empty)
+        calledDepleted++
+      })
 
       return c.limiter.ready()
       .then(function () {
@@ -314,7 +362,16 @@ describe('General', function () {
       })
       .then(function (reservoir) {
         c.mustEqual(reservoir, 0)
-        c.limiter.removeAllListeners('error')
+        return c.limiter.incrementReservoir(1)
+      })
+      .then(function () {
+        return c.limiter.currentReservoir()
+      })
+      .then(function (reservoir) {
+        c.mustEqual(reservoir, 0)
+        c.mustEqual(calledDepleted, 4)
+        c.mustEqual(emptyArguments, [false, false, false, true])
+        c.limiter.removeAllListeners('error') // Since we're interrupting the Redis connection immediately after this
       })
     })
   })

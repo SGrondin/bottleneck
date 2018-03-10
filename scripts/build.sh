@@ -10,7 +10,11 @@ fi
 
 node_modules/ejs-cli/bin/ejs-cli bottleneck.d.ts.ejs > bottleneck.d.ts
 
-node_modules/coffeescript/bin/coffee -c src/*.coffee
+if [[ $1 = 'compile' ]]; then
+  node_modules/coffeescript/bin/coffee --compile src/*.coffee
+else
+  node_modules/coffeescript/bin/coffee --compile --transpile src/*.coffee
+fi
 
 rm -rf lib/*
 node scripts/assemble_lua.js > lib/lua.json

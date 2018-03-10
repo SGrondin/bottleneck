@@ -23,9 +23,11 @@ module.exports = function (options={}) {
   }
   var limiter = new Bottleneck(options)
   // limiter.on("debug", function (str, args) { console.log(`${Date.now()-start} ${str}`) })
-  limiter.on("error", function (err) {
-    console.log('(CONTEXT) ERROR EVENT', err)
-  })
+  if (!options.errorEventsExpected) {
+    limiter.on("error", function (err) {
+      console.log('(CONTEXT) ERROR EVENT', err)
+    })
+  }
   limiter.ready().then(function (client) {
     start = Date.now()
   })

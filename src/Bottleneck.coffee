@@ -60,10 +60,15 @@ class Bottleneck
       args.forEach (job) -> job.cb.apply {}, [new Bottleneck::BottleneckError("This job has been dropped by Bottleneck")]
     return unless @_events[name]?
     @_events[name] = @_events[name].filter (listener) -> listener.status != "none"
-    @_events[name].forEach (listener) ->
+    @_events[name].forEach (listener) =>
       return if listener.status == "none"
       if listener.status == "once" then listener.status = "none"
-      listener.cb.apply {}, args
+      try
+        ret = listener.cb.apply {}, args
+        if typeof ret?.then == "function"
+          ret.then(->).catch((e) => @_trigger "error", [e])
+      catch e
+        if "name" != "error" then @_trigger "error", [e]
   _makeQueues: -> new DLList() for i in [1..NUM_PRIORITIES]
   chain: (@_limiter) => @
   _sanitizePriority: (priority) ->
@@ -71,6 +76,7 @@ class Bottleneck
     if sProperty < 0 then 0 else if sProperty > NUM_PRIORITIES-1 then NUM_PRIORITIES-1 else sProperty
   _find: (arr, fn) -> (do -> for x, i in arr then if fn x then return x) ? []
   queued: (priority) => if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
+  empty: -> @queued() == 0 and @_submitLock.isEmpty()
   running: => await @_store.__running__()
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
   _randomIndex: -> Math.random().toString(36).slice(2)
@@ -88,7 +94,7 @@ class Bottleneck
           { running } = await @_store.__free__ index, next.options.weight
           @_trigger "debug", ["Freed #{next.options.id}", { args: next.args, options: next.options }]
           @_drainAll().catch (e) => @_trigger "error", [e]
-          if running == 0 and @queued() == 0 then @_trigger "idle", []
+          if running == 0 and @empty() then @_trigger "idle", []
           next.cb?.apply {}, args
         catch e
           @_trigger "error", [e]
@@ -114,9 +120,10 @@ class Bottleneck
       .then ({ success, wait, reservoir }) =>
         @_trigger "debug", ["Drained #{options.id}", { success, args, options }]
         if success
-          if reservoir == 0 then @_trigger "depleted", []
           next = queue.shift()
-          if @queued() == 0 and @_submitLock._queue.length == 0 then @_trigger "empty", []
+          empty = @empty()
+          if empty then @_trigger "empty", []
+          if reservoir == 0 then @_trigger "depleted", [empty]
           @_run next, wait, index
         @Promise.resolve success
   _drainAll: (freed) ->

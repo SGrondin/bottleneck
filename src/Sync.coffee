@@ -3,6 +3,7 @@ class Sync
   constructor: (@name) ->
     @_running = 0
     @_queue = new DLList()
+  isEmpty: -> @_queue.length == 0
   _tryToRun: ->
     if (@_running < 1) and @_queue.length > 0
       @_running++
@@ -22,6 +23,5 @@ class Sync
     new Promise (resolve, reject) =>
       @submit.apply {}, Array::concat wrapped, args, (args...) ->
         (if args[0]? then reject else args.shift(); resolve).apply {}, args
-  wrap: (fn) => (args...) => @schedule.apply {}, Array::concat fn, args
 
 module.exports = Sync
