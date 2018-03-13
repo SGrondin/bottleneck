@@ -399,12 +399,13 @@ const limiter = new Bottleneck({
   /* Some basic options */
   maxConcurrent: 5,
   minTime: 500
+  id: "my-super-app" // Should be unique for every limiter in the same Redis db
 
   /* Clustering options */
   datastore: "redis",
   clearDatastore: false,
   clientOptions: {
-    /* node-redis client options, passed to redis.createClient() */
+    // node-redis client options, passed to redis.createClient()
     // See https://github.com/NodeRedis/node_redis#options-object-properties
     host: "127.0.0.1",
     port: 6379
@@ -475,6 +476,8 @@ You must work around these limitations in your application code if they are an i
 
 The current design guarantees reliability and lets clients (limiters) come and go. Your application can scale up or down, and clients can be disconnected without issues.
 
+It is **strongly recommended** that you give an `id` for every limiter since it is used to build the name of your limiter's Redis keys! Limiters with the same `id` inside the same Redis db will be sharing the same datastore!
+
 It is **strongly recommended** that you set an `expiration` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using expirations, those lost jobs are automatically cleared after the specified time has passed. Using expirations is essential to keeping a cluster reliable in the face of unpredictable application bugs, network hiccups, and so on.
 
 Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience. Keeping the clients' server time consistent will also help.
@@ -499,13 +502,19 @@ clusterLimiter.ready()
 .catch((error) => { /* ... */ });
 ```
 
-
 ##### Additional Clustering information
 
+- At the moment, each limiter opens 2 connections to Redis. This can lead to a high number of connections, especially when Groups are used. This might change in a future release.
 - Bottleneck is compatible with [Redis Clusters](https://redis.io/topics/cluster-tutorial).
 - Bottleneck's data is stored in Redis keys beginning with `b_` and it uses the `bottleneck` pub/sub channel. It will not interfere with any other data stored on the server.
 - Bottleneck loads a few Lua scripts on the Redis server using the `SCRIPT LOAD` command. These scripts only take up a few Kb of memory. Running the `SCRIPT FLUSH` command will cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
 - The Lua scripts are highly optimized and designed to use as few resources (CPU, especially) as possible.
+
+##### Groups and Clustering
+
+- If you are using a Group, the generated limiters automatically receive an `id` with the pattern `group-key-${KEY}`.
+- A Group collects its own garbage, and so when using Clustering, it manages the Redis TTL ([TTL](https://redis.io/commands/ttl)) on the keys it uses to ensure they get cleaned up by Redis when unused for longer than the Group's `timeout` setting.
+- Each limiter opens 2 connections to Redis. Be careful not to go over [Redis' `maxclients` value](https://redis.io/topics/clients).
 
 
 ## Debugging your application
@@ -587,15 +596,6 @@ group.on('created', (limiter, key) => {
 ```
 
 Listening for the `created` event is the recommended way to set up a new limiter. Your event handler is executed before `key()` returns the newly created limiter.
-
-__stopAutoCleanup()__
-
-Calling `stopAutoCleanup()` on a group will turn off its garbage collection, so limiters for keys that have not been used in over **5 minutes** will no longer be deleted. It can be reenabled by calling `startAutoCleanup()`. The `5 minutes` figure can be modified by calling `updateSettings()`.
-
-
-__startAutoCleanup()__
-
-Reactivate the group's garbage collection.
 
 __updateSettings()__
 

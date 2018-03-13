@@ -109,16 +109,6 @@ declare module "bottleneck" {
             removeAllListeners(name?: string): void;
 
             /**
-             * Disables limiter garbage collection.
-             */
-            stopAutoCleanup(): void;
-
-            /**
-             * Enables limiter garbage collection.
-             */
-            startAutoCleanup(): void;
-
-            /**
              * Updates the group settings.
              * @param options - The new settings.
              */

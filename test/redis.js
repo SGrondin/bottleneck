@@ -53,7 +53,8 @@ if (process.env.DATASTORE === 'redis') {
 
         // Also check that the version gets set
         return new Promise(function (resolve, reject) {
-          limiter2._store.client.hget('b_settings', 'version', function (err, data) {
+          var settings_key = limiter2._store.scripts.update_settings.keys[0]
+          limiter2._store.client.hget(settings_key, 'version', function (err, data) {
             if (err != null) return reject(err)
             c.mustEqual(data, packagejson.version)
             return resolve()
@@ -197,21 +198,149 @@ if (process.env.DATASTORE === 'redis') {
       })
     })
 
-    it('Should not allow Groups (will be implemented later)', function (done) {
+    it('Should use the limiter ID to build Redis keys', function () {
       c = makeTest()
-      var message = 'Groups do not currently support Clustering. This will be implemented in a future version. Please open an issue at https://github.com/SGrondin/bottleneck/issues if you would like this feature to be implemented.'
+      var randomId = c.limiter._randomIndex()
+      var limiter = new Bottleneck({ id: randomId, datastore: 'redis', clearDatastore: true })
 
-      try {
-        var group = new Bottleneck.Group({
-          datastore: 'redis',
-          clearDatastore: true
+      return limiter.ready()
+      .then(function () {
+        var settings_key = limiter._store.scripts.update_settings.keys[0]
+        assert(settings_key.indexOf(randomId) > 0)
+
+        return new Promise(function (resolve, reject) {
+          limiter._store.client.del(settings_key, function (err, data) {
+            if (err != null) return reject(err)
+            return resolve(data)
+          })
         })
-        done(new Error('Should not allow Groups with Clustering'))
-      } catch (e) {
-        if (e.message === message) {
-          done()
-        }
-      }
+
+      })
+      .then(function (deleted) {
+        c.mustEqual(deleted, 1)
+        limiter.disconnect(false)
+      })
     })
+
+    it('Should fail when Redis data is missing', function (done) {
+      c = makeTest()
+      var limiter = new Bottleneck({ datastore: 'redis', clearDatastore: true })
+
+      limiter.ready()
+      .then(function () {
+        return limiter.running()
+      })
+      .then(function (running) {
+        c.mustEqual(running, 0)
+        var settings_key = limiter._store.scripts.update_settings.keys[0]
+
+        return new Promise(function (resolve, reject) {
+          limiter._store.client.del(settings_key, function (err, data) {
+            if (err != null) return reject(err)
+            c.mustEqual(data, 1) // Should be 1, since 1 key should have been deleted
+            return resolve(data)
+          })
+        })
+
+      })
+      .then(function (deleted) {
+        c.mustEqual(deleted, 1)
+        return limiter.running()
+      })
+      .catch(function (err) {
+        c.mustEqual(err.message, 'Bottleneck limiter (id: \'<no-id>\') could not find the Redis key it needs to complete this action (key \'b_<no-id>_settings\'), was it deleted?')
+        limiter.disconnect(false)
+        done()
+      })
+    })
+
+    it('Should support Groups and expire Redis keys', function () {
+      c = makeTest()
+      var group = new Bottleneck.Group({
+        datastore: 'redis',
+        clearDatastore: true,
+        minTime: 50
+      }, { timeout: 200 })
+      var limiter1
+      var limiter2
+      var limiter3
+
+      var limiterKeys = function (limiter) {
+        return limiter._store.scripts.init.keys
+      }
+      var keysExist = function (keys) {
+        return new Promise(function (resolve, reject) {
+          return c.limiter._store.client.exists(...keys, function (err, data) {
+            if (err != null) {
+              return reject(err)
+            }
+            return resolve(data)
+          })
+        })
+      }
+      var t0 = Date.now()
+      var results = {}
+      var job = function (x) {
+        results[x] = Date.now() - t0
+        return Promise.resolve()
+      }
+
+      return c.limiter.ready()
+      .then(function () {
+        limiter1 = group.key('one')
+        limiter2 = group.key('two')
+        limiter3 = group.key('three')
+
+        return Promise.all([limiter1.ready(), limiter2.ready(), limiter3.ready()])
+      })
+      .then(function () {
+        return keysExist(
+          [].concat(limiterKeys(limiter1), limiterKeys(limiter2), limiterKeys(limiter3))
+        )
+      })
+      .then(function (exist) {
+        c.mustEqual(exist, 3)
+        return Promise.all([
+          limiter1.schedule(job, 'a'),
+          limiter1.schedule(job, 'b'),
+          limiter1.schedule(job, 'c'),
+          limiter2.schedule(job, 'd'),
+          limiter2.schedule(job, 'e'),
+          limiter3.schedule(job, 'f')
+        ])
+      })
+      .then(function () {
+        c.mustEqual(Object.keys(results).length, 6)
+        assert(results.a < results.b)
+        assert(results.b < results.c)
+        assert(results.b - results.a >= 40)
+        assert(results.c - results.b >= 40)
+
+        assert(results.d < results.e)
+        assert(results.e - results.d >= 40)
+
+        assert(Math.abs(results.a - results.d) <= 10)
+        assert(Math.abs(results.d - results.f) <= 10)
+        assert(Math.abs(results.b - results.e) <= 10)
+
+        return c.wait(300)
+      })
+      .then(function () {
+        return keysExist(
+          [].concat(limiterKeys(limiter1), limiterKeys(limiter2), limiterKeys(limiter3))
+        )
+      })
+      .then(function (exist) {
+        c.mustEqual(exist, 0)
+      })
+      .then(function () {
+        group.keys().forEach(function (key) {
+          group.key(key).disconnect(false)
+        })
+      })
+
+
+    })
+
   })
 }

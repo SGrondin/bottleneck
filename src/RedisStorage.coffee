@@ -7,52 +7,55 @@ libraries =
   get_time: lua["get_time.lua"]
   refresh_running: lua["refresh_running.lua"]
   conditions_check: lua["conditions_check.lua"]
-scripts =
+  refresh_expiration: lua["refresh_expiration.lua"]
+  validate_keys: lua["validate_keys.lua"]
+scriptTemplates = (id) ->
   init:
-    keys: ["b_settings", "b_running", "b_executing"]
-    libs: []
+    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: ["refresh_expiration"]
     code: lua["init.lua"]
   update_settings:
-    keys: ["b_settings"]
-    libs: []
+    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: ["validate_keys", "refresh_expiration"]
     code: lua["update_settings.lua"]
   running:
-    keys: ["b_settings", "b_running", "b_executing"]
-    libs: ["refresh_running"]
+    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: ["validate_keys", "refresh_running"]
     code: lua["running.lua"]
   group_check:
-    keys: ["b_settings"]
+    keys: ["b_#{id}_settings"]
     libs: []
     code: lua["group_check.lua"]
   check:
-    keys: ["b_settings", "b_running", "b_executing"]
-    libs: ["refresh_running", "conditions_check"]
+    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: ["validate_keys", "refresh_running", "conditions_check"]
     code: lua["check.lua"]
   submit:
-    keys: ["b_settings", "b_running", "b_executing"]
-    libs: ["refresh_running", "conditions_check"]
+    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: ["validate_keys", "refresh_running", "conditions_check", "refresh_expiration"]
     code: lua["submit.lua"]
   register:
-    keys: ["b_settings", "b_running", "b_executing"]
-    libs: ["refresh_running", "conditions_check"]
+    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: ["validate_keys", "refresh_running", "conditions_check", "refresh_expiration"]
     code: lua["register.lua"]
   free:
-    keys: ["b_settings", "b_running", "b_executing"]
-    libs: ["refresh_running"]
+    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: ["validate_keys", "refresh_running"]
     code: lua["free.lua"]
   current_reservoir:
-    keys: ["b_settings"]
-    libs: []
+    keys: ["b_#{id}_settings"]
+    libs: ["validate_keys"]
     code: lua["current_reservoir.lua"]
   increment_reservoir:
-    keys: ["b_settings"]
-    libs: []
+    keys: ["b_#{id}_settings"]
+    libs: ["validate_keys"]
     code: lua["increment_reservoir.lua"]
 
 class RedisStorage
   constructor: (@instance, initSettings, options) ->
     r = require
     redis = r do -> ["r", "e", "d", "i", "s"].join("") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
+    @scripts = scriptTemplates @instance.id
     parser.load options, options, @
     @client = redis.createClient @clientOptions
     @subClient = redis.createClient @clientOptions
@@ -86,6 +89,7 @@ class RedisStorage
       initSettings.running = 0
       initSettings.unblockTime = 0
       initSettings.version = @instance.version
+      initSettings.groupTimeout = @_groupTimeout
 
       args = @prepareObject(initSettings)
       args.unshift (if options.clearDatastore then 1 else 0)
@@ -101,15 +105,15 @@ class RedisStorage
 
   loadScript: (name) ->
     new @Promise (resolve, reject) =>
-      payload = scripts[name].libs.map (lib) -> libraries[lib]
-      .join("\n") + scripts[name].code
+      payload = @scripts[name].libs.map (lib) -> libraries[lib]
+      .join("\n") + @scripts[name].code
 
       @client.multi([["script", "load", payload]]).exec (err, replies) =>
         if err? then return reject err
         @shas[name] = replies[0]
         return resolve replies[0]
 
-  loadAll: => @Promise.all(for k, v of scripts then @loadScript k)
+  loadAll: => @Promise.all(for k, v of @scripts then @loadScript k)
 
   prepareArray: (arr) -> arr.map (x) -> if x? then x.toString() else ""
 
@@ -120,13 +124,18 @@ class RedisStorage
 
   runScript: (name, args) ->
     if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the 'ready' event to be triggered before submitting requests."
-    else new @Promise (resolve, reject) =>
-      script = scripts[name]
-      arr = [@shas[name], script.keys.length].concat script.keys, args, (err, replies) ->
-        if err? then return reject err
-        return resolve replies
-      @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
-      @client.evalsha.bind(@client).apply {}, arr
+    else
+      script = @scripts[name]
+      new @Promise (resolve, reject) =>
+        arr = [@shas[name], script.keys.length].concat script.keys, args, (err, replies) ->
+          if err? then return reject err
+          return resolve replies
+        @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
+        @client.evalsha.bind(@client).apply {}, arr
+      .catch (e) =>
+        if e.message == "SETTINGS_KEY_NOT_FOUND"
+        then @Promise.reject new BottleneckError "Bottleneck limiter (id: '#{@instance.id}') could not find the Redis key it needs to complete this action (key '#{script.keys[0]}'), was it deleted?#{if @_groupTimeout? then ' Note: This limiter is in a Group, it could have been garbage collected.' else ''}"
+        else @Promise.reject e
 
   convertBool: (b) -> !!b
 
@@ -134,7 +143,7 @@ class RedisStorage
 
   __running__: -> await @runScript "running", [Date.now()]
 
-  __groupCheck__: -> parseInt (await @runScript "group_check", []), 10
+  __groupCheck__: -> @convertBool await @runScript "group_check", []
 
   __incrementReservoir__: (incr) -> await @runScript "increment_reservoir", [incr]
 

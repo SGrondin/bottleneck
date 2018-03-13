@@ -18,4 +18,7 @@ if redis.call('exists', settings_key) == 0 then
   redis.call(unpack(args))
 end
 
+local groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))
+refresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)
+
 return {}

@@ -11,7 +11,7 @@ describe('Group', function () {
     }
   })
 
-  it('Should make Groups', function (done) {
+  it('Should create limiters', function (done) {
     c = makeTest()
     var group = new Bottleneck.Group({
       maxConcurrent: 1, minTime: 100
@@ -46,6 +46,24 @@ describe('Group', function () {
     }, null)
   })
 
+  it('Should set up the limiter IDs', function () {
+    c = makeTest()
+    var group = new Bottleneck.Group({
+      maxConcurrent: 1, minTime: 100
+    })
+
+    c.mustEqual(group.key('A').id, 'group-key-A')
+    c.mustEqual(group.key('B').id, 'group-key-B')
+    c.mustEqual(group.key('XYZ').id, 'group-key-XYZ')
+
+    var ids = group.keys().map(function (key) {
+      var limiter = group.key(key)
+      c.mustEqual(limiter._store._groupTimeout, group.timeout)
+      return limiter.id
+    })
+    c.mustEqual(ids.sort(), ['group-key-A', 'group-key-B', 'group-key-XYZ'])
+  })
+
   it('Should pass new limiter to \'created\' event', function () {
     c = makeTest()
     var group = new Bottleneck.Group({
@@ -76,7 +94,7 @@ describe('Group', function () {
 
     return Promise.all(promises)
     .then(function () {
-      c.mustEqual()
+      c.mustEqual(keys, ids)
     })
 
   })
@@ -164,17 +182,16 @@ describe('Group', function () {
   })
 
   it('Should call autocleanup', function () {
-    c = makeTest()
     var KEY = 'test-key'
     var group = new Bottleneck.Group({
       maxConcurrent: 1
     })
     group.updateSettings({ timeout: 50 })
+    c = makeTest({ id: 'something', _groupTimeout: group.timeout })
 
     return c.limiter.ready()
     .then(function () {
       group.instances[KEY] = c.limiter
-
       return group.key(KEY).schedule(function () {
         return Promise.resolve()
       })

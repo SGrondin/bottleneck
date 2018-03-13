@@ -15,7 +15,8 @@ local settings = redis.call('hmget', settings_key,
   'strategy',
   'unblockTime',
   'penalty',
-  'minTime'
+  'minTime',
+  'groupTimeout'
 )
 local maxConcurrent = tonumber(settings[1])
 local highWater = tonumber(settings[2])
@@ -25,6 +26,7 @@ local strategy = tonumber(settings[5])
 local unblockTime = tonumber(settings[6])
 local penalty = tonumber(settings[7])
 local minTime = tonumber(settings[8])
+local groupTimeout = tonumber(settings[9])
 
 if maxConcurrent ~= nil and weight > maxConcurrent then
   return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)
@@ -49,10 +51,14 @@ if blocked then
     end
   end
 
+  local newNextRequest = unblockTime + minTime
+
   redis.call('hmset', settings_key,
     'unblockTime', now + computedPenalty,
-    'nextRequest', unblockTime + minTime
+    'nextRequest', newNextRequest
   )
+
+  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)
 end
 
 return {reachedHWM, blocked, strategy}
