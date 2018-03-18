@@ -168,6 +168,18 @@ limiter.schedule(() => http.get(url))
 .then(response => console.log(response.body));
 ```
 
+If your function does not return a promise, it needs to use `Promise.resolve` like so:
+
+```js
+// GOOD
+limiter.schedule(() => Promise.resolve("This is a string"))
+.then(data => console.log(data));
+
+// INCORRECT!
+limiter.schedule(() => "This is a string")
+.then(data => console.log(data));
+```
+
 It's also possible to replace the Promise library used by Bottleneck:
 
 ```js

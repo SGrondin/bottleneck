@@ -372,9 +372,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         wrapped = function wrapped(...args) {
           var _ref9, _ref10, _splice$call5, _splice$call6;
 
-          var cb, ref;
+          var cb, ref, returned;
           ref = args, (_ref9 = ref, _ref10 = _toArray(_ref9), args = _ref10.slice(0), _ref9), (_splice$call5 = splice.call(args, -1), _splice$call6 = _slicedToArray(_splice$call5, 1), cb = _splice$call6[0], _splice$call5);
-          return task.apply({}, args).then(function (...args) {
+          returned = task.apply({}, args);
+          if (returned.then == null) {
+            return cb(new Bottleneck.prototype.BottleneckError(`The function given to \`schedule()\` did not return a Promise. You may need to return \`Promise.resolve(data)\`. You returned: ${returned} (${typeof returned})`));
+          }
+          return returned.then(function (...args) {
             return cb.apply({}, Array.prototype.concat(null, args));
           }).catch(function (...args) {
             return cb.apply({}, args);
@@ -1031,7 +1035,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       redis = r(function () {
         return ["r", "e", "d", "i", "s"].join(""); // Obfuscated or else Webpack/Angular will try to inline the optional redis module
       }());
-      this.scripts = scriptTemplates(this.instance.id);
+      this.originalId = this.instance.id;
+      this.scripts = scriptTemplates(this.originalId);
       parser.load(options, options, this);
       this.client = redis.createClient(this.clientOptions);
       this.subClient = redis.createClient(this.clientOptions);
@@ -1068,7 +1073,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           this.subClient.on("subscribe", function () {
             return done();
           });
-          return this.subClient.subscribe("bottleneck");
+          return this.subClient.subscribe(`b_${this.originalId}`);
         });
       }).then(this.loadAll).then(() => {
         var args;
@@ -1086,6 +1091,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             return this.instance._drainAll(~~info);
           }
         });
+        initSettings.id = this.originalId;
         initSettings.nextRequest = Date.now();
         initSettings.running = 0;
         initSettings.unblockTime = 0;
@@ -1174,7 +1180,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           return this.client.evalsha.bind(this.client).apply({}, arr);
         }).catch(e => {
           if (e.message === "SETTINGS_KEY_NOT_FOUND") {
-            return this.Promise.reject(new BottleneckError(`Bottleneck limiter (id: '${this.instance.id}') could not find the Redis key it needs to complete this action (key '${script.keys[0]}'), was it deleted?${this._groupTimeout != null ? ' Note: This limiter is in a Group, it could have been garbage collected.' : ''}`));
+            return this.Promise.reject(new BottleneckError(`Bottleneck limiter (id: '${this.originalId}') could not find the Redis key it needs to complete this action (key '${script.keys[0]}'), was it deleted?${this._groupTimeout != null ? ' Note: This limiter is in a Group, it could have been garbage collected.' : ''}`));
           } else {
             return this.Promise.reject(e);
           }
@@ -1403,7 +1409,7 @@ module.exports={
   "increment_reservoir.lua": "local settings_key = KEYS[1]\nlocal incr = ARGV[1]\n\nreturn redis.call('hincrby', settings_key, 'reservoir', incr)\n",
   "init.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal clear = tonumber(ARGV[1])\n\nif clear == 1 then\n  redis.call('del', settings_key, running_key, executing_key)\nend\n\nif redis.call('exists', settings_key) == 0 then\n  local args = {'hmset', settings_key}\n\n  for i = 2, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
   "refresh_expiration.lua": "local refresh_expiration = function (executing_key, running_key, settings_key, now, nextRequest, groupTimeout)\n\n  if groupTimeout ~= nil then\n    local ttl = (nextRequest + groupTimeout) - now\n\n    redis.call('pexpire', executing_key, ttl)\n    redis.call('pexpire', running_key, ttl)\n    redis.call('pexpire', settings_key, ttl)\n  end\n\nend\n",
-  "refresh_running.lua": "local refresh_running = function (executing_key, running_key, settings_key, now)\n\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired == 0 then\n    return redis.call('hget', settings_key, 'running')\n  else\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local args = {'hmget', running_key}\n    for i = 1, #expired do\n      table.insert(args, expired[i])\n    end\n\n    local weights = redis.call(unpack(args))\n\n    args[1] = 'hdel'\n    local deleted = redis.call(unpack(args))\n\n    local total = 0\n    for i = 1, #weights do\n      total = total + (tonumber(weights[i]) or 0)\n    end\n    local incr = -total\n    if total == 0 then\n      incr = 0\n    else\n      redis.call('publish', 'bottleneck', 'freed:'..total)\n    end\n\n    return redis.call('hincrby', settings_key, 'running', incr)\n  end\n\nend\n",
+  "refresh_running.lua": "local refresh_running = function (executing_key, running_key, settings_key, now)\n\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired == 0 then\n    return redis.call('hget', settings_key, 'running')\n  else\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local args = {'hmget', running_key}\n    for i = 1, #expired do\n      table.insert(args, expired[i])\n    end\n\n    local weights = redis.call(unpack(args))\n\n    args[1] = 'hdel'\n    local deleted = redis.call(unpack(args))\n\n    local total = 0\n    for i = 1, #weights do\n      total = total + (tonumber(weights[i]) or 0)\n    end\n    local incr = -total\n    if total == 0 then\n      incr = 0\n    else\n      local id = redis.call('hget', settings_key, 'id')\n      redis.call('publish', 'b_'..id, 'freed:'..total)\n    end\n\n    return redis.call('hincrby', settings_key, 'running', incr)\n  end\n\nend\n",
   "register.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal index = ARGV[1]\nlocal weight = tonumber(ARGV[2])\nlocal expiration = tonumber(ARGV[3])\nlocal now = tonumber(ARGV[4])\n\nlocal running = tonumber(refresh_running(executing_key, running_key, settings_key, now))\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'reservoir',\n  'nextRequest',\n  'minTime',\n  'groupTimeout'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal reservoir = tonumber(settings[2])\nlocal nextRequest = tonumber(settings[3])\nlocal minTime = tonumber(settings[4])\nlocal groupTimeout = tonumber(settings[5])\n\nif conditions_check(weight, maxConcurrent, running, reservoir) then\n\n  if expiration ~= nil then\n    redis.call('zadd', executing_key, now + expiration, index)\n  end\n  redis.call('hset', running_key, index, weight)\n  redis.call('hincrby', settings_key, 'running', weight)\n\n  local wait = math.max(nextRequest - now, 0)\n  local newNextRequest = now + wait + minTime\n\n  if reservoir == nil then\n    redis.call('hset', settings_key,\n    'nextRequest', newNextRequest\n    )\n  else\n    reservoir = reservoir - weight\n    redis.call('hmset', settings_key,\n      'reservoir', reservoir,\n      'nextRequest', newNextRequest\n    )\n  end\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\n\n  return {true, wait, reservoir}\n\nelse\n  return {false}\nend\n",
   "running.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\nlocal now = ARGV[1]\n\nreturn tonumber(refresh_running(executing_key, running_key, settings_key, now))\n",
   "submit.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal queueLength = tonumber(ARGV[1])\nlocal weight = tonumber(ARGV[2])\nlocal now = tonumber(ARGV[3])\n\nlocal running = tonumber(refresh_running(executing_key, running_key, settings_key, now))\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'highWater',\n  'reservoir',\n  'nextRequest',\n  'strategy',\n  'unblockTime',\n  'penalty',\n  'minTime',\n  'groupTimeout'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal highWater = tonumber(settings[2])\nlocal reservoir = tonumber(settings[3])\nlocal nextRequest = tonumber(settings[4])\nlocal strategy = tonumber(settings[5])\nlocal unblockTime = tonumber(settings[6])\nlocal penalty = tonumber(settings[7])\nlocal minTime = tonumber(settings[8])\nlocal groupTimeout = tonumber(settings[9])\n\nif maxConcurrent ~= nil and weight > maxConcurrent then\n  return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)\nend\n\nlocal reachedHWM = (highWater ~= nil and queueLength == highWater\n  and not (\n    conditions_check(weight, maxConcurrent, running, reservoir)\n    and nextRequest - now <= 0\n  )\n)\n\nlocal blocked = strategy == 3 and (reachedHWM or unblockTime >= now)\n\nif blocked then\n  local computedPenalty = penalty\n  if computedPenalty == nil then\n    if minTime == 0 then\n      computedPenalty = 5000\n    else\n      computedPenalty = 15 * minTime\n    end\n  end\n\n  local newNextRequest = unblockTime + minTime\n\n  redis.call('hmset', settings_key,\n    'unblockTime', now + computedPenalty,\n    'nextRequest', newNextRequest\n  )\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\nend\n\nreturn {reachedHWM, blocked, strategy}\n",

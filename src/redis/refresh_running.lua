@@ -25,7 +25,8 @@ local refresh_running = function (executing_key, running_key, settings_key, now)
     if total == 0 then
       incr = 0
     else
-      redis.call('publish', 'bottleneck', 'freed:'..total)
+      local id = redis.call('hget', settings_key, 'id')
+      redis.call('publish', 'b_'..id, 'freed:'..total)
     end
 
     return redis.call('hincrby', settings_key, 'running', incr)

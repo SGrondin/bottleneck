@@ -55,7 +55,8 @@ class RedisStorage
   constructor: (@instance, initSettings, options) ->
     r = require
     redis = r do -> ["r", "e", "d", "i", "s"].join("") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
-    @scripts = scriptTemplates @instance.id
+    @originalId = @instance.id
+    @scripts = scriptTemplates @originalId
     parser.load options, options, @
     @client = redis.createClient @clientOptions
     @subClient = redis.createClient @clientOptions
@@ -78,13 +79,14 @@ class RedisStorage
       @subClient.on "error", errorListener
       @subClient.on "ready", =>
         @subClient.on "subscribe", -> done()
-        @subClient.subscribe "bottleneck"
+        @subClient.subscribe "b_#{@originalId}"
     .then @loadAll
     .then =>
       @subClient.on "message", (channel, message) =>
         [type, info] = message.split ":"
         if type == "freed" then @instance._drainAll ~~info
 
+      initSettings.id = @originalId
       initSettings.nextRequest = Date.now()
       initSettings.running = 0
       initSettings.unblockTime = 0
@@ -134,7 +136,7 @@ class RedisStorage
         @client.evalsha.bind(@client).apply {}, arr
       .catch (e) =>
         if e.message == "SETTINGS_KEY_NOT_FOUND"
-        then @Promise.reject new BottleneckError "Bottleneck limiter (id: '#{@instance.id}') could not find the Redis key it needs to complete this action (key '#{script.keys[0]}'), was it deleted?#{if @_groupTimeout? then ' Note: This limiter is in a Group, it could have been garbage collected.' else ''}"
+        then @Promise.reject new BottleneckError "Bottleneck limiter (id: '#{@originalId}') could not find the Redis key it needs to complete this action (key '#{script.keys[0]}'), was it deleted?#{if @_groupTimeout? then ' Note: This limiter is in a Group, it could have been garbage collected.' else ''}"
         else @Promise.reject e
 
   convertBool: (b) -> !!b

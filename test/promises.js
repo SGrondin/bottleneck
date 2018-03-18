@@ -41,6 +41,19 @@ describe('Promises', function () {
     })
   })
 
+  it('Should not allow non-Promise returns', function (done) {
+    c = makeTest()
+
+    c.limiter.ready()
+    .then(function () {
+      return c.limiter.schedule(() => 'This is a string')
+    })
+    .catch(function (err) {
+      c.mustEqual(err.message, 'The function given to `schedule()` did not return a Promise. You may need to return `Promise.resolve(data)`. You returned: This is a string (string)')
+      done()
+    })
+  })
+
   it('Should get rejected when rejectOnDrop is true', function () {
     c = makeTest({
       maxConcurrent: 1,
