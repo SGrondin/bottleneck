@@ -9,6 +9,7 @@ class Events
   _addListener: (name, status, cb) ->
     @_events[name] ?= []
     @_events[name].push {cb, status}
+    @instance
   trigger: (name, args) ->
     if name != "debug" then @trigger "debug", ["Event triggered: #{name}", args]
     if name == "dropped" and @instance.rejectOnDrop

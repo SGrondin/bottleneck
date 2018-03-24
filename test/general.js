@@ -111,6 +111,13 @@ describe('General', function () {
   })
 
   describe('Events', function () {
+    it('Should return itself', function () {
+      c = makeTest({ id: 'test-limiter' })
+
+      var returned = c.limiter.on('ready', function () { })
+      c.mustEqual(returned.id, 'test-limiter')
+    })
+
     it('Should fire events on empty queue', function () {
       c = makeTest({maxConcurrent: 1, minTime: 100})
       var calledEmpty = 0

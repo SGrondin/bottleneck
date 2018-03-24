@@ -590,7 +590,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       if ((base = this._events)[name] == null) {
         base[name] = [];
       }
-      return this._events[name].push({ cb, status });
+      this._events[name].push({ cb, status });
+      return this.instance;
     }
 
     trigger(name, args) {
