@@ -19,7 +19,7 @@ if (process.env.DATASTORE === 'redis') {
         return Promise.reject('Should not have been ready')
       })
       .catch(function (err) {
-        c.mustEqual(err.message, 'This limiter is not done connecting to Redis yet. Wait for the \'ready\' event to be triggered before submitting requests.')
+        c.mustEqual(err.message, 'This limiter is not done connecting to Redis yet. Wait for the \'.ready()\' promise to resolve before submitting requests.')
         return Promise.resolve()
       })
     })
@@ -222,11 +222,11 @@ if (process.env.DATASTORE === 'redis') {
       })
     })
 
-    it('Should fail when Redis data is missing', function (done) {
+    it('Should not fail when Redis data is missing', function () {
       c = makeTest()
       var limiter = new Bottleneck({ datastore: 'redis', clearDatastore: true })
 
-      limiter.ready()
+      return limiter.ready()
       .then(function () {
         return limiter.running()
       })
@@ -237,20 +237,18 @@ if (process.env.DATASTORE === 'redis') {
         return new Promise(function (resolve, reject) {
           limiter._store.client.del(settings_key, function (err, data) {
             if (err != null) return reject(err)
-            c.mustEqual(data, 1) // Should be 1, since 1 key should have been deleted
             return resolve(data)
           })
         })
 
       })
       .then(function (deleted) {
-        c.mustEqual(deleted, 1)
+        c.mustEqual(deleted, 1) // Should be 1, since 1 key should have been deleted
         return limiter.running()
       })
-      .catch(function (err) {
-        c.mustEqual(err.message, 'Bottleneck limiter (id: \'<no-id>\') could not find the Redis key it needs to complete this action (key \'b_<no-id>_settings\'), was it deleted?')
+      .then(function (running) {
+        c.mustEqual(running, 0)
         limiter.disconnect(false)
-        done()
       })
     })
 
@@ -338,7 +336,6 @@ if (process.env.DATASTORE === 'redis') {
           group.key(key).disconnect(false)
         })
       })
-
 
     })
 

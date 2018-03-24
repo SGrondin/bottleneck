@@ -52,7 +52,7 @@ scriptTemplates = (id) ->
     code: lua["increment_reservoir.lua"]
 
 class RedisStorage
-  constructor: (@instance, initSettings, options) ->
+  constructor: (@instance, @initSettings, options) ->
     r = require
     redis = r do -> ["r", "e", "d", "i", "s"].join("") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
     @originalId = @instance.id
@@ -86,15 +86,7 @@ class RedisStorage
         [type, info] = message.split ":"
         if type == "freed" then @instance._drainAll ~~info
 
-      initSettings.id = @originalId
-      initSettings.nextRequest = Date.now()
-      initSettings.running = 0
-      initSettings.unblockTime = 0
-      initSettings.version = @instance.version
-      initSettings.groupTimeout = @_groupTimeout
-
-      args = @prepareObject(initSettings)
-      args.unshift (if options.clearDatastore then 1 else 0)
+      args = @prepareInitSettings options.clearDatastore
       @isReady = true
       @runScript "init", args
     .then (results) =>
@@ -124,8 +116,20 @@ class RedisStorage
     for k, v of obj then arr.push k, (if v? then v.toString() else "")
     arr
 
+  prepareInitSettings: (clear) ->
+    args = @prepareObject Object.assign({}, @initSettings, {
+      id: @originalId,
+      nextRequest: Date.now(),
+      running: 0,
+      unblockTime: 0,
+      version: @instance.version,
+      groupTimeout: @_groupTimeout
+    })
+    args.unshift (if clear then 1 else 0)
+    args
+
   runScript: (name, args) ->
-    if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the 'ready' event to be triggered before submitting requests."
+    if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the '.ready()' promise to resolve before submitting requests."
     else
       script = @scripts[name]
       new @Promise (resolve, reject) =>
@@ -136,7 +140,7 @@ class RedisStorage
         @client.evalsha.bind(@client).apply {}, arr
       .catch (e) =>
         if e.message == "SETTINGS_KEY_NOT_FOUND"
-        then @Promise.reject new BottleneckError "Bottleneck limiter (id: '#{@originalId}') could not find the Redis key it needs to complete this action (key '#{script.keys[0]}'), was it deleted?#{if @_groupTimeout? then ' Note: This limiter is in a Group, it could have been garbage collected.' else ''}"
+        then @runScript("init", @prepareInitSettings(false)).then => @runScript(name, args)
         else @Promise.reject e
 
   convertBool: (b) -> !!b
