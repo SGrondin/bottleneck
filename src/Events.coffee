@@ -1,4 +1,3 @@
-BottleneckError = require "./BottleneckError"
 class Events
   constructor: (@instance) ->
     @_events = {}
@@ -12,8 +11,6 @@ class Events
     @instance
   trigger: (name, args) ->
     if name != "debug" then @trigger "debug", ["Event triggered: #{name}", args]
-    if name == "dropped" and @instance.rejectOnDrop
-      args.forEach (job) -> job.cb.apply {}, [new BottleneckError("This job has been dropped by Bottleneck")]
     return unless @_events[name]?
     @_events[name] = @_events[name].filter (listener) -> listener.status != "none"
     @_events[name].forEach (listener) =>

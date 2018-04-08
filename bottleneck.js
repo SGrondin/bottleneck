@@ -16,6 +16,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       Local,
       NUM_PRIORITIES,
       RedisStorage,
+      States,
       Sync,
       packagejson,
       parser,
@@ -32,6 +33,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   RedisStorage = require("./RedisStorage");
 
   Events = require("./Events");
+
+  States = require("./States");
 
   DLList = require("./DLList");
 
@@ -62,7 +65,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         }
         parser.load(options, this.instanceDefaults, this);
         this._queues = this._makeQueues();
-        this._executing = {};
+        this._scheduled = {};
+        this._states = new States(["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(this.trackDoneStatus ? ["DONE"] : []));
         this._limiter = null;
         this.Events = new Events(this);
         this._submitLock = new Sync("submit");
@@ -95,6 +99,41 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         })();
       }
 
+      chain(_limiter) {
+        this._limiter = _limiter;
+        return this;
+      }
+
+      queued(priority) {
+        if (priority != null) {
+          return this._queues[priority].length;
+        } else {
+          return this._queues.reduce(function (a, b) {
+            return a + b.length;
+          }, 0);
+        }
+      }
+
+      empty() {
+        return this.queued() === 0 && this._submitLock.isEmpty();
+      }
+
+      running() {
+        var _this2 = this;
+
+        return _asyncToGenerator(function* () {
+          return yield _this2._store.__running__();
+        })();
+      }
+
+      jobStatus(id) {
+        return this._states.jobStatus(id);
+      }
+
+      counts() {
+        return this._states.statusCounts();
+      }
+
       _makeQueues() {
         var i, j, ref, results;
         results = [];
@@ -102,11 +141,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           results.push(new DLList());
         }
         return results;
-      }
-
-      chain(_limiter) {
-        this._limiter = _limiter;
-        return this;
       }
 
       _sanitizePriority(priority) {
@@ -132,28 +166,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             }
           }
         }()) != null ? ref : [];
-      }
-
-      queued(priority) {
-        if (priority != null) {
-          return this._queues[priority].length;
-        } else {
-          return this._queues.reduce(function (a, b) {
-            return a + b.length;
-          }, 0);
-        }
-      }
-
-      empty() {
-        return this.queued() === 0 && this._submitLock.isEmpty();
-      }
-
-      running() {
-        var _this2 = this;
-
-        return _asyncToGenerator(function* () {
-          return yield _this2._store.__running__();
-        })();
       }
 
       _getFirst(arr) {
@@ -189,8 +201,9 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             if (!done) {
               try {
                 done = true;
-                clearTimeout(_this4._executing[index].expiration);
-                delete _this4._executing[index];
+                _this4._states.next(next.options.id); // DONE
+                clearTimeout(_this4._scheduled[index].expiration);
+                delete _this4._scheduled[index];
                 _this4.Events.trigger("debug", [`Completed ${next.options.id}`, {
                   args: next.args,
                   options: next.options
@@ -222,12 +235,14 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             return _ref.apply(this, arguments);
           };
         })();
-        return this._executing[index] = {
+        this._states.next(next.options.id); // RUNNING
+        return this._scheduled[index] = {
           timeout: setTimeout(() => {
             this.Events.trigger("debug", [`Executing ${next.options.id}`, {
               args: next.args,
               options: next.options
             }]);
+            this._states.next(next.options.id); // EXECUTING
             if (this._limiter != null) {
               return this._limiter.submit.apply(this._limiter, Array.prototype.concat(next.options, next.task, next.args, completed));
             } else {
@@ -290,6 +305,14 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         });
       }
 
+      _drop(job) {
+        this._states.remove(job.options.id);
+        if (this.rejectOnDrop) {
+          job.cb.apply({}, [new Bottleneck.prototype.BottleneckError("This job has been dropped by Bottleneck")]);
+        }
+        return this.Events.trigger("dropped", [job]);
+      }
+
       submit(...args) {
         var _this5 = this;
 
@@ -307,6 +330,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         }
         job = { options, task, args, cb };
         options.priority = this._sanitizePriority(options.priority);
+        if (options.id === this.jobDefaults.id) {
+          options.id = `${options.id}-${this._randomIndex()}`;
+        }
+        this._states.start(options.id); // RECEIVED
         this.Events.trigger("debug", [`Queueing ${options.id}`, { args, options }]);
         return this._submitLock.schedule(_asyncToGenerator(function* () {
           var blocked, e, reachedHWM, shifted, strategy;
@@ -320,6 +347,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             _this5.Events.trigger("debug", [`Queued ${options.id}`, { args, options, reachedHWM, blocked }]);
           } catch (error) {
             e = error;
+            _this5._states.remove(options.id);
             _this5.Events.trigger("debug", [`Could not queue ${options.id}`, {
               args,
               options,
@@ -330,17 +358,21 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           }
           if (blocked) {
             _this5._queues = _this5._makeQueues();
-            _this5.Events.trigger("dropped", [job]);
+            _this5._drop(job);
             return true;
           } else if (reachedHWM) {
             shifted = strategy === Bottleneck.prototype.strategy.LEAK ? _this5._getFirst(_this5._queues.slice(options.priority).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? _this5._getFirst(_this5._queues.slice(options.priority + 1).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
             if (shifted != null) {
-              _this5.Events.trigger("dropped", [shifted]);
+              _this5._drop(shifted);
             }
             if (shifted == null || strategy === Bottleneck.prototype.strategy.OVERFLOW) {
+              if (shifted == null) {
+                _this5._drop(job);
+              }
               return reachedHWM;
             }
           }
+          _this5._states.next(job.options.id); // QUEUED
           _this5._queues[options.priority].push(job);
           yield _this5._drainAll();
           return reachedHWM;
@@ -476,6 +508,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       datastore: "local",
       id: "<no-id>",
       rejectOnDrop: true,
+      trackDoneStatus: false,
       Promise: Promise
     };
 
@@ -484,7 +517,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Bottleneck;
 }).call(undefined);
-},{"../package.json":12,"./BottleneckError":2,"./DLList":3,"./Events":4,"./Group":5,"./Local":6,"./RedisStorage":7,"./Sync":8,"./parser":11}],2:[function(require,module,exports){
+},{"../package.json":13,"./BottleneckError":2,"./DLList":3,"./Events":4,"./Group":5,"./Local":6,"./RedisStorage":7,"./States":8,"./Sync":9,"./parser":12}],2:[function(require,module,exports){
 "use strict";
 
 // Generated by CoffeeScript 2.2.2
@@ -562,9 +595,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
 // Generated by CoffeeScript 2.2.2
 (function () {
-  var BottleneckError, Events;
-
-  BottleneckError = require("./BottleneckError");
+  var Events;
 
   Events = class Events {
     constructor(instance) {
@@ -597,11 +628,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     trigger(name, args) {
       if (name !== "debug") {
         this.trigger("debug", [`Event triggered: ${name}`, args]);
-      }
-      if (name === "dropped" && this.instance.rejectOnDrop) {
-        args.forEach(function (job) {
-          return job.cb.apply({}, [new BottleneckError("This job has been dropped by Bottleneck")]);
-        });
       }
       if (this._events[name] == null) {
         return;
@@ -637,7 +663,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Events;
 }).call(undefined);
-},{"./BottleneckError":2}],5:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 "use strict";
 
 function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
@@ -751,7 +777,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Group;
 }).call(undefined);
-},{"./Bottleneck":1,"./Events":4,"./parser":11}],6:[function(require,module,exports){
+},{"./Bottleneck":1,"./Events":4,"./parser":12}],6:[function(require,module,exports){
 "use strict";
 
 function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
@@ -945,7 +971,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Local;
 }).call(undefined);
-},{"./BottleneckError":2,"./DLList":3,"./parser":11}],7:[function(require,module,exports){
+},{"./BottleneckError":2,"./DLList":3,"./parser":12}],7:[function(require,module,exports){
 "use strict";
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
@@ -1327,7 +1353,72 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = RedisStorage;
 }).call(undefined);
-},{"./BottleneckError":2,"./DLList":3,"./lua.json":10,"./parser":11}],8:[function(require,module,exports){
+},{"./BottleneckError":2,"./DLList":3,"./lua.json":11,"./parser":12}],8:[function(require,module,exports){
+"use strict";
+
+// Generated by CoffeeScript 2.2.2
+(function () {
+  var BottleneckError, States;
+
+  BottleneckError = require("./BottleneckError");
+
+  States = class States {
+    constructor(status) {
+      this.status = status;
+      this.jobs = {};
+      this.counts = this.status.map(function () {
+        return 0;
+      });
+    }
+
+    next(id) {
+      var current, next;
+      current = this.jobs[id];
+      next = current + 1;
+      if (current != null && next < this.status.length) {
+        this.counts[current]--;
+        this.counts[next]++;
+        return this.jobs[id]++;
+      } else if (current != null) {
+        this.counts[current]--;
+        return delete this.jobs[id];
+      }
+    }
+
+    start(id, initial = 0) {
+      if (this.jobs[id] != null) {
+        throw new BottleneckError(`A job with the same id already exists (id=${id})`);
+      }
+      this.jobs[id] = initial;
+      return this.counts[initial]++;
+    }
+
+    remove(id) {
+      var current;
+      current = this.jobs[id];
+      if (current != null) {
+        this.counts[current]--;
+        return delete this.jobs[id];
+      }
+    }
+
+    jobStatus(id) {
+      var ref;
+      return (ref = this.status[this.jobs[id]]) != null ? ref : null;
+    }
+
+    statusCounts() {
+      return this.counts.reduce((acc, v, i) => {
+        acc[this.status[i]] = v;
+        return acc;
+      }, {});
+    }
+
+  };
+
+  module.exports = States;
+}).call(undefined);
+},{"./BottleneckError":2}],9:[function(require,module,exports){
 "use strict";
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
@@ -1402,14 +1493,14 @@ function _toArray(arr) { return Array.isArray(arr) ? arr : Array.from(arr); }
 
   module.exports = Sync;
 }).call(undefined);
-},{"./DLList":3}],9:[function(require,module,exports){
+},{"./DLList":3}],10:[function(require,module,exports){
 "use strict";
 
 // Generated by CoffeeScript 2.2.2
 (function () {
   module.exports = require("./Bottleneck");
 }).call(undefined);
-},{"./Bottleneck":1}],10:[function(require,module,exports){
+},{"./Bottleneck":1}],11:[function(require,module,exports){
 module.exports={
   "check.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal weight = tonumber(ARGV[1])\nlocal now = tonumber(ARGV[2])\n\nlocal running = tonumber(refresh_running(executing_key, running_key, settings_key, now))\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'reservoir',\n  'nextRequest'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal reservoir = tonumber(settings[2])\nlocal nextRequest = tonumber(settings[3])\n\nlocal conditionsCheck = conditions_check(weight, maxConcurrent, running, reservoir)\n\nlocal result = conditionsCheck and nextRequest - now <= 0\n\nreturn result\n",
   "conditions_check.lua": "local conditions_check = function (weight, maxConcurrent, running, reservoir)\n  return (\n    (maxConcurrent == nil or running + weight <= maxConcurrent) and\n    (reservoir == nil or reservoir - weight >= 0)\n  )\nend\n",
@@ -1428,7 +1519,7 @@ module.exports={
   "validate_keys.lua": "local settings_key = KEYS[1]\n\nif not (redis.call('exists', settings_key) == 1) then\n  return redis.error_reply('SETTINGS_KEY_NOT_FOUND')\nend\n"
 }
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 "use strict";
 
 // Generated by CoffeeScript 2.2.2
@@ -1453,7 +1544,7 @@ module.exports={
     return onto;
   };
 }).call(undefined);
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 module.exports={
   "name": "bottleneck",
   "version": "2.2.2",
@@ -1504,4 +1595,4 @@ module.exports={
   }
 }
 
-},{}]},{},[9]);
+},{}]},{},[10]);

@@ -110,6 +110,71 @@ describe('General', function () {
     })
   })
 
+  it('Should return job statuses', function () {
+    c = makeTest({maxConcurrent: 2, minTime: 100})
+
+    return c.limiter.ready()
+    .then(function () {
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0 })
+
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 2 }, c.slowPromise, 200, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 3 }, c.slowPromise, 100, null, 3), 3)
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 3, QUEUED: 0, RUNNING: 0, EXECUTING: 0 })
+
+      return c.wait(50)
+    })
+    .then(function () {
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 1, EXECUTING: 1 })
+      c.mustEqual(c.limiter.jobStatus(1), 'EXECUTING')
+      c.mustEqual(c.limiter.jobStatus(2), 'RUNNING')
+      c.mustEqual(c.limiter.jobStatus(3), 'QUEUED')
+
+      return c.last()
+    })
+    .then(function (results) {
+      c.checkDuration(400)
+      c.checkResultsOrder([[1], [2], [3]])
+    })
+  })
+
+  it('Should return job statuses, including DONE', function () {
+    c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
+
+    return c.limiter.ready()
+    .then(function () {
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
+
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 2 }, c.slowPromise, 200, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 3 }, c.slowPromise, 100, null, 3), 3)
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 3, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
+
+      return c.wait(50)
+    })
+    .then(function () {
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 1, EXECUTING: 1, DONE: 0 })
+      c.mustEqual(c.limiter.jobStatus(1), 'EXECUTING')
+      c.mustEqual(c.limiter.jobStatus(2), 'RUNNING')
+      c.mustEqual(c.limiter.jobStatus(3), 'QUEUED')
+
+      return c.wait(100)
+    })
+    .then(function () {
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 0, EXECUTING: 1, DONE: 1 })
+      c.mustEqual(c.limiter.jobStatus(1), 'DONE')
+      c.mustEqual(c.limiter.jobStatus(2), 'EXECUTING')
+      c.mustEqual(c.limiter.jobStatus(3), 'QUEUED')
+
+      return c.last()
+    })
+    .then(function (results) {
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 4 })
+      c.checkDuration(400)
+      c.checkResultsOrder([[1], [2], [3]])
+    })
+  })
+
   describe('Events', function () {
     it('Should return itself', function () {
       c = makeTest({ id: 'test-limiter' })

@@ -34,6 +34,10 @@ declare module "bottleneck" {
              */
             readonly rejectOnDrop?: boolean;
             /**
+             * Set to true to keep track of done jobs with counts() and jobStatus(). Uses more memory.
+             */
+            readonly trackDoneStatus?: boolean;
+            /**
              * Where the limiter stores its internal state. The default (`local`) keeps the state in the limiter itself. Set it to `redis` to enable Clustering.
              */
             readonly datastore?: string;
@@ -76,6 +80,21 @@ declare module "bottleneck" {
         interface ClientsList { client?: any; subscriber?: any }
         interface GroupLimiterPair { key: string; limiter: Bottleneck }
         interface Strategy {}
+
+        enum Status {
+            RECEIVED = "RECEIVED",
+            QUEUED = "QUEUED",
+            RUNNING = "RUNNING",
+            EXECUTING = "EXECUTING",
+            DONE = "DONE"
+        }
+        interface Counts {
+            RECEIVED: number,
+            QUEUED: number,
+            RUNNING: number,
+            EXECUTING: number,
+            DONE?: number
+        }
 
         class Group {
             constructor(options?: Bottleneck.ConstructorOptions);
@@ -170,6 +189,16 @@ declare module "bottleneck" {
          * @param flush - Write transient data before closing.
          */
         disconnect(flush?: boolean): Bottleneck;
+
+        /**
+         * Returns an object with the current number of jobs per status.
+         */
+        counts(): Bottleneck.Counts;
+
+        /**
+         * Returns the status of the job with the provided job id.
+         */
+        jobStatus(id: string): Bottleneck.Status;
 
         /**
          * Returns the number of requests queued.

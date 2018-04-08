@@ -245,7 +245,47 @@ When adding a new job to a limiter, if the queue length reaches `highWater`, do 
 When adding a new job to a limiter, if the queue length reaches `highWater`, the limiter falls into "blocked mode". All queued jobs are dropped and no new jobs will be accepted until the limiter unblocks. It will unblock after `penalty` milliseconds have passed without receiving a new job. `penalty` is equal to `15 * minTime` (or `5000` if `minTime` is `0`) by default and can be changed by calling `changePenalty()`. This strategy is ideal when bruteforce attacks are to be expected. This strategy totally ignores priority levels.
 
 
-### queued()
+### Jobs lifecycle
+
+1. **Received**. You new job has been added to your limiter. Bottleneck needs to check whether it can be accepted into the queue, based on your `highWater` setting.
+2. **Queued**. Bottleneck has accepted your job, but it can not tell at what exact timestamp it will run yet, because it is dependent on previous jobs.
+3. **Running**. Your job is not in the queue anymore, it will be executed after a delay computed according to your `minTime` setting.
+4. **Executing**. Your job is executing its code.
+5. **Done**. Your job has completed.
+
+#### counts()
+
+```js
+const counts = limiter.counts();
+
+console.log(count);
+/*
+{
+  RECEIVED: 0,
+  QUEUED: 0,
+  RUNNING: 0,
+  EXECUTING: 0,
+  DONE: 0
+}
+*/
+```
+
+Returns an object with the current number of jobs per status in the limiter.
+
+**Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable that feature by passing `trackDoneStatus: true` as an option when creating a limiter.
+
+#### jobStatus()
+
+```js
+console.log(limiter.jobStatus("some-job-id"));
+// Example: QUEUED
+```
+
+Returns the status of the job with the provided job id. See [Job Options](#job-options).
+
+**Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable that feature by passing `trackDoneStatus: true` as an option when creating a limiter.
+
+#### queued()
 
 ```js
 const count = limiter.queued(priority);
@@ -253,11 +293,9 @@ const count = limiter.queued(priority);
 console.log(count);
 ```
 
-`priority` is optional. Without that argument, it returns the total number of jobs waiting to be executed, otherwise it only counts the number of jobs with that specific priority.
+`priority` is optional. Returns the number of **Queued** jobs with the given `priority` level. Omitting the `priority` argument returns the total number of queued jobs in the limiter.
 
-Note: queueing up a job will not increment the number returned by queued() immediately, since queueing is an asynchronous operation. There are [Events](#events) available if you need to take action when `queued()` becomes `0` for example.
-
-### empty()
+#### empty()
 
 ```js
 if (limiter.empty()) {
@@ -265,24 +303,24 @@ if (limiter.empty()) {
 }
 ```
 
-Returns a boolean which indicates whether there are any jobs currently in the queue *or in the process of being added to the queue*.
+Returns a boolean which indicates whether there are any **Received** or **Queued** jobs in the limiter.
 
-### running()
+#### running()
 
 ```js
 limiter.running()
 .then((count) => console.log(count));
 ```
 
-Returns a promise that returns the number of jobs currently running in the limiter.
+Returns a promise that returns the *total weight* of the **Running** and **Executing** jobs in the Cluster.
 
-### check()
+#### check()
 
 ```js
 limiter.check()
 .then((wouldRunNow) => console.log(wouldRunNow));
 ```
-Checks if a new job would be run immediately once if it was now. Returns a promise that returns a boolean.
+Checks if a new job would be executed immediately if it was submitted now. Returns a promise that returns a boolean.
 
 
 ### Events
@@ -326,7 +364,7 @@ __depleted__
 ```js
 limiter.on('depleted', function (empty) {
   // This will be called every time the reservoir drops to 0.
-  // The `empty` (boolean) argument indicates whether `limiter.empty()` is true.
+  // The `empty` (boolean) argument indicates whether `limiter.empty()` is currently true.
 })
 ```
 

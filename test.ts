@@ -107,6 +107,10 @@ wrapped(1, 2).then((x) => {
   assert(s == "Total: 3");
 });
 
+let counts = limiter.counts();
+console.log(`${counts.EXECUTING + 2}`);
+console.log(limiter.jobStatus('some-id'))
+
 
 group.deleteKey("pizza");
 group.updateSettings({ timeout: 5 });
