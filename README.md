@@ -258,7 +258,7 @@ When adding a new job to a limiter, if the queue length reaches `highWater`, the
 ```js
 const counts = limiter.counts();
 
-console.log(count);
+console.log(counts);
 /*
 {
   RECEIVED: 0,
