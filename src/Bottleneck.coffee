@@ -97,7 +97,7 @@ class Bottleneck
       , wait
       expiration: if next.options.expiration? then setTimeout =>
         completed new Bottleneck::BottleneckError "This job timed out after #{next.options.expiration} ms."
-      , next.options.expiration
+      , wait + next.options.expiration
       job: next
   _drainOne: (freed) =>
     @_registerLock.schedule =>
