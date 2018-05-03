@@ -199,7 +199,7 @@ Takes a function that returns a promise. Returns a function identical to the ori
 ```js
 const wrapped = limiter.wrap(fn)
 
-fn()
+wrapped()
 .then(function (result) {
   /* ... */
 })
