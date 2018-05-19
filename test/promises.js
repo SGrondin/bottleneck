@@ -41,16 +41,16 @@ describe('Promises', function () {
     })
   })
 
-  it('Should not allow non-Promise returns', function (done) {
+  it('Should allow non-Promise returns', function () {
     c = makeTest()
+    var str = 'This is a string'
 
-    c.limiter.ready()
+    return c.limiter.ready()
     .then(function () {
-      return c.limiter.schedule(() => 'This is a string')
+      return c.limiter.schedule(() => str)
     })
-    .catch(function (err) {
-      c.mustEqual(err.message, 'The function given to `schedule()` did not return a Promise. You may need to return `Promise.resolve(data)`. You returned: This is a string (string)')
-      done()
+    .then(function (x) {
+      c.mustEqual(x, str)
     })
   })
 

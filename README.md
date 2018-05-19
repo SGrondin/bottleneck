@@ -40,7 +40,7 @@ npm install --save bottleneck
 Most APIs have a rate limit. For example, the reddit.com API limits scripts to 1 request every 2 seconds.
 
 ```js
-const Bottleneck = require("bottleneck");
+import Bottleneck from "bottleneck"
 
 // Never more than 1 request running at a time.
 // Wait at least 2000ms between each request.

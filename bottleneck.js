@@ -407,10 +407,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           var cb, ref, returned;
           ref = args, (_ref9 = ref, _ref10 = _toArray(_ref9), args = _ref10.slice(0), _ref9), (_splice$call5 = splice.call(args, -1), _splice$call6 = _slicedToArray(_splice$call5, 1), cb = _splice$call6[0], _splice$call5);
           returned = task.apply({}, args);
-          if (returned.then == null) {
-            return cb(new Bottleneck.prototype.BottleneckError(`The function given to \`schedule()\` did not return a Promise. You may need to return \`Promise.resolve(data)\`. You returned: ${returned} (${typeof returned})`));
-          }
-          return returned.then(function (...args) {
+          return (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function") ? Promise.resolve(returned) : returned).then(function (...args) {
             return cb.apply({}, Array.prototype.concat(null, args));
           }).catch(function (...args) {
             return cb.apply({}, args);
@@ -1055,14 +1052,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   RedisStorage = class RedisStorage {
     constructor(instance, initSettings, options) {
-      var r, redis;
+      var redis;
       this.loadAll = this.loadAll.bind(this);
       this.instance = instance;
       this.initSettings = initSettings;
-      r = require;
-      redis = r(function () {
-        return ["r", "e", "d", "i", "s"].join(""); // Obfuscated or else Webpack/Angular will try to inline the optional redis module
-      }());
+      redis = eval("require")("redis"); // Obfuscated or else Webpack/Angular will try to inline the optional redis module
       this.originalId = this.instance.id;
       this.scripts = scriptTemplates(this.originalId);
       parser.load(options, options, this);
@@ -1547,7 +1541,7 @@ module.exports={
 },{}],13:[function(require,module,exports){
 module.exports={
   "name": "bottleneck",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Distributed task scheduler and rate limiter",
   "main": "lib/index.js",
   "typings": "bottleneck.d.ts",

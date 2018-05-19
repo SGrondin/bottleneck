@@ -53,8 +53,7 @@ scriptTemplates = (id) ->
 
 class RedisStorage
   constructor: (@instance, @initSettings, options) ->
-    r = require
-    redis = r do -> ["r", "e", "d", "i", "s"].join("") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
+    redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
     @originalId = @instance.id
     @scripts = scriptTemplates @originalId
     parser.load options, options, @

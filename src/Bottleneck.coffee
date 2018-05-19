@@ -176,8 +176,7 @@ class Bottleneck
       options = parser.load options, @jobDefaults
     wrapped = (args..., cb) ->
       returned = task.apply {}, args
-      unless returned.then? then return cb new Bottleneck::BottleneckError "The function given to `schedule()` did not return a Promise. You may need to return `Promise.resolve(data)`. You returned: #{returned} (#{typeof returned})"
-      returned
+      (unless returned?.then? && typeof returned.then == "function" then Promise.resolve(returned) else returned)
       .then (args...) -> cb.apply {}, Array::concat null, args
       .catch (args...) -> cb.apply {}, args
     new @Promise (resolve, reject) =>
