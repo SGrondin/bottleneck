@@ -1,6 +1,6 @@
 {
   "name": "bottleneck",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "description": "Distributed task scheduler and rate limiter",
   "main": "lib/index.js",
   "typings": "bottleneck.d.ts",
