@@ -137,6 +137,11 @@ class Bottleneck
     job = { options, task, args, cb }
     options.priority = @_sanitizePriority options.priority
     if options.id == @jobDefaults.id then options.id = "#{options.id}-#{@_randomIndex()}"
+
+    if @jobStatus(options.id)?
+      job.cb new Bottleneck::BottleneckError "A job with the same id already exists (id=#{options.id})"
+      return false
+
     @_states.start options.id # RECEIVED
 
     @Events.trigger "debug", ["Queueing #{options.id}", { args, options }]

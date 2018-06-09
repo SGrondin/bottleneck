@@ -16,7 +16,6 @@ class States
       delete @jobs[id]
 
   start: (id, initial=0) ->
-    if @jobs[id]? then throw new BottleneckError "A job with the same id already exists (id=#{id})"
     @jobs[id] = initial
     @counts[initial]++
 

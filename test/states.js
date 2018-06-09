@@ -18,18 +18,6 @@ describe('States', function () {
     c.mustEqual(states.statusCounts(), { A: 2, B: 0, C: 0 })
   })
 
-  it('Should not accept duplicate ids', function (done) {
-    var states = new States(["A", "B", "C"])
-
-    states.start('x')
-    try {
-      states.start('x')
-    } catch (e) {
-      c.mustEqual(states.statusCounts(), { A: 1, B: 0, C: 0 })
-      done()
-    }
-  })
-
   it('Should increment', function () {
     var states = new States(["A", "B", "C"])
 

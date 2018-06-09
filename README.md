@@ -37,27 +37,37 @@ npm install --save bottleneck
 
 ### Quick Start
 
-Most APIs have a rate limit. For example, the reddit.com API limits scripts to 1 request every 2 seconds.
+Most APIs have a rate limit. For example, to execute 3 requests per second:
 
 ```js
 import Bottleneck from "bottleneck"
 
-// Never more than 1 request running at a time.
-// Wait at least 2000ms between each request.
+const limiter = new Bottleneck({
+  minTime: 333
+});
+```
+
+If there's a chance some requests might take longer than 333ms and you want to prevent that, add `maxConcurrent: 1`.
+
+```js
 const limiter = new Bottleneck({
   maxConcurrent: 1,
-  minTime: 2000
+  minTime: 333
 });
 ```
 
 Instead of this:
+
 ```js
 someAsyncCall(arg1, arg2, callback);
 ```
+
 Do this:
+
 ```js
 limiter.submit(someAsyncCall, arg1, arg2, callback);
 ```
+
 And now you can be assured that someAsyncCall will abide by your rate guidelines!
 
 [More information about using Bottleneck with callbacks](#submit)
@@ -281,7 +291,7 @@ console.log(limiter.jobStatus("some-job-id"));
 // Example: QUEUED
 ```
 
-Returns the status of the job with the provided job id. See [Job Options](#job-options).
+Returns the status of the job with the provided job id. See [Job Options](#job-options). Returns `null` if no job with that id exist.
 
 **Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable that feature by passing `trackDoneStatus: true` as an option when creating a limiter.
 

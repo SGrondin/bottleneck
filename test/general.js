@@ -110,6 +110,25 @@ describe('General', function () {
     })
   })
 
+  it('Should reject duplicate Job IDs', function (done) {
+    c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
+
+    c.limiter.ready()
+    .then(function () {
+      return c.limiter.schedule({ id: 'a' }, c.promise, null, 1)
+    })
+    .then(function () {
+      return c.limiter.schedule({ id: 'b' }, c.promise, null, 2)
+    })
+    .then(function () {
+      return c.limiter.schedule({ id: 'a' }, c.promise, null, 3)
+    })
+    .catch(function (e) {
+      c.mustEqual(e.message, 'A job with the same id already exists (id=a)')
+      done()
+    })
+  })
+
   it('Should return job statuses', function () {
     c = makeTest({maxConcurrent: 2, minTime: 100})
 
