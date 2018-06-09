@@ -335,7 +335,7 @@ Checks if a new job would be executed immediately if it was submitted now. Retur
 
 ### Events
 
-Event names: `error`, `empty`, `idle`, `dropped` and `debug`.
+Event names: `error`, `empty`, `idle`, `dropped`, `depleted` and `debug`.
 
 __error__
 ```js

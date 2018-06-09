@@ -37,6 +37,8 @@ class Bottleneck
     rejectOnDrop: true,
     trackDoneStatus: false,
     Promise: Promise
+  stopDefaults:
+    enqueueError: new @BottleneckError "This limiter has been stopped and cannot accept new jobs."
   constructor: (options={}, invalid...) ->
     unless options? and typeof options == "object" and invalid.length == 0
       throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1."
@@ -80,6 +82,7 @@ class Bottleneck
           clearTimeout @_scheduled[index].expiration
           delete @_scheduled[index]
           @Events.trigger "debug", ["Completed #{next.options.id}", { args: next.args, options: next.options }]
+          @Events.trigger "done", ["Completed #{next.options.id}", { args: next.args, options: next.options }]
           { running } = await @_store.__free__ index, next.options.weight
           @Events.trigger "debug", ["Freed #{next.options.id}", { args: next.args, options: next.options }]
           @_drainAll().catch (e) => @Events.trigger "error", [e]
@@ -125,8 +128,22 @@ class Bottleneck
     .catch (e) => @Events.trigger "error", [e]
   _drop: (job) ->
     @_states.remove job.options.id
-    if @rejectOnDrop then job.cb.apply {}, [new Bottleneck::BottleneckError("This job has been dropped by Bottleneck")]
+    if @rejectOnDrop then job.cb?.apply {}, [new Bottleneck::BottleneckError("This job has been dropped by Bottleneck")]
     @Events.trigger "dropped", [job]
+  stop: (options={}) ->
+    options = parser.load options, @stopDefaults
+    ret = @schedule { priority: NUM_PRIORITIES-1, weight: 0 }, => new @Promise (resolve, reject) =>
+      finished = =>
+        counts = @_states.counts
+        (counts[0] + counts[1] + counts[2] + counts[3]) == 1
+      if finished() then resolve()
+      else @on "done", =>
+        if finished()
+          @removeAllListeners "done"
+          resolve()
+    @submit = (args..., cb) => cb options.enqueueError
+    ret
+
   submit: (args...) =>
     if typeof args[0] == "function"
       [task, args..., cb] = args
@@ -139,7 +156,7 @@ class Bottleneck
     if options.id == @jobDefaults.id then options.id = "#{options.id}-#{@_randomIndex()}"
 
     if @jobStatus(options.id)?
-      job.cb new Bottleneck::BottleneckError "A job with the same id already exists (id=#{options.id})"
+      job.cb?(new Bottleneck::BottleneckError "A job with the same id already exists (id=#{options.id})")
       return false
 
     @_states.start options.id # RECEIVED
@@ -152,7 +169,7 @@ class Bottleneck
       catch e
         @_states.remove options.id
         @Events.trigger "debug", ["Could not queue #{options.id}", { args, options, error: e }]
-        job.cb e
+        job.cb?(e)
         return false
 
       if blocked

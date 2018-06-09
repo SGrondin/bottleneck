@@ -208,6 +208,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
                   args: next.args,
                   options: next.options
                 }]);
+                _this4.Events.trigger("done", [`Completed ${next.options.id}`, {
+                  args: next.args,
+                  options: next.options
+                }]);
 
                 var _ref2 = yield _this4._store.__free__(index, next.options.weight);
 
@@ -306,11 +310,50 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       _drop(job) {
+        var ref;
         this._states.remove(job.options.id);
         if (this.rejectOnDrop) {
-          job.cb.apply({}, [new Bottleneck.prototype.BottleneckError("This job has been dropped by Bottleneck")]);
+          if ((ref = job.cb) != null) {
+            ref.apply({}, [new Bottleneck.prototype.BottleneckError("This job has been dropped by Bottleneck")]);
+          }
         }
         return this.Events.trigger("dropped", [job]);
+      }
+
+      stop(options = {}) {
+        var ret;
+        options = parser.load(options, this.stopDefaults);
+        ret = this.schedule({
+          priority: NUM_PRIORITIES - 1,
+          weight: 0
+        }, () => {
+          return new this.Promise((resolve, reject) => {
+            var finished;
+            finished = () => {
+              var counts;
+              counts = this._states.counts;
+              return counts[0] + counts[1] + counts[2] + counts[3] === 1;
+            };
+            if (finished()) {
+              return resolve();
+            } else {
+              return this.on("done", () => {
+                if (finished()) {
+                  this.removeAllListeners("done");
+                  return resolve();
+                }
+              });
+            }
+          });
+        });
+        this.submit = (...args) => {
+          var _ref3, _ref4, _splice$call, _splice$call2;
+
+          var cb, ref;
+          ref = args, (_ref3 = ref, _ref4 = _toArray(_ref3), args = _ref4.slice(0), _ref3), (_splice$call = splice.call(args, -1), _splice$call2 = _slicedToArray(_splice$call, 1), cb = _splice$call2[0], _splice$call);
+          return cb(options.enqueueError);
+        };
+        return ret;
       }
 
       submit(...args) {
@@ -318,14 +361,14 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
         var cb, job, options, ref, ref1, task;
         if (typeof args[0] === "function") {
-          var _ref3, _ref4, _splice$call, _splice$call2;
-
-          ref = args, (_ref3 = ref, _ref4 = _toArray(_ref3), task = _ref4[0], args = _ref4.slice(1), _ref3), (_splice$call = splice.call(args, -1), _splice$call2 = _slicedToArray(_splice$call, 1), cb = _splice$call2[0], _splice$call);
-          options = this.jobDefaults;
-        } else {
           var _ref5, _ref6, _splice$call3, _splice$call4;
 
-          ref1 = args, (_ref5 = ref1, _ref6 = _toArray(_ref5), options = _ref6[0], task = _ref6[1], args = _ref6.slice(2), _ref5), (_splice$call3 = splice.call(args, -1), _splice$call4 = _slicedToArray(_splice$call3, 1), cb = _splice$call4[0], _splice$call3);
+          ref = args, (_ref5 = ref, _ref6 = _toArray(_ref5), task = _ref6[0], args = _ref6.slice(1), _ref5), (_splice$call3 = splice.call(args, -1), _splice$call4 = _slicedToArray(_splice$call3, 1), cb = _splice$call4[0], _splice$call3);
+          options = this.jobDefaults;
+        } else {
+          var _ref7, _ref8, _splice$call5, _splice$call6;
+
+          ref1 = args, (_ref7 = ref1, _ref8 = _toArray(_ref7), options = _ref8[0], task = _ref8[1], args = _ref8.slice(2), _ref7), (_splice$call5 = splice.call(args, -1), _splice$call6 = _slicedToArray(_splice$call5, 1), cb = _splice$call6[0], _splice$call5);
           options = parser.load(options, this.jobDefaults);
         }
         job = { options, task, args, cb };
@@ -334,7 +377,9 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           options.id = `${options.id}-${this._randomIndex()}`;
         }
         if (this.jobStatus(options.id) != null) {
-          job.cb(new Bottleneck.prototype.BottleneckError(`A job with the same id already exists (id=${options.id})`));
+          if (typeof job.cb === "function") {
+            job.cb(new Bottleneck.prototype.BottleneckError(`A job with the same id already exists (id=${options.id})`));
+          }
           return false;
         }
         this._states.start(options.id); // RECEIVED
@@ -342,11 +387,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return this._submitLock.schedule(_asyncToGenerator(function* () {
           var blocked, e, reachedHWM, shifted, strategy;
           try {
-            var _ref8 = yield _this5._store.__submit__(_this5.queued(), options.weight);
+            var _ref10 = yield _this5._store.__submit__(_this5.queued(), options.weight);
 
-            reachedHWM = _ref8.reachedHWM;
-            blocked = _ref8.blocked;
-            strategy = _ref8.strategy;
+            reachedHWM = _ref10.reachedHWM;
+            blocked = _ref10.blocked;
+            strategy = _ref10.strategy;
 
             _this5.Events.trigger("debug", [`Queued ${options.id}`, { args, options, reachedHWM, blocked }]);
           } catch (error) {
@@ -357,7 +402,9 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
               options,
               error: e
             }]);
-            job.cb(e);
+            if (typeof job.cb === "function") {
+              job.cb(e);
+            }
             return false;
           }
           if (blocked) {
@@ -406,10 +453,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           options = parser.load(options, this.jobDefaults);
         }
         wrapped = function wrapped(...args) {
-          var _ref9, _ref10, _splice$call5, _splice$call6;
+          var _ref11, _ref12, _splice$call7, _splice$call8;
 
           var cb, ref, returned;
-          ref = args, (_ref9 = ref, _ref10 = _toArray(_ref9), args = _ref10.slice(0), _ref9), (_splice$call5 = splice.call(args, -1), _splice$call6 = _slicedToArray(_splice$call5, 1), cb = _splice$call6[0], _splice$call5);
+          ref = args, (_ref11 = ref, _ref12 = _toArray(_ref11), args = _ref12.slice(0), _ref11), (_splice$call7 = splice.call(args, -1), _splice$call8 = _slicedToArray(_splice$call7, 1), cb = _splice$call8[0], _splice$call7);
           returned = task.apply({}, args);
           return (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function") ? Promise.resolve(returned) : returned).then(function (...args) {
             return cb.apply({}, Array.prototype.concat(null, args));
@@ -511,6 +558,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       rejectOnDrop: true,
       trackDoneStatus: false,
       Promise: Promise
+    };
+
+    Bottleneck.prototype.stopDefaults = {
+      enqueueError: new Bottleneck.BottleneckError("This limiter has been stopped and cannot accept new jobs.")
     };
 
     return Bottleneck;
