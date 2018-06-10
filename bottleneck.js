@@ -66,7 +66,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         parser.load(options, this.instanceDefaults, this);
         this._queues = this._makeQueues();
         this._scheduled = {};
-        this._stopped = false;
         this._states = new States(["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(this.trackDoneStatus ? ["DONE"] : []));
         this._limiter = null;
         this.Events = new Events(this);
@@ -322,9 +321,28 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       stop(options = {}) {
-        var done;
+        var done, waitForExecuting;
         options = parser.load(options, this.stopDefaults);
-        this._stopped = false;
+        waitForExecuting = at => {
+          var finished;
+          finished = () => {
+            var counts;
+            counts = this._states.counts;
+            return counts[0] + counts[1] + counts[2] + counts[3] === at;
+          };
+          return new this.Promise((resolve, reject) => {
+            if (finished()) {
+              return resolve();
+            } else {
+              return this.on("done", () => {
+                if (finished()) {
+                  this.removeAllListeners("done");
+                  return resolve();
+                }
+              });
+            }
+          });
+        };
         done = options.dropExistingJobs ? (this._run = next => {
           return this._drop(next, options.dropError);
         }, this._drainOne = () => {
@@ -338,37 +356,23 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           ref = this._scheduled;
           for (k in ref) {
             v = ref[k];
-            clearTimeout(v.timeout);
-            clearTimeout(v.expiration);
-            this._drop(v.job, options.dropError);
+            if (this.jobStatus(v.job.options.id) === "RUNNING") {
+              clearTimeout(v.timeout);
+              clearTimeout(v.expiration);
+              this._drop(v.job, options.dropError);
+            }
           }
-          return this._queues.forEach(queue => {
+          this._queues.forEach(queue => {
             return queue.forEachShift(job => {
               return this._drop(job, options.dropError);
             });
           });
+          return waitForExecuting(0);
         })) : this.schedule({
           priority: NUM_PRIORITIES - 1,
           weight: 0
         }, () => {
-          return new this.Promise((resolve, reject) => {
-            var finished;
-            finished = () => {
-              var counts;
-              counts = this._states.counts;
-              return counts[0] + counts[1] + counts[2] + counts[3] === 1;
-            };
-            if (finished()) {
-              return resolve();
-            } else {
-              return this.on("done", () => {
-                if (finished()) {
-                  this.removeAllListeners("done");
-                  return resolve();
-                }
-              });
-            }
-          });
+          return waitForExecuting(1);
         });
         this.submit = (...args) => {
           var _ref3, _ref4, _splice$call, _splice$call2;

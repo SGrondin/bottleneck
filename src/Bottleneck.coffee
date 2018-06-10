@@ -47,7 +47,6 @@ class Bottleneck
     parser.load options, @instanceDefaults, @
     @_queues = @_makeQueues()
     @_scheduled = {}
-    @_stopped = false
     @_states = new States ["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(if @trackDoneStatus then ["DONE"] else [])
     @_limiter = null
     @Events = new Events @
@@ -135,7 +134,16 @@ class Bottleneck
     @Events.trigger "dropped", [job]
   stop: (options={}) ->
     options = parser.load options, @stopDefaults
-    @_stopped = false
+    waitForExecuting = (at) =>
+      finished = =>
+        counts = @_states.counts
+        (counts[0] + counts[1] + counts[2] + counts[3]) == at
+      new @Promise (resolve, reject) =>
+        if finished() then resolve()
+        else @on "done", =>
+          if finished()
+            @removeAllListeners "done"
+            resolve()
     done = if options.dropExistingJobs
       @_run = (next) => @_drop next, options.dropError
       @_drainOne = => Promise.resolve false
@@ -144,20 +152,14 @@ class Bottleneck
         @_submitLock.schedule => Promise.resolve(true)
       ]).then =>
         for k, v of @_scheduled
-          clearTimeout v.timeout
-          clearTimeout v.expiration
-          @_drop v.job, options.dropError
+          if @jobStatus(v.job.options.id) == "RUNNING"
+            clearTimeout v.timeout
+            clearTimeout v.expiration
+            @_drop v.job, options.dropError
         @_queues.forEach (queue) => queue.forEachShift (job) => @_drop job, options.dropError
+        waitForExecuting(0)
     else
-      @schedule { priority: NUM_PRIORITIES-1, weight: 0 }, => new @Promise (resolve, reject) =>
-        finished = =>
-          counts = @_states.counts
-          (counts[0] + counts[1] + counts[2] + counts[3]) == 1
-        if finished() then resolve()
-        else @on "done", =>
-          if finished()
-            @removeAllListeners "done"
-            resolve()
+      @schedule { priority: NUM_PRIORITIES-1, weight: 0 }, => waitForExecuting(1)
     @submit = (args..., cb) => cb?.apply {}, [options.enqueueError]
     done
 

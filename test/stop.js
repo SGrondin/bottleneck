@@ -2,7 +2,7 @@ var makeTest = require('./context')
 var Bottleneck = require('../lib/index.js')
 var assert = require('assert')
 
-describe.only('Stop', function () {
+describe('Stop', function () {
   var c
 
   afterEach(function () {
@@ -12,7 +12,7 @@ describe.only('Stop', function () {
   })
 
   it('Should stop and drop the queue', function (done) {
-    c = makeTest({maxConcurrent: 1, minTime: 100, trackDoneStatus: true})
+    c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
     var submitFailed = false
     var queuedDropped = false
     var scheduledDropped = false
@@ -25,15 +25,17 @@ describe.only('Stop', function () {
     c.limiter.ready()
     .then(function () {
 
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule({id: '0'}, c.promise, null, 0), 0)
 
-      c.limiter.schedule(c.promise, null, 2)
+      c.pNoErrVal(c.limiter.schedule({id: '1'}, c.slowPromise, 100, null, 1), 1)
+
+      c.limiter.schedule({id: '2'}, c.promise, null, 2)
       .catch(function (err) {
         c.mustEqual(err.message, 'Dropped!')
         scheduledDropped = true
       })
 
-      c.limiter.schedule(c.promise, null, 3)
+      c.limiter.schedule({id: '3'}, c.promise, null, 3)
       .catch(function (err) {
         c.mustEqual(err.message, 'Dropped!')
         queuedDropped = true
@@ -44,7 +46,7 @@ describe.only('Stop', function () {
         c.mustEqual(counts.RECEIVED, 0)
         c.mustEqual(counts.QUEUED, 1)
         c.mustEqual(counts.RUNNING, 1)
-        c.mustEqual(counts.EXECUTING, 0)
+        c.mustEqual(counts.EXECUTING, 1)
         c.mustEqual(counts.DONE, 1)
 
         c.limiter.stop({
@@ -61,9 +63,9 @@ describe.only('Stop', function () {
           c.mustEqual(counts.QUEUED, 0)
           c.mustEqual(counts.RUNNING, 0)
           c.mustEqual(counts.EXECUTING, 0)
-          c.mustEqual(counts.DONE, 1)
+          c.mustEqual(counts.DONE, 2)
 
-          c.checkResultsOrder([[1]])
+          c.checkResultsOrder([[0], [1]])
           done()
         })
 
@@ -73,7 +75,7 @@ describe.only('Stop', function () {
           submitFailed = true
         })
 
-      }, 75)
+      }, 125)
     })
   })
 
@@ -89,9 +91,9 @@ describe.only('Stop', function () {
     c.limiter.ready()
     .then(function () {
 
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
-      c.pNoErrVal(c.limiter.schedule(c.slowPromise, 100, null, 3), 3)
+      c.pNoErrVal(c.limiter.schedule({id: '1'}, c.promise, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule({id: '2'}, c.promise, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule({id: '3'}, c.slowPromise, 100, null, 3), 3)
 
       setTimeout(function () {
         var counts = c.limiter.counts()
