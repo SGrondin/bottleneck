@@ -343,7 +343,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             }
           });
         };
-        done = options.dropExistingJobs ? (this._run = next => {
+        done = options.dropWaitingJobs ? (this._run = next => {
           return this._drop(next, options.dropError);
         }, this._drainOne = () => {
           return Promise.resolve(false);
@@ -590,7 +590,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
     Bottleneck.prototype.stopDefaults = {
       enqueueError: new Bottleneck.BottleneckError("This limiter has been stopped and cannot accept new jobs."),
-      dropExistingJobs: true,
+      dropWaitingJobs: true,
       dropError: new Bottleneck.BottleneckError("This limiter has been stopped.")
     };
 

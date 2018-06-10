@@ -105,7 +105,7 @@ describe('Stop', function () {
 
         c.limiter.stop({
           enqueueError: new Error('Stopped!'),
-          dropExistingJobs: false
+          dropWaitingJobs: false
         })
         .then(function () {
           counts = c.limiter.counts()

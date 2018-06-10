@@ -39,7 +39,7 @@ class Bottleneck
     Promise: Promise
   stopDefaults:
     enqueueError: new @BottleneckError "This limiter has been stopped and cannot accept new jobs."
-    dropExistingJobs: true
+    dropWaitingJobs: true
     dropError: new @BottleneckError "This limiter has been stopped."
   constructor: (options={}, invalid...) ->
     unless options? and typeof options == "object" and invalid.length == 0
@@ -144,7 +144,7 @@ class Bottleneck
           if finished()
             @removeAllListeners "done"
             resolve()
-    done = if options.dropExistingJobs
+    done = if options.dropWaitingJobs
       @_run = (next) => @_drop next, options.dropError
       @_drainOne = => Promise.resolve false
       @Promise.all([
