@@ -16,13 +16,13 @@ class Group
     @instances[key]?.disconnect()
     delete @instances[key]
   limiters: =>
-    for k,v of @instances then { key: k, limiter: v }
+    for k, v of @instances then { key: k, limiter: v }
   keys: => Object.keys @instances
   _startAutoCleanup: =>
     clearInterval @interval
     (@interval = setInterval =>
       time = Date.now()
-      for k,v of @instances
+      for k, v of @instances
         try if await v._store.__groupCheck__(time) then @deleteKey k
         catch e then v.Events.trigger "error", [e]
     , (@timeout / 2)).unref?()

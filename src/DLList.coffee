@@ -20,5 +20,9 @@ class DLList
   getArray: () ->
     node = @_first
     while node? then (ref = node; node = node.next; ref.value)
+  forEachShift: (cb) ->
+    node = @shift()
+    while node? then (cb node; node = @shift())
+    undefined
 
 module.exports = DLList
