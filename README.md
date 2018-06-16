@@ -439,7 +439,7 @@ limiter.stop(options)
 | Option | Default | Description |
 |--------|---------|-------------|
 | `dropWaitingJobs` | `true` | When `true`, drop all the RECEIVED, QUEUED and RUNNING jobs. When `false`, allow those jobs to complete before resolving the Promise returned by this method. |
-| `dropErrorMessage` | `This limiter has been stopped` | The error message used to drop jobs when `dropWaitingJobs` is `true`. |
+| `dropErrorMessage` | `This limiter has been stopped.` | The error message used to drop jobs when `dropWaitingJobs` is `true`. |
 | `enqueueErrorMessage` | `This limiter has been stopped and cannot accept new jobs.` | The error message used to reject a job added to the limiter after `stop()` has been called. |
 
 ### chain()
