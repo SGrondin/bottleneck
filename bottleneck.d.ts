@@ -73,6 +73,20 @@ declare module "bottleneck" {
              */
             readonly id?: string;
         };
+        type StopOptions = {
+            /**
+             * When `true`, drop all the RECEIVED, QUEUED and RUNNING jobs. When `false`, allow those jobs to complete before resolving the Promise returned by this method.
+             */
+            readonly dropWaitingJobs?: boolean;
+            /**
+             * The error message used to drop jobs when `dropWaitingJobs` is `true`.
+             */
+            readonly dropErrorMessage?: string;
+            /**
+             * The error message used to reject a job added to the limiter after `stop()` has been called.
+             */
+            readonly enqueueErrorMessage?: string;
+        };
         type GroupOptions = {
             readonly timeout?: number;
         };
@@ -264,6 +278,11 @@ declare module "bottleneck" {
          * Adds to the reservoir count.
          */
         incrementReservoir(incrementBy: number): Bottleneck;
+
+        /**
+         * The `stop()` method is used to safely shutdown a limiter. It prevents any new jobs from being added to the limiter and waits for all Executing jobs to complete.
+         */
+         stop(options?: Bottleneck.StopOptions): Promise<void>;
 
         /**
          * Returns the current reservoir count, if any.

@@ -38,9 +38,9 @@ class Bottleneck
     trackDoneStatus: false,
     Promise: Promise
   stopDefaults:
-    enqueueError: new @BottleneckError "This limiter has been stopped and cannot accept new jobs."
+    enqueueErrorMessage: "This limiter has been stopped and cannot accept new jobs."
     dropWaitingJobs: true
-    dropError: new @BottleneckError "This limiter has been stopped."
+    dropErrorMessage: "This limiter has been stopped."
   constructor: (options={}, invalid...) ->
     unless options? and typeof options == "object" and invalid.length == 0
       throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1."
@@ -128,9 +128,9 @@ class Bottleneck
       if success then @_drainAll()
       else @Promise.resolve success
     .catch (e) => @Events.trigger "error", [e]
-  _drop: (job, e=new Bottleneck::BottleneckError("This job has been dropped by Bottleneck")) ->
+  _drop: (job, message="This job has been dropped by Bottleneck") ->
     @_states.remove job.options.id
-    if @rejectOnDrop then job.cb?.apply {}, [e]
+    if @rejectOnDrop then job.cb?.apply {}, [new Bottleneck::BottleneckError message]
     @Events.trigger "dropped", [job]
   stop: (options={}) ->
     options = parser.load options, @stopDefaults
@@ -145,7 +145,7 @@ class Bottleneck
             @removeAllListeners "done"
             resolve()
     done = if options.dropWaitingJobs
-      @_run = (next) => @_drop next, options.dropError
+      @_run = (next) => @_drop next, options.dropErrorMessage
       @_drainOne = => Promise.resolve false
       @Promise.all([
         @_registerLock.schedule => Promise.resolve(true),
@@ -155,14 +155,13 @@ class Bottleneck
           if @jobStatus(v.job.options.id) == "RUNNING"
             clearTimeout v.timeout
             clearTimeout v.expiration
-            @_drop v.job, options.dropError
-        @_queues.forEach (queue) => queue.forEachShift (job) => @_drop job, options.dropError
+            @_drop v.job, options.dropErrorMessage
+        @_queues.forEach (queue) => queue.forEachShift (job) => @_drop job, options.dropErrorMessage
         waitForExecuting(0)
     else
       @schedule { priority: NUM_PRIORITIES-1, weight: 0 }, => waitForExecuting(1)
-    @submit = (args..., cb) => cb?.apply {}, [options.enqueueError]
+    @submit = (args..., cb) => cb?.apply {}, [new Bottleneck::BottleneckError options.enqueueErrorMessage]
     done
-
   submit: (args...) =>
     if typeof args[0] == "function"
       [task, args..., cb] = args

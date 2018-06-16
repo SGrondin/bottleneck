@@ -119,3 +119,15 @@ let keys: string[] = group.keys();
 assert(keys.length == 3);
 
 let queued: number = limiter.chain(group.key("pizza")).queued();
+
+limiter.stop({
+  dropWaitingJobs: true,
+  dropErrorMessage: "Begone!",
+  enqueueErrorMessage: "Denied!"
+}).then(() => {
+  console.log('All stopped.')
+})
+
+wrapped(4, 5).catch((e) => {
+  assert(e.message === "Denied!")
+})

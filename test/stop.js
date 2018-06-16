@@ -50,8 +50,8 @@ describe('Stop', function () {
         c.mustEqual(counts.DONE, 1)
 
         c.limiter.stop({
-          enqueueError: new Error('Stopped!'),
-          dropError: new Error('Dropped!')
+          enqueueErrorMessage: 'Stopped!',
+          dropErrorMessage: 'Dropped!'
         })
         .then(function () {
           counts = c.limiter.counts()
@@ -104,7 +104,7 @@ describe('Stop', function () {
         c.mustEqual(counts.DONE, 1)
 
         c.limiter.stop({
-          enqueueError: new Error('Stopped!'),
+          enqueueErrorMessage: 'Stopped!',
           dropWaitingJobs: false
         })
         .then(function () {

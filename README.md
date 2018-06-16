@@ -423,6 +423,25 @@ limiter.currentReservoir()
 
 Returns a promise that returns the current reservoir value.
 
+### stop()
+
+The `stop()` method is used to safely shutdown a limiter. It prevents any new jobs from being added to the limiter and waits for all Executing jobs to complete.
+
+```js
+limiter.stop(options)
+.then(() => {
+  console.log('Shutdown completed!')
+})
+```
+
+`stop()` returns a promise that resolves once all non-Executing (see [Jobs Lifecycle](#jobs-lifecycle)) jobs have been dropped (if using `dropWaitingJobs`) and once all the Executing jobs have completed.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `dropWaitingJobs` | `true` | When `true`, drop all the RECEIVED, QUEUED and RUNNING jobs. When `false`, allow those jobs to complete before resolving the Promise returned by this method. |
+| `dropErrorMessage` | `This limiter has been stopped` | The error message used to drop jobs when `dropWaitingJobs` is `true`. |
+| `enqueueErrorMessage` | `This limiter has been stopped and cannot accept new jobs.` | The error message used to reject a job added to the limiter after `stop()` has been called. |
+
 ### chain()
 
 * `limiter` : If another limiter is passed, tasks that are ready to be executed will be added to that other limiter. *Default: `null` (none)*
