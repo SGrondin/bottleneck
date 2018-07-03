@@ -165,7 +165,7 @@ class Bottleneck
   submit: (args...) =>
     if typeof args[0] == "function"
       [task, args..., cb] = args
-      options = @jobDefaults
+      options = parser.load {}, @jobDefaults, {}
     else
       [options, task, args..., cb] = args
       options = parser.load options, @jobDefaults
@@ -210,7 +210,7 @@ class Bottleneck
   schedule: (args...) =>
     if typeof args[0] == "function"
       [task, args...] = args
-      options = @jobDefaults
+      options = parser.load {}, @jobDefaults, {}
     else
       [options, task, args...] = args
       options = parser.load options, @jobDefaults
