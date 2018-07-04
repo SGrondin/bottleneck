@@ -1,7 +1,8 @@
 /// <reference path="bottleneck.d.ts" />
 
 import Bottleneck from "bottleneck";
-import * as assert from "assert";
+// import * as assert from "assert";
+function assert(b: boolean): void { }
 
 /*
 This file is run by scripts/build.sh.
@@ -96,7 +97,7 @@ f2.then(function (result: string) {
   assert(s == "promise 3");
 });
 
-let wrapped: ((x: number, y: number) => Promise<string>) = limiter.wrap((a, b) => {
+let wrapped = limiter.wrap((a: number, b: number) => {
   let s: string = `Total: ${a + b}`;
   return Promise.resolve(s);
 });
@@ -106,6 +107,12 @@ wrapped(1, 2).then((x) => {
   console.log(s);
   assert(s == "Total: 3");
 });
+
+wrapped.withOptions({ priority: 1 }, 9, 9).then((x) => {
+  let s: string = x;
+  console.log(s);
+  assert(s == "Total: 18");
+})
 
 let counts = limiter.counts();
 console.log(`${counts.EXECUTING + 2}`);

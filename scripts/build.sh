@@ -24,7 +24,7 @@ if [[ $1 = 'dev' ]]; then
   echo 'Compiling bottleneck...'
 else
   echo 'Building bottleneck...'
-  node_modules/typescript/bin/tsc --noEmit --strictNullChecks test.ts
+  node_modules/typescript/bin/tsc --noEmit --strict test.ts
   node_modules/browserify/bin/cmd.js -u redis lib/index.js > bottleneck.js
   node_modules/uglify-es/bin/uglifyjs bottleneck.js -o bottleneck.min.js
 fi

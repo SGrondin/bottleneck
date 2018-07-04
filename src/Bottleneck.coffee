@@ -223,7 +223,10 @@ class Bottleneck
       @submit.apply {}, Array::concat options, wrapped, args, (args...) ->
         (if args[0]? then reject else args.shift(); resolve).apply {}, args
       .catch (e) => @Events.trigger "error", [e]
-  wrap: (fn) => (args...) => @schedule.apply {}, Array::concat fn, args
+  wrap: (fn) =>
+    ret = (args...) => @schedule.apply {}, Array::concat fn, args
+    ret.withOptions = (options, args...) => @schedule.apply {}, Array::concat options, fn, args
+    ret
   updateSettings: (options={}) =>
     await @_store.__updateSettings__ parser.overwrite options, @storeDefaults
     parser.overwrite options, @instanceDefaults, @

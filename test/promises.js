@@ -93,45 +93,72 @@ describe('Promises', function () {
     })
   })
 
-  it('Should wrap', function () {
-    c = makeTest({maxConcurrent: 1, minTime: 100})
+  describe('Wrap', function () {
+    it('Should wrap', function () {
+      c = makeTest({maxConcurrent: 1, minTime: 100})
 
-    return c.limiter.ready()
-    .then(function () {
-      c.limiter.submit(c.job, null, 1, c.noErrVal(1))
-      c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-      c.limiter.submit(c.job, null, 3, c.noErrVal(3))
+      return c.limiter.ready()
+      .then(function () {
+        c.limiter.submit(c.job, null, 1, c.noErrVal(1))
+        c.limiter.submit(c.job, null, 2, c.noErrVal(2))
+        c.limiter.submit(c.job, null, 3, c.noErrVal(3))
 
-      var wrapped = c.limiter.wrap(c.promise)
-      c.pNoErrVal(wrapped(null, 4), 4)
+        var wrapped = c.limiter.wrap(c.promise)
+        c.pNoErrVal(wrapped(null, 4), 4)
 
-      return c.last()
+        return c.last()
+      })
+      .then(function (results) {
+        c.checkResultsOrder([[1], [2], [3], [4]])
+        c.checkDuration(300)
+      })
     })
-    .then(function (results) {
-      c.checkResultsOrder([[1], [2], [3], [4]])
-      c.checkDuration(300)
-    })
-  })
 
-  it('Should pass errors when wrapped', function () {
-    var failureMessage = 'BLEW UP!!!'
-    c = makeTest({maxConcurrent: 1, minTime: 100})
+    it('Should pass errors back', function () {
+      var failureMessage = 'BLEW UP!!!'
+      c = makeTest({maxConcurrent: 1, minTime: 100})
 
-    return c.limiter.ready()
-    .then(function () {
-      var wrapped = c.limiter.wrap(c.promise)
-      c.pNoErrVal(wrapped(null, 1), 1)
-      c.pNoErrVal(wrapped(null, 2), 2)
+      return c.limiter.ready()
+      .then(function () {
+        var wrapped = c.limiter.wrap(c.promise)
+        c.pNoErrVal(wrapped(null, 1), 1)
+        c.pNoErrVal(wrapped(null, 2), 2)
 
-      return wrapped(new Error(failureMessage), 3)
+        return wrapped(new Error(failureMessage), 3)
+      })
+      .catch(function (err) {
+        c.mustEqual(err.message, failureMessage)
+        return c.last()
+      })
+      .then(function (results) {
+        c.checkResultsOrder([[1], [2], [3]])
+        c.checkDuration(200)
+      })
     })
-    .catch(function (err) {
-      c.mustEqual(err.message, failureMessage)
-      return c.last()
-    })
-    .then(function (results) {
-      c.checkResultsOrder([[1], [2], [3]])
-      c.checkDuration(200)
+
+    it('Should allow passing options', function () {
+      var failureMessage = 'BLEW UP!!!'
+      c = makeTest({maxConcurrent: 1, minTime: 50})
+
+      return c.limiter.ready()
+      .then(function () {
+        var wrapped = c.limiter.wrap(c.promise)
+        c.pNoErrVal(wrapped(null, 1), 1)
+        c.pNoErrVal(wrapped(null, 2), 2)
+        c.pNoErrVal(wrapped(null, 3), 3)
+        c.pNoErrVal(wrapped(null, 4), 4)
+        c.pNoErrVal(wrapped.withOptions({ priority: 1 }, null, 5), 5)
+
+        return wrapped.withOptions({ priority: 1 }, new Error(failureMessage), 6)
+      })
+      .catch(function (err) {
+        c.mustEqual(err.message, failureMessage)
+        return c.last()
+      })
+      .then(function (results) {
+        c.checkResultsOrder([[1], [2], [5], [6], [3], [4]])
+        c.checkDuration(250)
+      })
     })
   })
 })

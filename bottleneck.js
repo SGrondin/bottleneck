@@ -502,9 +502,14 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       wrap(fn) {
-        return (...args) => {
+        var ret;
+        ret = (...args) => {
           return this.schedule.apply({}, Array.prototype.concat(fn, args));
         };
+        ret.withOptions = (options, ...args) => {
+          return this.schedule.apply({}, Array.prototype.concat(options, fn, args));
+        };
+        return ret;
       }
 
       updateSettings(options = {}) {
