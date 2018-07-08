@@ -24,7 +24,7 @@ This new version is almost 100% compatible with v1 and adds powerful features su
 
 **[Quickly upgrade your application code from v1 to v2 of Bottleneck](#upgrading-to-v2)**
 
-Bottleneck v2 targets Node v6.0 or newer, and evergreen browsers. [Using an older version of Node? You should upgrade very soon!](https://github.com/nodejs/Release/blob/master/README.md)
+Bottleneck v2 targets Node v6.0 or newer, and evergreen browsers.
 
 Bottleneck v1 targets ES5, which makes it compatible with any browser or Node version. It's still maintained, but it will not be receiving any new features. [Browse the v1 documentation](https://github.com/SGrondin/bottleneck/tree/version-1).
 
@@ -47,7 +47,7 @@ const limiter = new Bottleneck({
 });
 ```
 
-If there's a chance some requests might take longer than 333ms and you want to prevent that, add `maxConcurrent: 1`.
+If there's a chance some requests might take longer than 333ms and you want to prevent more than 1 request from running at a time, add `maxConcurrent: 1`.
 
 ```js
 const limiter = new Bottleneck({
@@ -221,7 +221,7 @@ wrapped()
 
 ### Job Options
 
-Both `submit` and `schedule` accept advanced options.
+`submit`, `schedule`, and `wrap` all accept advanced options.
 
 ```js
 // Submit
@@ -229,6 +229,10 @@ limiter.submit(options, someAsyncCall, arg1, arg2, callback);
 
 // Schedule
 limiter.schedule(options, fn, arg1, arg2);
+
+// Wrap
+const wrapped = limiter.wrap(fn);
+wrapped.withOptions(options, arg1, arg2);
 ```
 
 | Option | Default | Description |
@@ -449,9 +453,9 @@ limiter.stop(options)
 Suppose you have 2 types of tasks, A and B. They both have their own limiter with their own settings, but both must also follow a global limiter C:
 
 ```js
-var limiterA = new Bottleneck( /* ...some settings... */ );
-var limiterB = new Bottleneck( /* ...some different settings... */ );
-var limiterC = new Bottleneck( /* ...some global settings... */ );
+const limiterA = new Bottleneck( /* ...some settings... */ );
+const limiterB = new Bottleneck( /* ...some different settings... */ );
+const limiterC = new Bottleneck( /* ...some global settings... */ );
 limiterA.chain(limiterC);
 limiterB.chain(limiterC);
 // Requests added to limiterA must follow the A and C rate limits.
