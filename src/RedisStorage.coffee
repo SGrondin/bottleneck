@@ -3,60 +3,94 @@ DLList = require "./DLList"
 BottleneckError = require "./BottleneckError"
 Scripts = require "./Scripts"
 
-class RedisStorage
-  constructor: (@instance, @initSettings, options) ->
+class RedisConnection
+  constructor: (@clientOptions, @Promise, @Events) ->
     redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
-    @originalId = @instance.id
-    parser.load options, options, @
     @client = redis.createClient @clientOptions
     @subClient = redis.createClient @clientOptions
-    @shas = {}
+    @pubsubs = {}
 
-    @clients = { client: @client, subscriber: @subClient }
-    @isReady = false
     @ready = new @Promise (resolve, reject) =>
-      errorListener = (e) -> reject e
+      errorListener = (e) =>
+        [@client, @subClient].forEach (client) =>
+          client.removeListener "error", errorListener
+        reject e
       count = 0
       done = =>
         count++
         if count == 2
           [@client, @subClient].forEach (client) =>
             client.removeListener "error", errorListener
-            client.on "error", (e) => @instance.Events.trigger "error", [e]
-          resolve()
+            client.on "error", (e) => @Events.trigger "error", [e]
+          resolve({ client: @client, subscriber: @subClient })
       @client.on "error", errorListener
       @client.on "ready", -> done()
       @subClient.on "error", errorListener
       @subClient.on "ready", =>
-        @subClient.on "subscribe", -> done()
-        @subClient.subscribe "b_#{@originalId}"
-    .then @loadAll
-    .then =>
-      @subClient.on "message", (channel, message) =>
-        [type, info] = message.split ":"
-        if type == "freed" then @instance._drainAll ~~info
+        @subClient.on "psubscribe", -> done()
+        @subClient.psubscribe "bottleneck_*"
+      @subClient.on "pmessage", (pattern, channel, message) =>
+        @pubsubs[channel]?(message)
 
-      args = @prepareInitSettings options.clearDatastore
-      @isReady = true
-      @runScript "init", args
-    .then (results) =>
-      @clients
+  addLimiter: (instance, pubsub) ->
+    @pubsubs["bottleneck_#{instance.id}"] = pubsub
+
+  removeLimiter: (instance) ->
+    delete @pubsubs[instance.id]
 
   disconnect: (flush) ->
     @client.end flush
     @subClient.end flush
-    @
 
-  loadScript: (name) ->
+
+class RedisStorage
+  constructor: (@instance, @initSettings, options) ->
+    @originalId = @instance.id
+    parser.load options, options, @
+    @shas = {}
+    @isReady = false
+
+    @connection = new RedisConnection @clientOptions, @Promise, @instance.Events
+    @ready = @connection.ready
+    .then (@clients) =>
+      @Promise.all(Scripts.names.map (k) => @_loadScript k)
+    .then =>
+      args = @prepareInitSettings options.clearDatastore
+      @isReady = true
+      @runScript "init", args
+    .then =>
+      @connection.addLimiter @instance, (message) =>
+        [type, info] = message.split ":"
+        if type == "freed" then @instance._drainAll ~~info
+      @clients
+
+  disconnect: (flush) ->
+    @connection.disconnect flush
+
+  _loadScript: (name) ->
     new @Promise (resolve, reject) =>
       payload = Scripts.payload name
 
-      @client.multi([["script", "load", payload]]).exec (err, replies) =>
+      @clients.client.multi([["script", "load", payload]]).exec (err, replies) =>
         if err? then return reject err
         @shas[name] = replies[0]
         return resolve replies[0]
 
-  loadAll: => @Promise.all(Scripts.names.map (k) => @loadScript k)
+  runScript: (name, args) ->
+    if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the '.ready()' promise to resolve before submitting requests."
+    else
+      # console.log(name, args)
+      keys = Scripts.keys name, @originalId
+      new @Promise (resolve, reject) =>
+        arr = [@shas[name], keys.length].concat keys, args, (err, replies) ->
+          if err? then return reject err
+          return resolve replies
+        @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
+        @clients.client.evalsha.bind(@clients.client).apply {}, arr
+      .catch (e) =>
+        if e.message == "SETTINGS_KEY_NOT_FOUND"
+        then @runScript("init", @prepareInitSettings(false)).then => @runScript(name, args)
+        else @Promise.reject e
 
   prepareArray: (arr) -> arr.map (x) -> if x? then x.toString() else ""
 
@@ -76,21 +110,6 @@ class RedisStorage
     })
     args.unshift (if clear then 1 else 0)
     args
-
-  runScript: (name, args) ->
-    if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the '.ready()' promise to resolve before submitting requests."
-    else
-      keys = Scripts.keys name, @originalId
-      new @Promise (resolve, reject) =>
-        arr = [@shas[name], keys.length].concat keys, args, (err, replies) ->
-          if err? then return reject err
-          return resolve replies
-        @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
-        @client.evalsha.bind(@client).apply {}, arr
-      .catch (e) =>
-        if e.message == "SETTINGS_KEY_NOT_FOUND"
-        then @runScript("init", @prepareInitSettings(false)).then => @runScript(name, args)
-        else @Promise.reject e
 
   convertBool: (b) -> !!b
 

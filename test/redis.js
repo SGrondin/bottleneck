@@ -55,7 +55,7 @@ if (process.env.DATASTORE === 'redis') {
         // Also check that the version gets set
         return new Promise(function (resolve, reject) {
           var settings_key = Scripts.keys("update_settings", limiter2._store.originalId)[0]
-          limiter2._store.client.hget(settings_key, 'version', function (err, data) {
+          limiter2._store.clients.client.hget(settings_key, 'version', function (err, data) {
             if (err != null) return reject(err)
             c.mustEqual(data, packagejson.version)
             return resolve()
@@ -210,7 +210,7 @@ if (process.env.DATASTORE === 'redis') {
         assert(settings_key.indexOf(randomId) > 0)
 
         return new Promise(function (resolve, reject) {
-          limiter._store.client.del(settings_key, function (err, data) {
+          limiter._store.clients.client.del(settings_key, function (err, data) {
             if (err != null) return reject(err)
             return resolve(data)
           })
@@ -236,7 +236,7 @@ if (process.env.DATASTORE === 'redis') {
         var settings_key = Scripts.keys("update_settings", limiter._store.originalId)[0]
 
         return new Promise(function (resolve, reject) {
-          limiter._store.client.del(settings_key, function (err, data) {
+          limiter._store.clients.client.del(settings_key, function (err, data) {
             if (err != null) return reject(err)
             return resolve(data)
           })
@@ -269,7 +269,7 @@ if (process.env.DATASTORE === 'redis') {
       }
       var keysExist = function (keys) {
         return new Promise(function (resolve, reject) {
-          return c.limiter._store.client.exists(...keys, function (err, data) {
+          return c.limiter._store.clients.client.exists(...keys, function (err, data) {
             if (err != null) {
               return reject(err)
             }
