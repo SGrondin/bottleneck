@@ -322,7 +322,7 @@ if (process.env.DATASTORE === 'redis') {
         assert(Math.abs(results.d - results.f) <= 10)
         assert(Math.abs(results.b - results.e) <= 10)
 
-        return c.wait(300)
+        return c.wait(400)
       })
       .then(function () {
         return keysExist(
@@ -331,11 +331,9 @@ if (process.env.DATASTORE === 'redis') {
       })
       .then(function (exist) {
         c.mustEqual(exist, 0)
-      })
-      .then(function () {
-        group.keys().forEach(function (key) {
-          group.key(key).disconnect(false)
-        })
+        c.mustEqual(group.keys().length, 0)
+        c.mustEqual(Object.keys(group._connection.pubsubs).length, 0)
+        group.disconnect(false)
       })
 
     })

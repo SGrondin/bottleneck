@@ -1,46 +1,7 @@
 parser = require "./parser"
-DLList = require "./DLList"
 BottleneckError = require "./BottleneckError"
+RedisConnection = require "./RedisConnection"
 Scripts = require "./Scripts"
-
-class RedisConnection
-  constructor: (@clientOptions, @Promise, @Events) ->
-    redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
-    @client = redis.createClient @clientOptions
-    @subClient = redis.createClient @clientOptions
-    @pubsubs = {}
-
-    @ready = new @Promise (resolve, reject) =>
-      errorListener = (e) =>
-        [@client, @subClient].forEach (client) =>
-          client.removeListener "error", errorListener
-        reject e
-      count = 0
-      done = =>
-        count++
-        if count == 2
-          [@client, @subClient].forEach (client) =>
-            client.removeListener "error", errorListener
-            client.on "error", (e) => @Events.trigger "error", [e]
-          resolve({ client: @client, subscriber: @subClient })
-      @client.on "error", errorListener
-      @client.on "ready", -> done()
-      @subClient.on "error", errorListener
-      @subClient.on "ready", =>
-        @subClient.on "psubscribe", -> done()
-        @subClient.psubscribe "bottleneck_*"
-      @subClient.on "pmessage", (pattern, channel, message) =>
-        @pubsubs[channel]?(message)
-
-  addLimiter: (instance, pubsub) ->
-    @pubsubs["bottleneck_#{instance.id}"] = pubsub
-
-  removeLimiter: (instance) ->
-    delete @pubsubs[instance.id]
-
-  disconnect: (flush) ->
-    @client.end flush
-    @subClient.end flush
 
 
 class RedisStorage
@@ -50,11 +11,13 @@ class RedisStorage
     @shas = {}
     @isReady = false
 
-    @connection = new RedisConnection @clientOptions, @Promise, @instance.Events
+    @connection = @_groupConnection ? new RedisConnection @clientOptions, @Promise, @instance.Events
     @ready = @connection.ready
     .then (@clients) =>
-      @Promise.all(Scripts.names.map (k) => @_loadScript k)
+      if @connection.loaded then @Promise.resolve()
+      else @Promise.all(Scripts.names.map (k) => @_loadScript k)
     .then =>
+      @connection.loaded = true
       args = @prepareInitSettings options.clearDatastore
       @isReady = true
       @runScript "init", args
@@ -65,7 +28,9 @@ class RedisStorage
       @clients
 
   disconnect: (flush) ->
-    @connection.disconnect flush
+    @connection.removeLimiter @instance
+    if !@_groupConnection?
+      @connection.disconnect flush
 
   _loadScript: (name) ->
     new @Promise (resolve, reject) =>
@@ -79,7 +44,6 @@ class RedisStorage
   runScript: (name, args) ->
     if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the '.ready()' promise to resolve before submitting requests."
     else
-      # console.log(name, args)
       keys = Scripts.keys name, @originalId
       new @Promise (resolve, reject) =>
         arr = [@shas[name], keys.length].concat keys, args, (err, replies) ->
