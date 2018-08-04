@@ -1,61 +1,12 @@
 parser = require "./parser"
 DLList = require "./DLList"
 BottleneckError = require "./BottleneckError"
-
-lua = require "./lua.json"
-libraries =
-  get_time: lua["get_time.lua"]
-  refresh_running: lua["refresh_running.lua"]
-  conditions_check: lua["conditions_check.lua"]
-  refresh_expiration: lua["refresh_expiration.lua"]
-  validate_keys: lua["validate_keys.lua"]
-scriptTemplates = (id) ->
-  init:
-    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["refresh_expiration"]
-    code: lua["init.lua"]
-  update_settings:
-    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_expiration"]
-    code: lua["update_settings.lua"]
-  running:
-    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_running"]
-    code: lua["running.lua"]
-  group_check:
-    keys: ["b_#{id}_settings"]
-    libs: []
-    code: lua["group_check.lua"]
-  check:
-    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_running", "conditions_check"]
-    code: lua["check.lua"]
-  submit:
-    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_running", "conditions_check", "refresh_expiration"]
-    code: lua["submit.lua"]
-  register:
-    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_running", "conditions_check", "refresh_expiration"]
-    code: lua["register.lua"]
-  free:
-    keys: ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_running"]
-    code: lua["free.lua"]
-  current_reservoir:
-    keys: ["b_#{id}_settings"]
-    libs: ["validate_keys"]
-    code: lua["current_reservoir.lua"]
-  increment_reservoir:
-    keys: ["b_#{id}_settings"]
-    libs: ["validate_keys"]
-    code: lua["increment_reservoir.lua"]
+Scripts = require "./Scripts"
 
 class RedisStorage
   constructor: (@instance, @initSettings, options) ->
     redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
     @originalId = @instance.id
-    @scripts = scriptTemplates @originalId
     parser.load options, options, @
     @client = redis.createClient @clientOptions
     @subClient = redis.createClient @clientOptions
@@ -98,15 +49,14 @@ class RedisStorage
 
   loadScript: (name) ->
     new @Promise (resolve, reject) =>
-      payload = @scripts[name].libs.map (lib) -> libraries[lib]
-      .join("\n") + @scripts[name].code
+      payload = Scripts.payload name
 
       @client.multi([["script", "load", payload]]).exec (err, replies) =>
         if err? then return reject err
         @shas[name] = replies[0]
         return resolve replies[0]
 
-  loadAll: => @Promise.all(for k, v of @scripts then @loadScript k)
+  loadAll: => @Promise.all(Scripts.names.map (k) => @loadScript k)
 
   prepareArray: (arr) -> arr.map (x) -> if x? then x.toString() else ""
 
@@ -130,9 +80,9 @@ class RedisStorage
   runScript: (name, args) ->
     if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the '.ready()' promise to resolve before submitting requests."
     else
-      script = @scripts[name]
+      keys = Scripts.keys name, @originalId
       new @Promise (resolve, reject) =>
-        arr = [@shas[name], script.keys.length].concat script.keys, args, (err, replies) ->
+        arr = [@shas[name], keys.length].concat keys, args, (err, replies) ->
           if err? then return reject err
           return resolve replies
         @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]

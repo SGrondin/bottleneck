@@ -1,5 +1,6 @@
 var makeTest = require('./context')
 var Bottleneck = require('../lib/index.js')
+var Scripts = require('../lib/Scripts.js')
 var assert = require('assert')
 var packagejson = require('../package.json')
 
@@ -53,7 +54,7 @@ if (process.env.DATASTORE === 'redis') {
 
         // Also check that the version gets set
         return new Promise(function (resolve, reject) {
-          var settings_key = limiter2._store.scripts.update_settings.keys[0]
+          var settings_key = Scripts.keys("update_settings", limiter2._store.originalId)[0]
           limiter2._store.client.hget(settings_key, 'version', function (err, data) {
             if (err != null) return reject(err)
             c.mustEqual(data, packagejson.version)
@@ -205,7 +206,7 @@ if (process.env.DATASTORE === 'redis') {
 
       return limiter.ready()
       .then(function () {
-        var settings_key = limiter._store.scripts.update_settings.keys[0]
+        var settings_key = Scripts.keys("update_settings", limiter._store.originalId)[0]
         assert(settings_key.indexOf(randomId) > 0)
 
         return new Promise(function (resolve, reject) {
@@ -232,7 +233,7 @@ if (process.env.DATASTORE === 'redis') {
       })
       .then(function (running) {
         c.mustEqual(running, 0)
-        var settings_key = limiter._store.scripts.update_settings.keys[0]
+        var settings_key = Scripts.keys("update_settings", limiter._store.originalId)[0]
 
         return new Promise(function (resolve, reject) {
           limiter._store.client.del(settings_key, function (err, data) {
@@ -264,7 +265,7 @@ if (process.env.DATASTORE === 'redis') {
       var limiter3
 
       var limiterKeys = function (limiter) {
-        return limiter._store.scripts.init.keys
+        return Scripts.keys("init", limiter._store.originalId)[0]
       }
       var keysExist = function (keys) {
         return new Promise(function (resolve, reject) {
