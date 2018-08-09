@@ -596,7 +596,7 @@ clusterLimiter.ready()
 ##### Groups and Clustering
 
 - If you are using a Group, the generated limiters automatically receive an `id` with the pattern `group-key-${KEY}`.
-- A Group collects its own garbage, and so when using Clustering, it manages the Redis TTL ([TTL](https://redis.io/commands/ttl)) on the keys it uses to ensure they get cleaned up by Redis when unused for longer than the Group's `timeout` setting.
+- A Group collects its own 'garbage', and so when using Clustering, it manages the Redis TTL ([TTL](https://redis.io/commands/ttl)) on the keys it uses to ensure they get cleaned up by Redis when unused for longer than the `timeout` setting.
 - Each limiter opens 2 connections to Redis. Be careful not to go over [Redis' `maxclients` value](https://redis.io/topics/clients).
 
 
@@ -685,10 +685,6 @@ __updateSettings()__
 ```js
 group.updateSettings({ timeout: 60000 })
 ```
-
-* `timeout`: The expiration time for unused limiters, in milliseconds. By default, it is `300000` (5 minutes).
-
-When autocleanup is enabled, limiters not used in the last `timeout` milliseconds will be deleted to avoid memory leaks.
 
 
 __deleteKey()__

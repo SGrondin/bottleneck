@@ -5,8 +5,8 @@ RedisConnection = require "./RedisConnection"
 class Group
   defaults: { timeout: 1000 * 60 * 5 }
 
-  constructor: (@limiterOptions={}, groupOptions={}) ->
-    parser.load groupOptions, @defaults, @
+  constructor: (@limiterOptions={}) ->
+    parser.load @limiterOptions, @defaults, @
     @Events = new Events @
     @instances = {}
     @Bottleneck = require "./Bottleneck"
@@ -17,7 +17,6 @@ class Group
   key: (key="") => @instances[key] ? do =>
     limiter = @instances[key] = new @Bottleneck Object.assign @limiterOptions, {
       id: "group-key-#{key}",
-      _groupTimeout: @timeout,
       _groupConnection: @_connection
     }
     @Events.trigger "created", [limiter, key]

@@ -258,8 +258,9 @@ if (process.env.DATASTORE === 'redis') {
       var group = new Bottleneck.Group({
         datastore: 'redis',
         clearDatastore: true,
-        minTime: 50
-      }, { timeout: 200 })
+        minTime: 50,
+        timeout: 200
+      })
       var limiter1
       var limiter2
       var limiter3

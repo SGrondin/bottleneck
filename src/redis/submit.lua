@@ -51,7 +51,7 @@ if blocked then
     end
   end
 
-  local newNextRequest = unblockTime + minTime
+  local newNextRequest = now + computedPenalty + minTime
 
   redis.call('hmset', settings_key,
     'unblockTime', now + computedPenalty,

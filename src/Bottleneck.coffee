@@ -30,7 +30,7 @@ class Bottleneck
     clientOptions: {},
     clearDatastore: false,
     Promise: Promise,
-    _groupTimeout: null,
+    timeout: 1000 * 60 * 5,
     _groupConnection: null
   instanceDefaults:
     datastore: "local",

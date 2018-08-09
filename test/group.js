@@ -58,7 +58,7 @@ describe('Group', function () {
 
     var ids = group.keys().map(function (key) {
       var limiter = group.key(key)
-      c.mustEqual(limiter._store._groupTimeout, group.timeout)
+      c.mustEqual(limiter._store.timeout, group.timeout)
       return limiter.id
     })
     c.mustEqual(ids.sort(), ['group-key-A', 'group-key-B', 'group-key-XYZ'])
@@ -144,8 +144,8 @@ describe('Group', function () {
       maxConcurrent: 1, minTime: 100
     })
     var group2 = new Bottleneck.Group({
-      maxConcurrent: 1, minTime: 100
-    }, { timeout: 5000})
+      maxConcurrent: 1, minTime: 100, timeout: 5000
+    })
 
     c.mustEqual(group1.timeout, 300000)
     c.mustEqual(group2.timeout, 5000)
@@ -187,7 +187,7 @@ describe('Group', function () {
       maxConcurrent: 1
     })
     group.updateSettings({ timeout: 50 })
-    c = makeTest({ id: 'something', _groupTimeout: group.timeout })
+    c = makeTest({ id: 'something', timeout: group.timeout })
 
     return c.limiter.ready()
     .then(function () {

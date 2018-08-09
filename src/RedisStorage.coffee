@@ -70,7 +70,7 @@ class RedisStorage
       running: 0,
       unblockTime: 0,
       version: @instance.version,
-      groupTimeout: @_groupTimeout
+      groupTimeout: @timeout
     })
     args.unshift (if clear then 1 else 0)
     args

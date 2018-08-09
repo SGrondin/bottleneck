@@ -150,6 +150,7 @@ describe('Priority', function () {
       rejectOnDrop: false
     })
     var called = 0
+
     c.limiter.on('dropped', function (dropped) {
       c.mustExist(dropped.task)
       c.mustExist(dropped.args)

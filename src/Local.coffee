@@ -29,7 +29,7 @@ class Local
 
   __groupCheck__: (time) ->
     await @yieldLoop()
-    (@_nextRequest + @_groupTimeout) < time
+    (@_nextRequest + @timeout) < time
 
   conditionsCheck: (weight) ->
     ((not @maxConcurrent? or @_running+weight <= @maxConcurrent) and
