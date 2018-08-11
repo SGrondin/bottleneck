@@ -582,7 +582,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       clientOptions: {},
       clearDatastore: false,
       Promise: Promise,
-      timeout: 1000 * 60 * 5,
+      timeout: null,
       _groupConnection: null
     };
 
@@ -802,6 +802,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           var limiter;
           limiter = this.instances[key] = new this.Bottleneck(Object.assign(this.limiterOptions, {
             id: `group-key-${key}`,
+            timeout: this.timeout,
             _groupConnection: this._connection
           }));
           this.Events.trigger("created", [limiter, key]);

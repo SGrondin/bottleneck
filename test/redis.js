@@ -25,8 +25,24 @@ if (process.env.DATASTORE === 'redis') {
       })
     })
 
-    it('Should have a key TTL', function () {
+    it('Should not have a key TTL by default for standalone limiters', function () {
       c = makeTest()
+
+      return c.limiter.ready()
+      .then(function () {
+        return new Promise(function (resolve, reject) {
+          var settings_key = Scripts.keys("update_settings", c.limiter._store.originalId)[0]
+          c.limiter._store.clients.client.ttl(settings_key, function (err, ttl) {
+            if (err != null) return reject(err)
+            assert(ttl < 0)
+            return resolve()
+          })
+        })
+      })
+    })
+
+    it('Should allow timeout setting for standalone limiters', function () {
+      c = makeTest({ timeout: 5 * 60 * 1000 })
 
       return c.limiter.ready()
       .then(function () {
@@ -266,6 +282,32 @@ if (process.env.DATASTORE === 'redis') {
       .then(function (running) {
         c.mustEqual(running, 0)
         limiter.disconnect(false)
+      })
+    })
+
+    it('Should have a default key TTL when using Groups', function () {
+      c = makeTest()
+      var group = new Bottleneck.Group({
+        datastore: 'redis'
+      })
+
+      return c.limiter.ready()
+      .then(function () {
+        return group.key('one').ready()
+      })
+      .then(function () {
+        return new Promise(function (resolve, reject) {
+          var limiter = group.key('one')
+          var settings_key = Scripts.keys("update_settings", limiter._store.originalId)[0]
+          limiter._store.clients.client.ttl(settings_key, function (err, ttl) {
+            if (err != null) return reject(err)
+            assert(ttl >= 290 && ttl <= 305)
+            return resolve()
+          })
+        })
+      })
+      .then(function () {
+        group.disconnect(false)
       })
     })
 
