@@ -25,6 +25,22 @@ if (process.env.DATASTORE === 'redis') {
       })
     })
 
+    it('Should have a key TTL', function () {
+      c = makeTest()
+
+      return c.limiter.ready()
+      .then(function () {
+        return new Promise(function (resolve, reject) {
+          var settings_key = Scripts.keys("update_settings", c.limiter._store.originalId)[0]
+          c.limiter._store.clients.client.ttl(settings_key, function (err, ttl) {
+            if (err != null) return reject(err)
+            assert(ttl >= 290 && ttl <= 305)
+            return resolve()
+          })
+        })
+      })
+    })
+
     it('Should publish running decreases', function () {
       c = makeTest({ maxConcurrent: 2 })
       var limiter2, p1, p2, p3, p4

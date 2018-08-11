@@ -42,6 +42,7 @@ class Group
 
   updateSettings: (options={}) =>
     parser.overwrite options, @defaults, @
+    parser.overwrite options, options, @limiterOptions
     @_startAutoCleanup() if options.timeout?
 
   disconnect: (flush) ->

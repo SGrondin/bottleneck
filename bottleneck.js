@@ -864,6 +864,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
       updateSettings(options = {}) {
         parser.overwrite(options, this.defaults, this);
+        parser.overwrite(options, options, this.limiterOptions);
         if (options.timeout != null) {
           return this._startAutoCleanup();
         }

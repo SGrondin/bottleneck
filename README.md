@@ -732,7 +732,7 @@ All the breaking changes:
 - `check()` now accepts an optional `weight` argument, and returns its result using a promise.
 - The `Cluster` feature is now called `Group`. This is to distinguish it from the new v2 [Clustering](#clustering) feature.
 - The `Group` constructor takes an options object to match the limiter constructor.
-- Renamed the `Group` `changeTimeout()` method to `updateSettings()`, it now takes an options object. See [Group](#group).
+- Removed the `Group` `changeTimeout()` method. Use `updateSettings()` instead, it now takes an options object. See [Group](#group).
 
 Version 2 is more user-friendly, powerful and reliable.
 

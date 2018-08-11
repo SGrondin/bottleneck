@@ -138,7 +138,7 @@ describe('Group', function () {
     }, null)
   })
 
-  it('Should update its settings', function () {
+  it('Should update its timeout', function () {
     c = makeTest()
     var group1 = new Bottleneck.Group({
       maxConcurrent: 1, minTime: 100
@@ -157,6 +157,22 @@ describe('Group', function () {
       c.mustEqual(group1.timeout, 123)
       c.mustEqual(group2.timeout, 456)
     })
+  })
+
+  it('Should update its limiter options', function () {
+    c = makeTest()
+    var group = new Bottleneck.Group({
+      maxConcurrent: 1, minTime: 100
+    })
+
+    var limiter1 = group.key('AAA')
+    c.mustEqual(limiter1._store.minTime, 100)
+
+    group.updateSettings({ minTime: 200 })
+    c.mustEqual(limiter1._store.minTime, 100)
+
+    var limiter2 = group.key('BBB')
+    c.mustEqual(limiter2._store.minTime, 200)
   })
 
   it('Should support keys() and limiters()', function () {
