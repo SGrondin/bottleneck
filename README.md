@@ -502,6 +502,7 @@ const limiter = new Bottleneck({
 | `datastore` | `"local"` | Where the limiter stores its internal state. The default (`local`) keeps the state in the limiter itself. Set it to `redis` to enable Clustering. |
 | `clearDatastore` | `false` | When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db. |
 | `clientOptions` | `{}` | This object is passed directly to NodeRedis's `redis.createClient()` method. [See all the valid client options.](https://github.com/NodeRedis/node_redis#options-object-properties) |
+| `timeout` | `null` | The Redis TTL in milliseconds ([TTL](https://redis.io/commands/ttl)) for the keys created by the limiter. When non-null, the limiter's state will be automatically removed from Redis after `timeout` milliseconds of inactivity. **Note:** `timeout` is `300000` (5 minutes) by default when using a Group. |
 
 ###### `.ready()`
 
@@ -565,7 +566,7 @@ It is **strongly recommended** that you set an `expiration` (See [Job Options](#
 
 Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience. Keeping the clients' server time consistent will also help.
 
-It is **strongly recommended** to [set up an `error` listener](#events).
+It is **strongly recommended** to [set up an `error` listener](#events) on all your limiters and on your Groups.
 
 Bottleneck does not guarantee that the concurrency will be spread evenly across limiters. With `{ maxConcurrent: 5 }`, it's absolutely possible for a single limiter to end up running 5 jobs simultaneously while the other limiters in the cluster sit idle. To spread the load, use the `.chain()` method:
 
@@ -587,24 +588,25 @@ clusterLimiter.ready()
 
 ##### Additional Clustering information
 
-- At the moment, each limiter opens 2 connections to Redis. This can lead to a high number of connections, especially when Groups are used. This might change in a future release.
-- Bottleneck is compatible with [Redis Clusters](https://redis.io/topics/cluster-tutorial).
+- As of v2.7.0, each Group will create 2 connections to Redis, one for commands and one for pub/sub. All limiters within the Group will share those connections.
+- Each standalone limiter has its own 2 connections.
+- Redis connectivity errors trigger an `error` event on the owner of the connection (the Group or the limiter).
+- Bottleneck itself is compatible with [Redis Clusters](https://redis.io/topics/cluster-tutorial), but `NodeRedis` may not support it at the moment. Future versions of Bottleneck will support the `ioredis` driver.
 - Bottleneck's data is stored in Redis keys starting with `b_`. It also uses pub/sub channels starting with `b_` It will not interfere with any other data stored on the server.
 - Bottleneck loads a few Lua scripts on the Redis server using the `SCRIPT LOAD` command. These scripts only take up a few Kb of memory. Running the `SCRIPT FLUSH` command will cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
 - The Lua scripts are highly optimized and designed to use as few resources (CPU, especially) as possible.
 
 ##### Groups and Clustering
 
+- Call `group.disconnect()` to permanently close a Group's Redis connections. It takes an optional boolean argument, pass `false` to forcefully close the connections without waiting.
 - If you are using a Group, the generated limiters automatically receive an `id` with the pattern `group-key-${KEY}`.
-- A Group collects its own 'garbage', and so when using Clustering, it manages the Redis TTL ([TTL](https://redis.io/commands/ttl)) on the keys it uses to ensure they get cleaned up by Redis when unused for longer than the `timeout` setting.
-- Each limiter opens 2 connections to Redis. Be careful not to go over [Redis' `maxclients` value](https://redis.io/topics/clients).
 
 
 ## Debugging your application
 
 Debugging complex scheduling logic can be difficult, especially when priorities, weights, and network latency all interact.
 
-If your application is not behaving as expected, start by making sure you're catching `error` [events emitted](#events) by your limiters. Those errors are most likely uncaught exceptions from your application code.
+If your application is not behaving as expected, start by making sure you're catching `error` [events emitted](#events) by your limiters and your Groups. Those errors are most likely uncaught exceptions from your application code.
 
 To see exactly what a limiter is doing in real time, listen to the `debug` event. It contains detailed information about how the limiter is executing your code. Adding [job IDs](#job-options) to all your jobs makes the debug output more readable.
 
@@ -639,16 +641,16 @@ You can also set the constructor option `rejectOnDrop` to `false`, and Bottlenec
 
 The `Group` feature of Bottleneck manages many limiters automatically for you. It creates limiters dynamically and transparently.
 
-Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse and where incoming DNS requests need to be rate limited. Bottleneck is so tiny, it's acceptable to create one limiter for each origin IP, even if it means creating thousands of limiters. The `Group` feature is perfect for this use case. Create one group and use the origin IP to rate limit each IP independently. Each call with the same key (IP) will be routed to the same underlying limiter. A group is created like a limiter:
+Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse and where incoming DNS requests need to be rate limited. Bottleneck is so tiny, it's acceptable to create one limiter for each origin IP, even if it means creating thousands of limiters. The `Group` feature is perfect for this use case. Create one Group and use the origin IP to rate limit each IP independently. Each call with the same key (IP) will be routed to the same underlying limiter. A Group is created like a limiter:
 
 
 ```js
 const group = new Bottleneck.Group(options);
 ```
 
-The `options` object will be used for every limiter created by the group.
+The `options` object will be used for every limiter created by the Group.
 
-The group is then used with the `.key(str)` method:
+The Group is then used with the `.key(str)` method:
 
 ```js
 // In this example, the key is an IP
@@ -659,7 +661,9 @@ __key()__
 
 * `str` : The key to use. All jobs added with the same key will use the same underlying limiter. *Default: `""`*
 
-The return value of `.key(str)` is a limiter. If it doesn't already exist, it is generated for you. Calling `key()` is how limiters are created inside a Group. Limiters that have been idle for longer than 5 minutes are deleted to avoid memory leaks.
+The return value of `.key(str)` is a limiter. If it doesn't already exist, it is generated for you. Calling `key()` is how limiters are created inside a Group.
+
+Limiters that have been idle for longer than 5 minutes are deleted to avoid memory leaks, this value can be changed by passing a different `timeout` option, in milliseconds.
 
 __on('created')__
 
@@ -683,8 +687,11 @@ Listening for the `created` event is the recommended way to set up a new limiter
 __updateSettings()__
 
 ```js
-group.updateSettings({ timeout: 60000 })
+const group = new Bottleneck.Group({ maxConcurrent: 2, minTime: 250 })
+group.updateSettings({ minTime: 500 })
 ```
+
+After executing the above commands, new limiters will be created with `{ maxConcurrent: 2, minTime: 500 }`.
 
 
 __deleteKey()__
@@ -696,7 +703,7 @@ Manually deletes the limiter at the specified key. This can be useful when the a
 
 __keys()__
 
-Returns an array containing all the keys in the group.
+Returns an array containing all the keys in the Group.
 
 
 __limiters()__
