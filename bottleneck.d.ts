@@ -53,6 +53,11 @@ declare module "bottleneck" {
              * When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db.
              */
             readonly clearDatastore?: boolean;
+            /**
+             * The Redis TTL in milliseconds for the keys created by the limiter. When `timeout` is set, the limiter's state will be automatically removed from Redis after timeout milliseconds of inactivity. Note: timeout is 300000 (5 minutes) by default when using a Group.
+             */
+             readonly timeout?: number;
+
             [propName: string]: any;
         };
         type JobOptions = {
@@ -86,9 +91,6 @@ declare module "bottleneck" {
              * The error message used to reject a job added to the limiter after `stop()` has been called.
              */
             readonly enqueueErrorMessage?: string;
-        };
-        type GroupOptions = {
-            readonly timeout?: number;
         };
         type Callback<T> = (err: any, result: T) => void;
         interface ClientsList { client?: any; subscriber?: any }
@@ -145,7 +147,7 @@ declare module "bottleneck" {
              * Updates the group settings.
              * @param options - The new settings.
              */
-            updateSettings(options: Bottleneck.GroupOptions): void;
+            updateSettings(options: Bottleneck.ConstructorOptions): void;
 
             /**
              * Deletes the limiter for the given key
