@@ -343,7 +343,7 @@ Event names: `error`, `empty`, `idle`, `dropped`, `depleted` and `debug`.
 
 __error__
 ```js
-limiter.on('error', function (error) {
+limiter.on("error", function (error) {
   // This is where Bottleneck's errors end up.
 })
 ```
@@ -354,21 +354,21 @@ If using Clustering, errors thrown by the Redis client will emit an `error` even
 
 __empty__
 ```js
-limiter.on('empty', function () {
+limiter.on("empty", function () {
   // This will be called when `limiter.empty()` becomes true.
 })
 ```
 
 __idle__
 ```js
-limiter.on('idle', function () {
+limiter.on("idle", function () {
   // This will be called when `limiter.empty()` is `true` and `limiter.running()` is `0`.
 })
 ```
 
 __dropped__
 ```js
-limiter.on('dropped', function (dropped) {
+limiter.on("dropped", function (dropped) {
   // This will be called when a strategy was triggered.
   // The dropped request is passed to this event listener.
 })
@@ -376,7 +376,7 @@ limiter.on('dropped', function (dropped) {
 
 __depleted__
 ```js
-limiter.on('depleted', function (empty) {
+limiter.on("depleted", function (empty) {
   // This will be called every time the reservoir drops to 0.
   // The `empty` (boolean) argument indicates whether `limiter.empty()` is currently true.
 })
@@ -384,7 +384,7 @@ limiter.on('depleted', function (empty) {
 
 __debug__
 ```js
-limiter.on('debug', function (message, data) {
+limiter.on("debug", function (message, data) {
   // Useful to figure out what the limiter is doing in real time
   // and to help debug your application
 })
@@ -434,7 +434,7 @@ The `stop()` method is used to safely shutdown a limiter. It prevents any new jo
 ```js
 limiter.stop(options)
 .then(() => {
-  console.log('Shutdown completed!')
+  console.log("Shutdown completed!")
 })
 ```
 
@@ -502,7 +502,7 @@ const limiter = new Bottleneck({
 | `datastore` | `"local"` | Where the limiter stores its internal state. The default (`local`) keeps the state in the limiter itself. Set it to `redis` to enable Clustering. |
 | `clearDatastore` | `false` | When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db. |
 | `clientOptions` | `{}` | This object is passed directly to NodeRedis's `redis.createClient()` method. [See all the valid client options.](https://github.com/NodeRedis/node_redis#options-object-properties) |
-| `timeout` | `null` | The Redis TTL in milliseconds ([TTL](https://redis.io/commands/ttl)) for the keys created by the limiter. When non-null, the limiter's state will be automatically removed from Redis after `timeout` milliseconds of inactivity. **Note:** `timeout` is `300000` (5 minutes) by default when using a Group. |
+| `timeout` | `null` | The Redis TTL in milliseconds ([TTL](https://redis.io/commands/ttl)) for the keys created by the limiter. When `timeout` is set, the limiter's state will be automatically removed from Redis after `timeout` milliseconds of inactivity. **Note:** `timeout` is `300000` (5 minutes) by default when using a Group. |
 
 ###### `.ready()`
 
@@ -598,6 +598,7 @@ clusterLimiter.ready()
 
 ##### Groups and Clustering
 
+- When using Groups, the `timeout` option is set to `300000` milliseconds by default.
 - Call `group.disconnect()` to permanently close a Group's Redis connections. It takes an optional boolean argument, pass `false` to forcefully close the connections without waiting.
 - If you are using a Group, the generated limiters automatically receive an `id` with the pattern `group-key-${KEY}`.
 
@@ -665,14 +666,14 @@ The return value of `.key(str)` is a limiter. If it doesn't already exist, it is
 
 Limiters that have been idle for longer than 5 minutes are deleted to avoid memory leaks, this value can be changed by passing a different `timeout` option, in milliseconds.
 
-__on('created')__
+__on("created")__
 
 ```js
-group.on('created', (limiter, key) => {
-  console.log('A new limiter was created for key: ' + key)
+group.on("created", (limiter, key) => {
+  console.log("A new limiter was created for key: " + key)
 
   // Prepare the limiter, for example we'll want to listen to its 'error' events!
-  limiter.on('error', (err) => {
+  limiter.on("error", (err) => {
     // Handle errors here
   })
 
