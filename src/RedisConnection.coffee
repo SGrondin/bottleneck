@@ -4,6 +4,7 @@ class RedisConnection
     @client = redis.createClient @clientOptions
     @subClient = redis.createClient @clientOptions
     @pubsubs = {}
+    @shas = {}
     @loaded = false
 
     @ready = new @Promise (resolve, reject) =>

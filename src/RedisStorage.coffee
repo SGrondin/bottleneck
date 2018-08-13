@@ -3,12 +3,10 @@ BottleneckError = require "./BottleneckError"
 RedisConnection = require "./RedisConnection"
 Scripts = require "./Scripts"
 
-
 class RedisStorage
   constructor: (@instance, @initSettings, options) ->
     @originalId = @instance.id
     parser.load options, options, @
-    @shas = {}
     @isReady = false
 
     @connection = @_groupConnection ? new RedisConnection @clientOptions, @Promise, @instance.Events
@@ -38,7 +36,7 @@ class RedisStorage
 
       @clients.client.multi([["script", "load", payload]]).exec (err, replies) =>
         if err? then return reject err
-        @shas[name] = replies[0]
+        @connection.shas[name] = replies[0]
         return resolve replies[0]
 
   runScript: (name, args) ->
@@ -46,7 +44,7 @@ class RedisStorage
     else
       keys = Scripts.keys name, @originalId
       new @Promise (resolve, reject) =>
-        arr = [@shas[name], keys.length].concat keys, args, (err, replies) ->
+        arr = [@connection.shas[name], keys.length].concat keys, args, (err, replies) ->
           if err? then return reject err
           return resolve replies
         @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]

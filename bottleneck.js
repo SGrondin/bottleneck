@@ -1098,6 +1098,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.client = redis.createClient(this.clientOptions);
       this.subClient = redis.createClient(this.clientOptions);
       this.pubsubs = {};
+      this.shas = {};
       this.loaded = false;
       this.ready = new this.Promise((resolve, reject) => {
         var count, done, errorListener;
@@ -1184,7 +1185,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.initSettings = initSettings;
       this.originalId = this.instance.id;
       parser.load(options, options, this);
-      this.shas = {};
       this.isReady = false;
       this.connection = (ref = this._groupConnection) != null ? ref : new RedisConnection(this.clientOptions, this.Promise, this.instance.Events);
       this.ready = this.connection.ready.then(clients => {
@@ -1236,7 +1236,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           if (err != null) {
             return reject(err);
           }
-          this.shas[name] = replies[0];
+          this.connection.shas[name] = replies[0];
           return resolve(replies[0]);
         });
       });
@@ -1250,7 +1250,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         keys = Scripts.keys(name, this.originalId);
         return new this.Promise((resolve, reject) => {
           var arr;
-          arr = [this.shas[name], keys.length].concat(keys, args, function (err, replies) {
+          arr = [this.connection.shas[name], keys.length].concat(keys, args, function (err, replies) {
             if (err != null) {
               return reject(err);
             }
