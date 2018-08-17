@@ -120,7 +120,7 @@ console.log(limiter.jobStatus('some-id'))
 
 
 group.deleteKey("pizza");
-group.updateSettings({ timeout: 5 });
+group.updateSettings({ timeout: 5, maxConcurrent: null, reservoir: null });
 
 let keys: string[] = group.keys();
 assert(keys.length == 3);

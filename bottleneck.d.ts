@@ -4,7 +4,7 @@ declare module "bottleneck" {
             /**
              * How many jobs can be running at the same time.
              */
-            readonly maxConcurrent?: number;
+            readonly maxConcurrent?: number | null;
             /**
              * How long to wait after launching a job before launching another one.
              */
@@ -12,7 +12,7 @@ declare module "bottleneck" {
             /**
              * How long can the queue get? When the queue length exceeds that value, the selected `strategy` is executed to shed the load.
              */
-            readonly highWater?: number;
+            readonly highWater?: number | null;
             /**
              * Which strategy to use if the queue gets longer than the high water mark.
              */
@@ -20,11 +20,11 @@ declare module "bottleneck" {
             /**
              * The `penalty` value used by the `Bottleneck.strategy.BLOCK` strategy.
              */
-            readonly penalty?: number;
+            readonly penalty?: number | null;
             /**
              * How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no longer `0`.
              */
-            readonly reservoir?: number;
+            readonly reservoir?: number | null;
             /**
              * Optional identifier
              */
@@ -56,7 +56,7 @@ declare module "bottleneck" {
             /**
              * The Redis TTL in milliseconds for the keys created by the limiter. When `timeout` is set, the limiter's state will be automatically removed from Redis after timeout milliseconds of inactivity. Note: timeout is 300000 (5 minutes) by default when using a Group.
              */
-             readonly timeout?: number;
+             readonly timeout?: number | null;
 
             [propName: string]: any;
         };
@@ -72,7 +72,7 @@ declare module "bottleneck" {
             /**
              * The number milliseconds a job has to finish. Jobs that take longer than their `expiration` will be failed with a `BottleneckError`.
              */
-            readonly expiration?: number;
+            readonly expiration?: number | null;
             /**
              * Optional identifier, helps with debug output.
              */
