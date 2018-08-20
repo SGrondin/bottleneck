@@ -1,9 +1,8 @@
 NUM_PRIORITIES = 10
 DEFAULT_PRIORITY = 5
 parser = require "./parser"
-Local = require "./Local"
-RedisStorage = require "./RedisStorage"
-IORedisStorage = require "./IORedisStorage"
+LocalDatastore = require "./LocalDatastore"
+RedisDatastore = require "./RedisDatastore"
 Events = require "./Events"
 States = require "./States"
 DLList = require "./DLList"
@@ -55,13 +54,12 @@ class Bottleneck
     @_submitLock = new Sync "submit"
     @_registerLock = new Sync "register"
     sDefaults = parser.load options, @storeDefaults, {}
-    @_store = if @datastore == "local" then new Local parser.load options, @storeInstanceDefaults, sDefaults
-    else if @datastore == "redis" then new RedisStorage @, sDefaults, parser.load options, @storeInstanceDefaults, {}
-    else if @datastore == "ioredis" then new IORedisStorage @, sDefaults, parser.load options, @storeInstanceDefaults, {}
+    @_store = if @datastore == "local" then new LocalDatastore parser.load options, @storeInstanceDefaults, sDefaults
+    else if @datastore == "redis" || @datastore == "ioredis" then new RedisDatastore @, sDefaults, parser.load options, @storeInstanceDefaults, {}
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
   ready: => @_store.ready
   clients: => @_store.clients
-  disconnect: (flush=true) => await @_store.disconnect flush
+  disconnect: (flush=true) => await @_store.__disconnect__ flush
   chain: (@_limiter) => @
   queued: (priority) => if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
   empty: -> @queued() == 0 and @_submitLock.isEmpty()

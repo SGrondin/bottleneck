@@ -25,6 +25,16 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
+    it('Should pass clients', function () {
+      c = makeTest({ maxConcurrent: 2 })
+
+      return c.limiter.ready()
+      .then(function (clients) {
+        c.mustEqual(Object.keys(clients), ['client', 'subscriber'])
+        c.mustEqual(Object.keys(c.limiter.clients()), ['client', 'subscriber'])
+      })
+    })
+
     it('Should not have a key TTL by default for standalone limiters', function () {
       c = makeTest()
 

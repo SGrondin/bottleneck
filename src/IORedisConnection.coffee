@@ -1,10 +1,11 @@
+Scripts = require "./Scripts"
+
 class IORedisConnection
   constructor: (@clientOptions, @Promise, @Events) ->
-    Redis = eval("require")("ioredis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
+    Redis = eval("require")("ioredis") # Obfuscated or else Webpack/Angular will try to inline the optional ioredis module
     @client = new Redis @clientOptions
     @subClient = new Redis @clientOptions
     @pubsubs = {}
-    @loaded = false
 
     @ready = new @Promise (resolve, reject) =>
       errorListener = (e) =>
@@ -27,14 +28,24 @@ class IORedisConnection
       @subClient.on "pmessage", (pattern, channel, message) =>
         @pubsubs[channel]?(message)
 
+    .then => Scripts.names.forEach (name) => @client.defineCommand name, { lua: Scripts.payload(name) }
+    .then => @Promise.resolve { client: @client, subscriber: @subClient }
+
   addLimiter: (instance, pubsub) ->
     @pubsubs["bottleneck_#{instance.id}"] = pubsub
 
   removeLimiter: (instance) ->
     delete @pubsubs["bottleneck_#{instance.id}"]
 
-  disconnect: () ->
-    @client.disconnect()
-    @subClient.disconnect()
+  scriptArgs: (name, id, args, cb) ->
+    keys = Scripts.keys name, id
+    [keys.length].concat keys, args, cb
+
+  scriptFn: (name) ->
+    @client[name].bind(@client)
+
+  disconnect: (flush) ->
+    @client.end(flush)
+    @subClient.end(flush)
 
 module.exports = IORedisConnection

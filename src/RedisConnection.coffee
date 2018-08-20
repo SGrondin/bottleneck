@@ -1,3 +1,5 @@
+Scripts = require "./Scripts"
+
 class RedisConnection
   constructor: (@clientOptions, @Promise, @Events) ->
     redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
@@ -5,7 +7,6 @@ class RedisConnection
     @subClient = redis.createClient @clientOptions
     @pubsubs = {}
     @shas = {}
-    @loaded = false
 
     @ready = new @Promise (resolve, reject) =>
       errorListener = (e) =>
@@ -19,7 +20,7 @@ class RedisConnection
           [@client, @subClient].forEach (client) =>
             client.removeListener "error", errorListener
             client.on "error", (e) => @Events.trigger "error", [e]
-          resolve({ client: @client, subscriber: @subClient })
+          resolve()
       @client.on "error", errorListener
       @client.on "ready", -> done()
       @subClient.on "error", errorListener
@@ -29,11 +30,29 @@ class RedisConnection
       @subClient.on "pmessage", (pattern, channel, message) =>
         @pubsubs[channel]?(message)
 
+    .then => @Promise.all(Scripts.names.map (k) => @_loadScript k)
+    .then => @Promise.resolve { client: @client, subscriber: @subClient }
+
+  _loadScript: (name) ->
+    new @Promise (resolve, reject) =>
+      payload = Scripts.payload name
+      @client.multi([["script", "load", payload]]).exec (err, replies) =>
+        if err? then return reject err
+        @shas[name] = replies[0]
+        return resolve replies[0]
+
   addLimiter: (instance, pubsub) ->
     @pubsubs["bottleneck_#{instance.id}"] = pubsub
 
   removeLimiter: (instance) ->
     delete @pubsubs["bottleneck_#{instance.id}"]
+
+  scriptArgs: (name, id, args, cb) ->
+    keys = Scripts.keys name, id
+    [@shas[name], keys.length].concat keys, args, cb
+
+  scriptFn: (name) ->
+    @client.evalsha.bind(@client)
 
   disconnect: (flush) ->
     @client.end flush

@@ -1,20 +1,21 @@
 parser = require "./parser"
 BottleneckError = require "./BottleneckError"
 RedisConnection = require "./RedisConnection"
+IORedisConnection = require "./IORedisConnection"
 Scripts = require "./Scripts"
 
-class RedisStorage
+class RedisDatastore
   constructor: (@instance, @initSettings, options) ->
     @originalId = @instance.id
     parser.load options, options, @
     @isReady = false
 
-    @connection = @_groupConnection ? new RedisConnection @clientOptions, @Promise, @instance.Events
+    @connection = if @_groupConnection then @_groupConnection
+    else if @instance.datastore == "redis" then new RedisConnection @clientOptions, @Promise, @instance.Events
+    else if @instance.datastore == "ioredis" then new IORedisConnection @clientOptions, @Promise, @instance.Events
+
     @ready = @connection.ready
     .then (@clients) =>
-      @_loadAllScripts()
-    .then =>
-      @connection.loaded = true
       args = @prepareInitSettings options.clearDatastore
       @isReady = true
       @runScript "init", args
@@ -24,34 +25,21 @@ class RedisStorage
         if type == "freed" then @instance._drainAll ~~info
       @clients
 
-  disconnect: (flush) ->
+  __disconnect__: (flush) ->
     @connection.removeLimiter @instance
     if !@_groupConnection?
       @connection.disconnect flush
-
-  _loadAllScripts: () ->
-    if @connection.loaded then @Promise.resolve()
-    else @Promise.all(Scripts.names.map (k) => @_loadScript k)
-
-  _loadScript: (name) ->
-    new @Promise (resolve, reject) =>
-      payload = Scripts.payload name
-
-      @clients.client.multi([["script", "load", payload]]).exec (err, replies) =>
-        if err? then return reject err
-        @connection.shas[name] = replies[0]
-        return resolve replies[0]
 
   runScript: (name, args) ->
     if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the '.ready()' promise to resolve before submitting requests."
     else
       keys = Scripts.keys name, @originalId
       new @Promise (resolve, reject) =>
-        arr = [@connection.shas[name], keys.length].concat keys, args, (err, replies) ->
+        @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
+        arr = @connection.scriptArgs name, @originalId, args, (err, replies) ->
           if err? then return reject err
           return resolve replies
-        @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
-        @clients.client.evalsha.bind(@clients.client).apply {}, arr
+        @connection.scriptFn(name).apply {}, arr
       .catch (e) =>
         if e.message == "SETTINGS_KEY_NOT_FOUND"
         then @runScript("init", @prepareInitSettings(false)).then => @runScript(name, args)
@@ -117,4 +105,4 @@ class RedisStorage
     result = await @runScript "free", @prepareArray [index, Date.now()]
     return { running: result }
 
-module.exports = RedisStorage
+module.exports = RedisDatastore

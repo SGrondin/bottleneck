@@ -2,7 +2,7 @@ parser = require "./parser"
 DLList = require "./DLList"
 BottleneckError = require "./BottleneckError"
 
-class Local
+class LocalDatastore
   constructor: (options) ->
     parser.load options, options, @
     @_nextRequest = Date.now()
@@ -12,7 +12,7 @@ class Local
     @ready = @yieldLoop()
     @clients = {}
 
-  disconnect: (flush) -> @
+  __disconnect__: (flush) -> @
 
   yieldLoop: (t=0) -> new @Promise (resolve, reject) -> setTimeout resolve, t
 
@@ -92,4 +92,4 @@ class Local
       @_running -= weight
     { running: @_running }
 
-module.exports = Local
+module.exports = LocalDatastore
