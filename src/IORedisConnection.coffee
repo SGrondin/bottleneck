@@ -1,10 +1,14 @@
 Scripts = require "./Scripts"
 
 class IORedisConnection
-  constructor: (@clientOptions, @Promise, @Events) ->
+  constructor: (@clusterNodes, @clientOptions, @Promise, @Events) ->
     Redis = eval("require")("ioredis") # Obfuscated or else Webpack/Angular will try to inline the optional ioredis module
-    @client = new Redis @clientOptions
-    @subClient = new Redis @clientOptions
+    if @clusterNodes?
+      @client = new Redis.Cluster @clusterNodes, @clientOptions
+      @subClient = new Redis.Cluster @clusterNodes, @clientOptions
+    else
+      @client = new Redis @clientOptions
+      @subClient = new Redis @clientOptions
     @pubsubs = {}
 
     @ready = new @Promise (resolve, reject) =>
@@ -45,7 +49,11 @@ class IORedisConnection
     @client[name].bind(@client)
 
   disconnect: (flush) ->
-    @client.end(flush)
-    @subClient.end(flush)
+    if flush
+      @Promise.all [@client.quit(), @subClient.quit()]
+    else
+      @client.disconnect()
+      @subClient.disconnect()
+      @Promise.resolve()
 
 module.exports = IORedisConnection

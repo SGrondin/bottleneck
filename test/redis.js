@@ -25,13 +25,25 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
-    it('Should pass clients', function () {
+    it('Should return clients', function () {
       c = makeTest({ maxConcurrent: 2 })
 
       return c.limiter.ready()
       .then(function (clients) {
         c.mustEqual(Object.keys(clients), ['client', 'subscriber'])
         c.mustEqual(Object.keys(c.limiter.clients()), ['client', 'subscriber'])
+      })
+    })
+
+    it('Should return a promise when disconnecting', function () {
+      c = makeTest({ maxConcurrent: 2 })
+
+      return c.limiter.ready()
+      .then(function (clients) {
+        return c.limiter.disconnect()
+      })
+      .then(function (limiter) {
+        assert(limiter instanceof Bottleneck)
       })
     })
 

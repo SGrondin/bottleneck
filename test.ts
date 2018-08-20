@@ -63,7 +63,11 @@ let group = new Bottleneck.Group({
   maxConcurrent: 5,
   minTime: 1000,
   highWater: 10,
-  strategy: Bottleneck.strategy.LEAK
+  strategy: Bottleneck.strategy.LEAK,
+  datastore: "ioredis",
+  clearDatastore: true,
+  clientOptions: {},
+  clusterNodes: []
 });
 
 group.on('created', (limiter, key) => {

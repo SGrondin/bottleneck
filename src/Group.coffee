@@ -15,7 +15,7 @@ class Group
     if @limiterOptions.datastore == "redis"
       @_connection = new RedisConnection (@limiterOptions.clientOptions ? {}), (@limiterOptions.Promise ? Promise), @Events
     else if @limiterOptions.datastore == "ioredis"
-      @_connection = new IORedisConnection (@limiterOptions.clientOptions ? {}), (@limiterOptions.Promise ? Promise), @Events
+      @_connection = new IORedisConnection (@limiterOptions.clusterNodes ? null), (@limiterOptions.clientOptions ? {}), (@limiterOptions.Promise ? Promise), @Events
 
   key: (key="") => @instances[key] ? do =>
     limiter = @instances[key] = new @Bottleneck Object.assign @limiterOptions, {

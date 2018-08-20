@@ -472,9 +472,13 @@ Clustering lets many limiters access the same shared state, stored in a Redis se
 
 ##### Enabling Clustering
 
-__IMPORTANT:__ Add `redis` to your application's dependencies.
-```
+__IMPORTANT:__ Add `redis` or `ioredis` to your application's dependencies.
+```bash
+# To use https://github.com/NodeRedis/node_redis
 npm install --save redis
+
+# To use https://github.com/luin/ioredis
+npm install --save ioredis
 ```
 
 ```js
@@ -485,11 +489,13 @@ const limiter = new Bottleneck({
   id: "my-super-app" // Should be unique for every limiter in the same Redis db
 
   /* Clustering options */
-  datastore: "redis",
+  datastore: "redis", // or "ioredis"
   clearDatastore: false,
   clientOptions: {
-    // node-redis client options, passed to redis.createClient()
-    // See https://github.com/NodeRedis/node_redis#options-object-properties
+    // Redis client options
+    // For NodeRedis, see https://github.com/NodeRedis/node_redis#options-object-properties
+    // For ioredis, see https://github.com/luin/ioredis/blob/master/API.md#new-redisport-host-options
+
     host: "127.0.0.1",
     port: 6379
     // "db" is another useful option
@@ -499,9 +505,10 @@ const limiter = new Bottleneck({
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `datastore` | `"local"` | Where the limiter stores its internal state. The default (`local`) keeps the state in the limiter itself. Set it to `redis` to enable Clustering. |
+| `datastore` | `"local"` | Where the limiter stores its internal state. The default (`"local"`) keeps the state in the limiter itself. Set it to `"redis"` or `"ioredis"` to enable Clustering. |
 | `clearDatastore` | `false` | When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db. |
-| `clientOptions` | `{}` | This object is passed directly to NodeRedis's `redis.createClient()` method. [See all the valid client options.](https://github.com/NodeRedis/node_redis#options-object-properties) |
+| `clientOptions` | `{}` | This object is passed directly to the redis client library you've selected. |
+| `clusterNodes` | `null` | **ioredis only.** When `clusterNodes` is not null, the client will be instantiated by calling `new Redis.Cluster(clusterNodes, clientOptions)` instead of `new Redis(clientOptions)`. |
 | `timeout` | `null` | The Redis TTL in milliseconds ([TTL](https://redis.io/commands/ttl)) for the keys created by the limiter. When `timeout` is set, the limiter's state will be automatically removed from Redis after `timeout` milliseconds of inactivity. **Note:** `timeout` is `300000` (5 minutes) by default when using a Group. |
 
 ###### `.ready()`
@@ -520,11 +527,11 @@ limiter.ready()
 })
 ```
 
-The `.ready()` method also exists when using the `local` datastore, for code compatibility reasons: code written for `redis` will always work with `local`.
+The `.ready()` method also exists when using the `local` datastore, for code compatibility reasons: code written for `redis`/`ioredis` will also work with `local`.
 
 ###### `.disconnect(flush)`
 
-This helper method calls the `.end(flush)` method on the Redis clients used by a limiter.
+This helper method disconnects the limiter's client from the Redis server.
 
 ```js
 limiter.disconnect(true)
@@ -591,8 +598,8 @@ clusterLimiter.ready()
 - As of v2.7.0, each Group will create 2 connections to Redis, one for commands and one for pub/sub. All limiters within the Group will share those connections.
 - Each standalone limiter has its own 2 connections.
 - Redis connectivity errors trigger an `error` event on the owner of the connection (the Group or the limiter).
-- Bottleneck itself is compatible with [Redis Clusters](https://redis.io/topics/cluster-tutorial), but `NodeRedis` may not support it at the moment. Future versions of Bottleneck will support the `ioredis` driver.
-- Bottleneck's data is stored in Redis keys starting with `b_`. It also uses pub/sub channels starting with `b_` It will not interfere with any other data stored on the server.
+- Bottleneck is compatible with [Redis Clusters](https://redis.io/topics/cluster-tutorial) and Redis Sentinel, but you must use the `ioredis` datastore and pass the `clusterNodes` option.
+- Bottleneck's data is stored in Redis keys starting with `b_`. It also uses pub/sub channels starting with `bottleneck_` It will not interfere with any other data stored on the server.
 - Bottleneck loads a few Lua scripts on the Redis server using the `SCRIPT LOAD` command. These scripts only take up a few Kb of memory. Running the `SCRIPT FLUSH` command will cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
 - The Lua scripts are highly optimized and designed to use as few resources (CPU, especially) as possible.
 
@@ -753,13 +760,11 @@ This README is always in need of improvements. If wording can be clearer and sim
 
 Suggestions and bug reports are also welcome.
 
-To work on the Bottleneck code, simply clone the repo, and run `./scripts/build.sh && npm test` to ensure that everything is set up correctly.
-
-Make your changes to the files located in `src/` only, then run `./scripts/build.sh && npm test` to build and test them.
+To work on the Bottleneck code, simply clone the repo, makes your changes to the files located in `src/` only, then run `./scripts/build.sh && npm test` to ensure that everything is set up correctly.
 
 To speed up compilation time during development, run `./scripts/build.sh dev` instead. Make sure to build and test without `dev` before submitting a PR.
 
-The tests must also pass in Clustering mode. You'll need a Redis server running on `127.0.0.1:6379`, then run `./scripts/build.sh && DATASTORE=redis npm test`.
+The tests must also pass in Clustering mode. You'll need a Redis server running on `127.0.0.1:6379`, then run `./scripts/build.sh && DATASTORE=redis npm test && DATASTORE=ioredis npm test`.
 
 All contributions are appreciated and will be considered.
 

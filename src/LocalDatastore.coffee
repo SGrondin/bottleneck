@@ -12,7 +12,7 @@ class LocalDatastore
     @ready = @yieldLoop()
     @clients = {}
 
-  __disconnect__: (flush) -> @
+  __disconnect__: (flush) -> @Promise.resolve()
 
   yieldLoop: (t=0) -> new @Promise (resolve, reject) -> setTimeout resolve, t
 

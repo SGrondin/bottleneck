@@ -95,7 +95,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         var _this = this;
 
         return _asyncToGenerator(function* () {
-          return yield _this._store.__disconnect__(flush);
+          yield _this._store.__disconnect__(flush);
+          return _this;
         })();
       }
 
@@ -580,6 +581,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
     Bottleneck.prototype.storeInstanceDefaults = {
       clientOptions: {},
+      clusterNodes: null,
       clearDatastore: false,
       Promise: Promise,
       timeout: null,
@@ -780,7 +782,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   Group = function () {
     class Group {
       constructor(limiterOptions = {}) {
-        var ref, ref1, ref2, ref3;
+        var ref, ref1, ref2, ref3, ref4;
         this.key = this.key.bind(this);
         this.deleteKey = this.deleteKey.bind(this);
         this.limiters = this.limiters.bind(this);
@@ -796,7 +798,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         if (this.limiterOptions.datastore === "redis") {
           this._connection = new RedisConnection((ref = this.limiterOptions.clientOptions) != null ? ref : {}, (ref1 = this.limiterOptions.Promise) != null ? ref1 : Promise, this.Events);
         } else if (this.limiterOptions.datastore === "ioredis") {
-          this._connection = new IORedisConnection((ref2 = this.limiterOptions.clientOptions) != null ? ref2 : {}, (ref3 = this.limiterOptions.Promise) != null ? ref3 : Promise, this.Events);
+          this._connection = new IORedisConnection((ref2 = this.limiterOptions.clusterNodes) != null ? ref2 : null, (ref3 = this.limiterOptions.clientOptions) != null ? ref3 : {}, (ref4 = this.limiterOptions.Promise) != null ? ref4 : Promise, this.Events);
         }
       }
 
@@ -901,14 +903,20 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   Scripts = require("./Scripts");
 
   IORedisConnection = class IORedisConnection {
-    constructor(clientOptions, Promise, Events) {
+    constructor(clusterNodes, clientOptions, Promise, Events) {
       var Redis;
+      this.clusterNodes = clusterNodes;
       this.clientOptions = clientOptions;
       this.Promise = Promise;
       this.Events = Events;
       Redis = eval("require")("ioredis"); // Obfuscated or else Webpack/Angular will try to inline the optional ioredis module
-      this.client = new Redis(this.clientOptions);
-      this.subClient = new Redis(this.clientOptions);
+      if (this.clusterNodes != null) {
+        this.client = new Redis.Cluster(this.clusterNodes, this.clientOptions);
+        this.subClient = new Redis.Cluster(this.clusterNodes, this.clientOptions);
+      } else {
+        this.client = new Redis(this.clientOptions);
+        this.subClient = new Redis(this.clientOptions);
+      }
       this.pubsubs = {};
       this.ready = new this.Promise((resolve, reject) => {
         var count, done, errorListener;
@@ -981,8 +989,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     disconnect(flush) {
-      this.client.end(flush);
-      return this.subClient.end(flush);
+      if (flush) {
+        return this.Promise.all([this.client.quit(), this.subClient.quit()]);
+      } else {
+        this.client.disconnect();
+        this.subClient.disconnect();
+        return this.Promise.resolve();
+      }
     }
 
   };
@@ -1016,7 +1029,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __disconnect__(flush) {
-      return this;
+      return this.Promise.resolve();
     }
 
     yieldLoop(t = 0) {
@@ -1194,13 +1207,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   RedisConnection = class RedisConnection {
     constructor(clientOptions, Promise, Events) {
-      var redis;
+      var Redis;
       this.clientOptions = clientOptions;
       this.Promise = Promise;
       this.Events = Events;
-      redis = eval("require")("redis"); // Obfuscated or else Webpack/Angular will try to inline the optional redis module
-      this.client = redis.createClient(this.clientOptions);
-      this.subClient = redis.createClient(this.clientOptions);
+      Redis = eval("require")("redis"); // Obfuscated or else Webpack/Angular will try to inline the optional redis module
+      this.client = Redis.createClient(this.clientOptions);
+      this.subClient = Redis.createClient(this.clientOptions);
       this.pubsubs = {};
       this.shas = {};
       this.ready = new this.Promise((resolve, reject) => {
@@ -1285,7 +1298,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
     disconnect(flush) {
       this.client.end(flush);
-      return this.subClient.end(flush);
+      this.subClient.end(flush);
+      return this.Promise.resolve();
     }
 
   };
@@ -1320,11 +1334,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.originalId = this.instance.id;
       parser.load(options, options, this);
       this.isReady = false;
-      this.connection = this._groupConnection ? this._groupConnection : this.instance.datastore === "redis" ? new RedisConnection(this.clientOptions, this.Promise, this.instance.Events) : this.instance.datastore === "ioredis" ? new IORedisConnection(this.clientOptions, this.Promise, this.instance.Events) : void 0;
+      this.connection = this._groupConnection ? this._groupConnection : this.instance.datastore === "redis" ? new RedisConnection(this.clientOptions, this.Promise, this.instance.Events) : this.instance.datastore === "ioredis" ? new IORedisConnection(this.clusterNodes, this.clientOptions, this.Promise, this.instance.Events) : void 0;
       this.ready = this.connection.ready.then(clients => {
         var args;
         this.clients = clients;
-        args = this.prepareInitSettings(options.clearDatastore);
+        args = this.prepareInitSettings(this.clearDatastore);
         this.isReady = true;
         return this.runScript("init", args);
       }).then(() => {

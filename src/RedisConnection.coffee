@@ -2,9 +2,9 @@ Scripts = require "./Scripts"
 
 class RedisConnection
   constructor: (@clientOptions, @Promise, @Events) ->
-    redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
-    @client = redis.createClient @clientOptions
-    @subClient = redis.createClient @clientOptions
+    Redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
+    @client = Redis.createClient @clientOptions
+    @subClient = Redis.createClient @clientOptions
     @pubsubs = {}
     @shas = {}
 
@@ -57,5 +57,6 @@ class RedisConnection
   disconnect: (flush) ->
     @client.end flush
     @subClient.end flush
+    @Promise.resolve()
 
 module.exports = RedisConnection

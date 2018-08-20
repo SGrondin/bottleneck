@@ -12,11 +12,11 @@ class RedisDatastore
 
     @connection = if @_groupConnection then @_groupConnection
     else if @instance.datastore == "redis" then new RedisConnection @clientOptions, @Promise, @instance.Events
-    else if @instance.datastore == "ioredis" then new IORedisConnection @clientOptions, @Promise, @instance.Events
+    else if @instance.datastore == "ioredis" then new IORedisConnection @clusterNodes, @clientOptions, @Promise, @instance.Events
 
     @ready = @connection.ready
     .then (@clients) =>
-      args = @prepareInitSettings options.clearDatastore
+      args = @prepareInitSettings @clearDatastore
       @isReady = true
       @runScript "init", args
     .then =>

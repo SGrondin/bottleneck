@@ -28,6 +28,7 @@ class Bottleneck
     reservoir: null,
   storeInstanceDefaults:
     clientOptions: {},
+    clusterNodes: null,
     clearDatastore: false,
     Promise: Promise,
     timeout: null,
@@ -59,7 +60,9 @@ class Bottleneck
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
   ready: => @_store.ready
   clients: => @_store.clients
-  disconnect: (flush=true) => await @_store.__disconnect__ flush
+  disconnect: (flush=true) =>
+    await @_store.__disconnect__ flush
+    @
   chain: (@_limiter) => @
   queued: (priority) => if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
   empty: -> @queued() == 0 and @_submitLock.isEmpty()

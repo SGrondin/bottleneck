@@ -46,9 +46,13 @@ declare module "bottleneck" {
              */
             readonly Promise?: any;
             /**
-             * This object is passed directly to NodeRedis's `redis.createClient()` method.
+             * This object is passed directly to the redis client library you've selected.
              */
             readonly clientOptions?: any;
+            /**
+             * **ioredis only.** When `clusterNodes` is not null, the client will be instantiated by calling `new Redis.Cluster(clusterNodes, clientOptions)`.
+             */
+            readonly clusterNodes?: any;
             /**
              * When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db.
              */
