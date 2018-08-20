@@ -2,7 +2,6 @@ parser = require "./parser"
 BottleneckError = require "./BottleneckError"
 RedisConnection = require "./RedisConnection"
 IORedisConnection = require "./IORedisConnection"
-Scripts = require "./Scripts"
 
 class RedisDatastore
   constructor: (@instance, @initSettings, options) ->
@@ -33,7 +32,6 @@ class RedisDatastore
   runScript: (name, args) ->
     if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the '.ready()' promise to resolve before submitting requests."
     else
-      keys = Scripts.keys name, @originalId
       new @Promise (resolve, reject) =>
         @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
         arr = @connection.scriptArgs name, @originalId, args, (err, replies) ->

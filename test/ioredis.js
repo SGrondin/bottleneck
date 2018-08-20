@@ -10,7 +10,7 @@ if (process.env.DATASTORE === 'ioredis') {
       c.limiter.disconnect(false)
     })
 
-    it('Should connect in Redis Cluter mode', function () {
+    it('Should connect in Redis Cluster mode', function () {
       c = makeTest({
         maxConcurrent: 2,
         clientOptions: {},
