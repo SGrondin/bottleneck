@@ -18,6 +18,9 @@ module.exports = function (options={}) {
   if (options.datastore == null && process.env.DATASTORE === 'redis') {
     options.datastore = 'redis'
     options.clearDatastore = true
+  } else if (options.datastore == null && process.env.DATASTORE === 'ioredis') {
+    options.datastore = 'ioredis'
+    options.clearDatastore = true
   } else {
     options.datastore = 'local'
   }

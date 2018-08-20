@@ -1,6 +1,7 @@
 parser = require "./parser"
 Events = require "./Events"
 RedisConnection = require "./RedisConnection"
+IORedisConnection = require "./IORedisConnection"
 
 class Group
   defaults: { timeout: 1000 * 60 * 5 }
@@ -13,6 +14,8 @@ class Group
     @_startAutoCleanup()
     if @limiterOptions.datastore == "redis"
       @_connection = new RedisConnection (@limiterOptions.clientOptions ? {}), (@limiterOptions.Promise ? Promise), @Events
+    else if @limiterOptions.datastore == "ioredis"
+      @_connection = new IORedisConnection (@limiterOptions.clientOptions ? {}), (@limiterOptions.Promise ? Promise), @Events
 
   key: (key="") => @instances[key] ? do =>
     limiter = @instances[key] = new @Bottleneck Object.assign @limiterOptions, {

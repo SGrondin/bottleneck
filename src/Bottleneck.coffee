@@ -3,6 +3,7 @@ DEFAULT_PRIORITY = 5
 parser = require "./parser"
 Local = require "./Local"
 RedisStorage = require "./RedisStorage"
+IORedisStorage = require "./IORedisStorage"
 Events = require "./Events"
 States = require "./States"
 DLList = require "./DLList"
@@ -56,6 +57,7 @@ class Bottleneck
     sDefaults = parser.load options, @storeDefaults, {}
     @_store = if @datastore == "local" then new Local parser.load options, @storeInstanceDefaults, sDefaults
     else if @datastore == "redis" then new RedisStorage @, sDefaults, parser.load options, @storeInstanceDefaults, {}
+    else if @datastore == "ioredis" then new IORedisStorage @, sDefaults, parser.load options, @storeInstanceDefaults, {}
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
   ready: => @_store.ready
   clients: => @_store.clients

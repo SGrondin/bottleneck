@@ -4,7 +4,7 @@ var Scripts = require('../lib/Scripts.js')
 var assert = require('assert')
 var packagejson = require('../package.json')
 
-if (process.env.DATASTORE === 'redis') {
+if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
   describe('Redis-only', function () {
     var c
 
@@ -65,7 +65,7 @@ if (process.env.DATASTORE === 'redis') {
       .then(function () {
         limiter2 = new Bottleneck({
           maxConcurrent: 2,
-          datastore: 'redis'
+          datastore: process.env.DATASTORE
         })
         return limiter2.ready()
       })
@@ -105,7 +105,7 @@ if (process.env.DATASTORE === 'redis') {
 
       return c.limiter.ready()
       .then(function () {
-        limiter2 = new Bottleneck({ maxConcurrent: 1, datastore: 'redis' })
+        limiter2 = new Bottleneck({ maxConcurrent: 1, datastore: process.env.DATASTORE })
         return limiter2.ready()
       })
       .then(function () {
@@ -130,7 +130,7 @@ if (process.env.DATASTORE === 'redis') {
 
       return c.limiter.ready()
       .then(function () {
-        limiter2 = new Bottleneck({ maxConcurrent: 1, datastore: 'redis', clearDatastore: true })
+        limiter2 = new Bottleneck({ maxConcurrent: 1, datastore: process.env.DATASTORE, clearDatastore: true })
         return limiter2.ready()
       })
       .then(function () {
@@ -151,7 +151,7 @@ if (process.env.DATASTORE === 'redis') {
 
     it('Should safely handle connection failures', function (done) {
       c = makeTest()
-      var limiter = new Bottleneck({ datastore: 'redis', clientOptions: { port: 1 }})
+      var limiter = new Bottleneck({ datastore: process.env.DATASTORE, clientOptions: { port: 1 }})
 
       limiter.ready()
       .catch(function (err) {
@@ -234,7 +234,7 @@ if (process.env.DATASTORE === 'redis') {
     it('Should use the limiter ID to build Redis keys', function () {
       c = makeTest()
       var randomId = c.limiter._randomIndex()
-      var limiter = new Bottleneck({ id: randomId, datastore: 'redis', clearDatastore: true })
+      var limiter = new Bottleneck({ id: randomId, datastore: process.env.DATASTORE, clearDatastore: true })
 
       return limiter.ready()
       .then(function () {
@@ -257,7 +257,7 @@ if (process.env.DATASTORE === 'redis') {
 
     it('Should not fail when Redis data is missing', function () {
       c = makeTest()
-      var limiter = new Bottleneck({ datastore: 'redis', clearDatastore: true })
+      var limiter = new Bottleneck({ datastore: process.env.DATASTORE, clearDatastore: true })
 
       return limiter.ready()
       .then(function () {
@@ -288,7 +288,7 @@ if (process.env.DATASTORE === 'redis') {
     it('Should have a default key TTL when using Groups', function () {
       c = makeTest()
       var group = new Bottleneck.Group({
-        datastore: 'redis'
+        datastore: process.env.DATASTORE
       })
 
       return c.limiter.ready()
@@ -314,7 +314,7 @@ if (process.env.DATASTORE === 'redis') {
     it('Should support Groups and expire Redis keys', function () {
       c = makeTest()
       var group = new Bottleneck.Group({
-        datastore: 'redis',
+        datastore: process.env.DATASTORE,
         clearDatastore: true,
         minTime: 50,
         timeout: 200

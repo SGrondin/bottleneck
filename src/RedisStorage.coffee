@@ -12,8 +12,7 @@ class RedisStorage
     @connection = @_groupConnection ? new RedisConnection @clientOptions, @Promise, @instance.Events
     @ready = @connection.ready
     .then (@clients) =>
-      if @connection.loaded then @Promise.resolve()
-      else @Promise.all(Scripts.names.map (k) => @_loadScript k)
+      @_loadAllScripts()
     .then =>
       @connection.loaded = true
       args = @prepareInitSettings options.clearDatastore
@@ -29,6 +28,10 @@ class RedisStorage
     @connection.removeLimiter @instance
     if !@_groupConnection?
       @connection.disconnect flush
+
+  _loadAllScripts: () ->
+    if @connection.loaded then @Promise.resolve()
+    else @Promise.all(Scripts.names.map (k) => @_loadScript k)
 
   _loadScript: (name) ->
     new @Promise (resolve, reject) =>

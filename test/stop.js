@@ -6,9 +6,7 @@ describe('Stop', function () {
   var c
 
   afterEach(function () {
-    if (c.limiter.datastore === 'redis') {
-      c.limiter.disconnect(false)
-    }
+    c.limiter.disconnect(false)
   })
 
   it('Should stop and drop the queue', function (done) {
