@@ -39,7 +39,7 @@
     "babel-core": "^6.26.0",
     "babel-preset-env": "^1.6.1",
     "browserify": "*",
-    "coffeescript": "2.2.x",
+    "coffeescript": "2.3.x",
     "ejs-cli": "2.0.1",
     "ioredis": "^4.0.0",
     "mocha": "4.x",

@@ -1,5 +1,6 @@
 NUM_PRIORITIES = 10
 DEFAULT_PRIORITY = 5
+
 parser = require "./parser"
 LocalDatastore = require "./LocalDatastore"
 RedisDatastore = require "./RedisDatastore"
@@ -8,6 +9,7 @@ States = require "./States"
 DLList = require "./DLList"
 Sync = require "./Sync"
 packagejson = require "../package.json"
+
 class Bottleneck
   Bottleneck.default = Bottleneck
   Bottleneck.version = Bottleneck::version = packagejson.version
@@ -43,6 +45,7 @@ class Bottleneck
     enqueueErrorMessage: "This limiter has been stopped and cannot accept new jobs."
     dropWaitingJobs: true
     dropErrorMessage: "This limiter has been stopped."
+
   constructor: (options={}, invalid...) ->
     unless options? and typeof options == "object" and invalid.length == 0
       throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1."
@@ -58,25 +61,41 @@ class Bottleneck
     @_store = if @datastore == "local" then new LocalDatastore parser.load options, @storeInstanceDefaults, sDefaults
     else if @datastore == "redis" || @datastore == "ioredis" then new RedisDatastore @, sDefaults, parser.load options, @storeInstanceDefaults, {}
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
+
   ready: => @_store.ready
+
   clients: => @_store.clients
+
   disconnect: (flush=true) =>
     await @_store.__disconnect__ flush
     @
+
   chain: (@_limiter) => @
+
   queued: (priority) => if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
+
   empty: -> @queued() == 0 and @_submitLock.isEmpty()
+
   running: => await @_store.__running__()
+
   jobStatus: (id) -> @_states.jobStatus id
+
   counts: -> @_states.statusCounts()
+
   _makeQueues: -> new DLList() for i in [1..NUM_PRIORITIES]
+
   _sanitizePriority: (priority) ->
     sProperty = if ~~priority != priority then DEFAULT_PRIORITY else priority
     if sProperty < 0 then 0 else if sProperty > NUM_PRIORITIES-1 then NUM_PRIORITIES-1 else sProperty
+
   _find: (arr, fn) -> (do -> for x, i in arr then if fn x then return x) ? []
+
   _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
+
   _randomIndex: -> Math.random().toString(36).slice(2)
+
   check: (weight=1) => await @_store.__check__ weight
+
   _run: (next, wait, index) ->
     @Events.trigger "debug", ["Scheduling #{next.options.id}", { args: next.args, options: next.options }]
     done = false
@@ -108,6 +127,7 @@ class Bottleneck
         completed new Bottleneck::BottleneckError "This job timed out after #{next.options.expiration} ms."
       , wait + next.options.expiration
       job: next
+
   _drainOne: (freed) =>
     @_registerLock.schedule =>
       if @queued() == 0 then return @Promise.resolve false
@@ -126,16 +146,19 @@ class Bottleneck
           if reservoir == 0 then @Events.trigger "depleted", [empty]
           @_run next, wait, index
         @Promise.resolve success
+
   _drainAll: (freed) ->
     @_drainOne(freed)
     .then (success) =>
       if success then @_drainAll()
       else @Promise.resolve success
     .catch (e) => @Events.trigger "error", [e]
+
   _drop: (job, message="This job has been dropped by Bottleneck") ->
     @_states.remove job.options.id
     if @rejectOnDrop then job.cb?.apply {}, [new Bottleneck::BottleneckError message]
     @Events.trigger "dropped", [job]
+
   stop: (options={}) ->
     options = parser.load options, @stopDefaults
     waitForExecuting = (at) =>
@@ -166,6 +189,7 @@ class Bottleneck
       @schedule { priority: NUM_PRIORITIES-1, weight: 0 }, => waitForExecuting(1)
     @submit = (args..., cb) => cb?.apply {}, [new Bottleneck::BottleneckError options.enqueueErrorMessage]
     done
+
   submit: (args...) =>
     if typeof args[0] == "function"
       [task, args..., cb] = args
@@ -211,6 +235,7 @@ class Bottleneck
       @_queues[options.priority].push job
       await @_drainAll()
       reachedHWM
+
   schedule: (args...) =>
     if typeof args[0] == "function"
       [task, args...] = args
@@ -227,16 +252,20 @@ class Bottleneck
       @submit.apply {}, Array::concat options, wrapped, args, (args...) ->
         (if args[0]? then reject else args.shift(); resolve).apply {}, args
       .catch (e) => @Events.trigger "error", [e]
+
   wrap: (fn) =>
     ret = (args...) => @schedule.apply {}, Array::concat fn, args
     ret.withOptions = (options, args...) => @schedule.apply {}, Array::concat options, fn, args
     ret
+
   updateSettings: (options={}) =>
     await @_store.__updateSettings__ parser.overwrite options, @storeDefaults
     parser.overwrite options, @instanceDefaults, @
     @_drainAll().catch (e) => @Events.trigger "error", [e]
     @
+
   currentReservoir: => await @_store.__currentReservoir__()
+
   incrementReservoir: (incr=0) =>
     await @_store.__incrementReservoir__ incr
     @_drainAll().catch (e) => @Events.trigger "error", [e]

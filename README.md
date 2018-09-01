@@ -25,7 +25,7 @@ Powerful new features in v2 include:
 
 **[Quickly upgrade your application code from v1 to v2 of Bottleneck](#upgrading-to-v2)**
 
-Bottleneck v2 targets Node v6.0 or newer, and evergreen browsers.
+Bottleneck v2 targets Node v6.0 or newer, and modern browsers. [Use Babel](https://github.com/SGrondin/bottleneck/issues/81) in your project if you must support older platforms.
 
 Bottleneck v1 targets ES5, which makes it compatible with any browser or Node version. It's still maintained, but it will not be receiving any new features. [Browse the v1 documentation](https://github.com/SGrondin/bottleneck/tree/version-1).
 
