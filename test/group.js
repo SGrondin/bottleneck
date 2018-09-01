@@ -203,12 +203,9 @@ describe('Group', function () {
     group.updateSettings({ timeout: 50 })
     c = makeTest({ id: 'something', timeout: group.timeout })
 
-    return c.limiter.ready()
-    .then(function () {
-      group.instances[KEY] = c.limiter
-      return group.key(KEY).schedule(function () {
-        return Promise.resolve()
-      })
+    group.instances[KEY] = c.limiter
+    return group.key(KEY).schedule(function () {
+      return Promise.resolve()
     })
     .then(function () {
       assert(group.instances[KEY] != null)

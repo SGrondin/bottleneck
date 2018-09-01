@@ -1331,14 +1331,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.initSettings = initSettings;
       this.originalId = this.instance.id;
       parser.load(options, options, this);
-      this.isReady = false;
       this.connection = this._groupConnection ? this._groupConnection : this.instance.datastore === "redis" ? new RedisConnection(this.clientOptions, this.Promise, this.instance.Events) : this.instance.datastore === "ioredis" ? new IORedisConnection(this.clusterNodes, this.clientOptions, this.Promise, this.instance.Events) : void 0;
       this.ready = this.connection.ready.then(clients => {
         var args;
         this.clients = clients;
         args = this.prepareInitSettings(this.clearDatastore);
-        this.isReady = true;
-        return this.runScript("init", args);
+        return this.runScript("init", false, args);
       }).then(() => {
         this.connection.addLimiter(this.instance, message => {
           var info, type;
@@ -1365,30 +1363,36 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
     }
 
-    runScript(name, args) {
-      if (!this.isReady) {
-        return this.Promise.reject(new BottleneckError("This limiter is not done connecting to Redis yet. Wait for the '.ready()' promise to resolve before submitting requests."));
-      } else {
-        return new this.Promise((resolve, reject) => {
+    runScript(name, hasNow, args) {
+      var _this = this;
+
+      return _asyncToGenerator(function* () {
+        if (name !== "init") {
+          yield _this.ready;
+        }
+        if (hasNow) {
+          args[args.length - 1] = Date.now();
+        }
+        return new _this.Promise(function (resolve, reject) {
           var arr;
-          this.instance.Events.trigger("debug", [`Calling Redis script: ${name}.lua`, args]);
-          arr = this.connection.scriptArgs(name, this.originalId, args, function (err, replies) {
+          _this.instance.Events.trigger("debug", [`Calling Redis script: ${name}.lua`, args]);
+          arr = _this.connection.scriptArgs(name, _this.originalId, args, function (err, replies) {
             if (err != null) {
               return reject(err);
             }
             return resolve(replies);
           });
-          return this.connection.scriptFn(name).apply({}, arr);
-        }).catch(e => {
+          return _this.connection.scriptFn(name).apply({}, arr);
+        }).catch(function (e) {
           if (e.message === "SETTINGS_KEY_NOT_FOUND") {
-            return this.runScript("init", this.prepareInitSettings(false)).then(() => {
-              return this.runScript(name, args);
+            return _this.runScript("init", false, _this.prepareInitSettings(false)).then(function () {
+              return _this.runScript(name, hasNow, args);
             });
           } else {
-            return this.Promise.reject(e);
+            return _this.Promise.reject(e);
           }
         });
-      }
+      })();
     }
 
     prepareArray(arr) {
@@ -1430,60 +1434,60 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __updateSettings__(options) {
-      var _this = this;
+      var _this2 = this;
 
       return _asyncToGenerator(function* () {
-        return yield _this.runScript("update_settings", _this.prepareObject(options));
+        return yield _this2.runScript("update_settings", false, _this2.prepareObject(options));
       })();
     }
 
     __running__() {
-      var _this2 = this;
+      var _this3 = this;
 
       return _asyncToGenerator(function* () {
-        return yield _this2.runScript("running", [Date.now()]);
+        return yield _this3.runScript("running", true, [0]);
       })();
     }
 
     __groupCheck__() {
-      var _this3 = this;
+      var _this4 = this;
 
       return _asyncToGenerator(function* () {
-        return _this3.convertBool((yield _this3.runScript("group_check", [])));
+        return _this4.convertBool((yield _this4.runScript("group_check", false, [])));
       })();
     }
 
     __incrementReservoir__(incr) {
-      var _this4 = this;
+      var _this5 = this;
 
       return _asyncToGenerator(function* () {
-        return yield _this4.runScript("increment_reservoir", [incr]);
+        return yield _this5.runScript("increment_reservoir", false, [incr]);
       })();
     }
 
     __currentReservoir__() {
-      var _this5 = this;
+      var _this6 = this;
 
       return _asyncToGenerator(function* () {
-        return yield _this5.runScript("current_reservoir", []);
+        return yield _this6.runScript("current_reservoir", false, []);
       })();
     }
 
     __check__(weight) {
-      var _this6 = this;
+      var _this7 = this;
 
       return _asyncToGenerator(function* () {
-        return _this6.convertBool((yield _this6.runScript("check", _this6.prepareArray([weight, Date.now()]))));
+        return _this7.convertBool((yield _this7.runScript("check", true, _this7.prepareArray([weight, 0]))));
       })();
     }
 
     __register__(index, weight, expiration) {
-      var _this7 = this;
+      var _this8 = this;
 
       return _asyncToGenerator(function* () {
         var reservoir, success, wait;
 
-        var _ref = yield _this7.runScript("register", _this7.prepareArray([index, weight, expiration, Date.now()]));
+        var _ref = yield _this8.runScript("register", true, _this8.prepareArray([index, weight, expiration, 0]));
 
         var _ref2 = _slicedToArray(_ref, 3);
 
@@ -1492,7 +1496,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         reservoir = _ref2[2];
 
         return {
-          success: _this7.convertBool(success),
+          success: _this8.convertBool(success),
           wait,
           reservoir
         };
@@ -1500,12 +1504,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __submit__(queueLength, weight) {
-      var _this8 = this;
+      var _this9 = this;
 
       return _asyncToGenerator(function* () {
         var blocked, e, maxConcurrent, overweight, reachedHWM, strategy;
         try {
-          var _ref3 = yield _this8.runScript("submit", _this8.prepareArray([queueLength, weight, Date.now()]));
+          var _ref3 = yield _this9.runScript("submit", true, _this9.prepareArray([queueLength, weight, 0]));
 
           var _ref4 = _slicedToArray(_ref3, 3);
 
@@ -1514,8 +1518,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           strategy = _ref4[2];
 
           return {
-            reachedHWM: _this8.convertBool(reachedHWM),
-            blocked: _this8.convertBool(blocked),
+            reachedHWM: _this9.convertBool(reachedHWM),
+            blocked: _this9.convertBool(blocked),
             strategy
           };
         } catch (error) {
@@ -1538,11 +1542,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __free__(index, weight) {
-      var _this9 = this;
+      var _this10 = this;
 
       return _asyncToGenerator(function* () {
         var result;
-        result = yield _this9.runScript("free", _this9.prepareArray([index, Date.now()]));
+        result = yield _this10.runScript("free", true, _this10.prepareArray([index, 0]));
         return {
           running: result
         };

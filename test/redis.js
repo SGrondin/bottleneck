@@ -9,20 +9,13 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
     var c
 
     afterEach(function () {
-      c.limiter.disconnect(false)
+      return c.limiter.disconnect(false)
     })
 
-    it('Should error out if not ready', function () {
+    it('Should accept deprecated .ready() method', function () {
       c = makeTest({ maxConcurrent: 2 })
 
-      return c.limiter.schedule({id: 1}, c.slowPromise, 100, null, 1)
-      .then(function (result) {
-        return Promise.reject('Should not have been ready')
-      })
-      .catch(function (err) {
-        c.mustEqual(err.message, 'This limiter is not done connecting to Redis yet. Wait for the \'.ready()\' promise to resolve before submitting requests.')
-        return Promise.resolve()
-      })
+      return c.limiter.ready()
     })
 
     it('Should return clients', function () {
@@ -38,10 +31,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
     it('Should return a promise when disconnecting', function () {
       c = makeTest({ maxConcurrent: 2 })
 
-      return c.limiter.ready()
-      .then(function (clients) {
-        return c.limiter.disconnect()
-      })
+      return c.limiter.disconnect()
       .then(function (limiter) {
         assert(limiter instanceof Bottleneck)
       })
@@ -81,22 +71,16 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
     it('Should publish running decreases', function () {
       c = makeTest({ maxConcurrent: 2 })
-      var limiter2, p1, p2, p3, p4
-
-      return c.limiter.ready()
-      .then(function () {
-        limiter2 = new Bottleneck({
-          maxConcurrent: 2,
-          datastore: process.env.DATASTORE
-        })
-        return limiter2.ready()
+      var limiter2 = new Bottleneck({
+        maxConcurrent: 2,
+        datastore: process.env.DATASTORE
       })
-      .then(function () {
-        p1 = c.limiter.schedule({id: 1}, c.slowPromise, 100, null, 1)
-        p2 = c.limiter.schedule({id: 2}, c.slowPromise, 100, null, 2)
+      var p3, p4
 
-        return c.limiter.schedule({id: 0, weight: 0}, c.promise, null, 0)
-      })
+      var p1 = c.limiter.schedule({id: 1}, c.slowPromise, 100, null, 1)
+      var p2 = c.limiter.schedule({id: 2}, c.slowPromise, 100, null, 2)
+
+      return c.limiter.schedule({id: 0, weight: 0}, c.promise, null, 0)
       .then(function () {
         p3 = limiter2.schedule({id: 3}, c.slowPromise, 100, null, 3)
         return p3
@@ -117,27 +101,22 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         })
       })
       .then(function () {
-        limiter2.disconnect(false)
+        return limiter2.disconnect(false)
       })
     })
 
     it('Should use shared settings', function () {
       c = makeTest({ maxConcurrent: 2 })
-      var limiter2
+      var limiter2 = new Bottleneck({ maxConcurrent: 1, datastore: process.env.DATASTORE })
 
-      return c.limiter.ready()
+      return Promise.all([
+        limiter2.schedule(c.slowPromise, 100, null, 1),
+        limiter2.schedule(c.slowPromise, 100, null, 2)
+      ])
       .then(function () {
-        limiter2 = new Bottleneck({ maxConcurrent: 1, datastore: process.env.DATASTORE })
-        return limiter2.ready()
+        return limiter2.disconnect(false)
       })
       .then(function () {
-        return Promise.all([
-          limiter2.schedule(c.slowPromise, 100, null, 1),
-          limiter2.schedule(c.slowPromise, 100, null, 2)
-        ])
-      })
-      .then(function () {
-        limiter2.disconnect(false)
         return c.last()
       })
       .then(function (results) {
@@ -162,7 +141,9 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         ])
       })
       .then(function () {
-        limiter2.disconnect(false)
+        return limiter2.disconnect(false)
+      })
+      .then(function () {
         return c.last()
       })
       .then(function (results) {
@@ -178,8 +159,11 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       limiter.ready()
       .catch(function (err) {
         assert(err != null)
-        limiter.disconnect(false)
-        done()
+
+        return limiter.disconnect(false)
+        .then(function () {
+          done()
+        })
       })
     })
 
@@ -191,17 +175,14 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       limiter2.chain(c.limiter)
       limiter3.chain(c.limiter)
 
-      return c.limiter.ready()
-      .then(function () {
-        return Promise.all([
-          limiter2.schedule(c.slowPromise, 100, null, 1),
-          limiter2.schedule(c.slowPromise, 100, null, 2),
-          limiter2.schedule(c.slowPromise, 100, null, 3),
-          limiter3.schedule(c.slowPromise, 100, null, 4),
-          limiter3.schedule(c.slowPromise, 100, null, 5),
-          limiter3.schedule(c.slowPromise, 100, null, 6)
-        ])
-      })
+      return Promise.all([
+        limiter2.schedule(c.slowPromise, 100, null, 1),
+        limiter2.schedule(c.slowPromise, 100, null, 2),
+        limiter2.schedule(c.slowPromise, 100, null, 3),
+        limiter3.schedule(c.slowPromise, 100, null, 4),
+        limiter3.schedule(c.slowPromise, 100, null, 5),
+        limiter3.schedule(c.slowPromise, 100, null, 6)
+      ])
       .then(c.last)
       .then(function (results) {
         c.checkDuration(300)
@@ -226,17 +207,14 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       limiter2.chain(c.limiter)
       limiter3.chain(c.limiter)
 
-      return c.limiter.ready()
-      .then(function () {
-        return Promise.all([
-          limiter2.schedule(c.slowPromise, 100, null, 1),
-          limiter2.schedule(c.slowPromise, 100, null, 2),
-          limiter2.schedule(c.slowPromise, 100, null, 3),
-          limiter3.schedule(c.slowPromise, 100, null, 4),
-          limiter3.schedule(c.slowPromise, 100, null, 5),
-          limiter3.schedule(c.slowPromise, 100, null, 6)
-        ])
-      })
+      return Promise.all([
+        limiter2.schedule(c.slowPromise, 100, null, 1),
+        limiter2.schedule(c.slowPromise, 100, null, 2),
+        limiter2.schedule(c.slowPromise, 100, null, 3),
+        limiter3.schedule(c.slowPromise, 100, null, 4),
+        limiter3.schedule(c.slowPromise, 100, null, 5),
+        limiter3.schedule(c.slowPromise, 100, null, 6)
+      ])
       .then(c.last)
       .then(function (results) {
         c.checkDuration(300)
@@ -273,7 +251,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
       .then(function (deleted) {
         c.mustEqual(deleted, 1)
-        limiter.disconnect(false)
+        return limiter.disconnect(false)
       })
     })
 
@@ -281,10 +259,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       c = makeTest()
       var limiter = new Bottleneck({ datastore: process.env.DATASTORE, clearDatastore: true })
 
-      return limiter.ready()
-      .then(function () {
-        return limiter.running()
-      })
+      return limiter.running()
       .then(function (running) {
         c.mustEqual(running, 0)
         var settings_key = Scripts.keys("update_settings", limiter._store.originalId)[0]
@@ -303,7 +278,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
       .then(function (running) {
         c.mustEqual(running, 0)
-        limiter.disconnect(false)
+        return limiter.disconnect(false)
       })
     })
 
@@ -313,10 +288,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         datastore: process.env.DATASTORE
       })
 
-      return c.limiter.ready()
-      .then(function () {
-        return group.key('one').ready()
-      })
+      return group.key('one').ready()
       .then(function () {
         return new Promise(function (resolve, reject) {
           var limiter = group.key('one')
@@ -329,7 +301,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         })
       })
       .then(function () {
-        group.disconnect(false)
+        return group.disconnect(false)
       })
     })
 
@@ -414,7 +386,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         c.mustEqual(exist, 0)
         c.mustEqual(group.keys().length, 0)
         c.mustEqual(Object.keys(group._connection.pubsubs).length, 0)
-        group.disconnect(false)
+        return group.disconnect(false)
       })
 
     })

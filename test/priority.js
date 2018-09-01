@@ -12,16 +12,13 @@ describe('Priority', function () {
   it('Should do basic ordering', function () {
     c = makeTest({maxConcurrent: 1, minTime: 100, rejectOnDrop: false})
 
-    return c.limiter.ready()
-    .then(function () {
-      c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
-      c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-      c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-      c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-      c.limiter.submit({priority: 1}, c.job, null, 5, 6, c.noErrVal(5, 6))
+    c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
+    c.limiter.submit(c.job, null, 2, c.noErrVal(2))
+    c.limiter.submit(c.job, null, 3, c.noErrVal(3))
+    c.limiter.submit(c.job, null, 4, c.noErrVal(4))
+    c.limiter.submit({priority: 1}, c.job, null, 5, 6, c.noErrVal(5, 6))
 
-      return c.last()
-    })
+    return c.last()
     .then(function (results) {
       c.checkResultsOrder([[1], [5,6], [2] ,[3], [4]])
       c.checkDuration(400)
@@ -45,18 +42,15 @@ describe('Priority', function () {
       called = true
     })
 
-    return c.limiter.ready()
-    .then(function () {
-      c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
-      c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-      c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-      c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-      c.limiter.submit({priority: 2}, c.job, null, 5, c.noErrVal(5))
-      c.limiter.submit({priority: 1}, c.job, null, 6, c.noErrVal(6))
-      c.limiter.submit({priority: 9}, c.job, null, 7, c.noErrVal(7))
+    c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
+    c.limiter.submit(c.job, null, 2, c.noErrVal(2))
+    c.limiter.submit(c.job, null, 3, c.noErrVal(3))
+    c.limiter.submit(c.job, null, 4, c.noErrVal(4))
+    c.limiter.submit({priority: 2}, c.job, null, 5, c.noErrVal(5))
+    c.limiter.submit({priority: 1}, c.job, null, 6, c.noErrVal(6))
+    c.limiter.submit({priority: 9}, c.job, null, 7, c.noErrVal(7))
 
-      return c.last({ weight: 0 })
-    })
+    return c.last({ weight: 0 })
     .then(function (results) {
       c.checkDuration(200)
       c.checkResultsOrder([[1], [6], [5]])
@@ -80,17 +74,14 @@ describe('Priority', function () {
       called = true
     })
 
-    return c.limiter.ready()
-    .then(function () {
-      c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
-      c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-      c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-      c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-      c.limiter.submit({priority: 2}, c.job, null, 5, c.noErrVal(5))
-      c.limiter.submit({priority: 1}, c.job, null, 6, c.noErrVal(6))
+    c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
+    c.limiter.submit(c.job, null, 2, c.noErrVal(2))
+    c.limiter.submit(c.job, null, 3, c.noErrVal(3))
+    c.limiter.submit(c.job, null, 4, c.noErrVal(4))
+    c.limiter.submit({priority: 2}, c.job, null, 5, c.noErrVal(5))
+    c.limiter.submit({priority: 1}, c.job, null, 6, c.noErrVal(6))
 
-      return c.limiter.submit({priority: 9}, c.job, null, 7, c.noErrVal(7))
-    })
+    return c.limiter.submit({priority: 9}, c.job, null, 7, c.noErrVal(7))
     .then(function () {
       return c.limiter.updateSettings({ highWater: null })
     })
@@ -118,16 +109,14 @@ describe('Priority', function () {
       called = true
     })
 
-    return c.limiter.ready()
-    .then(function () {
-      c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
-      c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-      c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-      c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-      c.limiter.submit({priority: 2}, c.job, null, 5, c.noErrVal(5))
-      c.limiter.submit({priority: 2}, c.job, null, 6, c.noErrVal(6))
-      return c.limiter.submit({priority: 2}, c.job, null, 7, c.noErrVal(7))
-    })
+    c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
+    c.limiter.submit(c.job, null, 2, c.noErrVal(2))
+    c.limiter.submit(c.job, null, 3, c.noErrVal(3))
+    c.limiter.submit(c.job, null, 4, c.noErrVal(4))
+    c.limiter.submit({priority: 2}, c.job, null, 5, c.noErrVal(5))
+    c.limiter.submit({priority: 2}, c.job, null, 6, c.noErrVal(6))
+
+    return c.limiter.submit({priority: 2}, c.job, null, 7, c.noErrVal(7))
     .then(function () {
       return c.limiter.updateSettings({highWater: null})
     })
@@ -168,28 +157,23 @@ describe('Priority', function () {
       }
     })
 
-    c.limiter.ready()
-    .then(function () {
-      c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
-      c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-      c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-      c.limiter.submit({priority: 2}, c.job, null, 5, c.noErrVal(5))
-      c.limiter.submit({priority: 2}, c.job, null, 6, c.noErrVal(6))
-      c.limiter.submit({priority: 2}, c.job, null, 7, c.noErrVal(7))
-    })
+    c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
+    c.limiter.submit(c.job, null, 2, c.noErrVal(2))
+    c.limiter.submit(c.job, null, 3, c.noErrVal(3))
+    c.limiter.submit({priority: 2}, c.job, null, 5, c.noErrVal(5))
+    c.limiter.submit({priority: 2}, c.job, null, 6, c.noErrVal(6))
+    c.limiter.submit({priority: 2}, c.job, null, 7, c.noErrVal(7))
   })
 
   it('Should have the right priority', function () {
     c = makeTest({maxConcurrent: 1, minTime: 100})
 
-    return c.limiter.ready()
-    .then(function () {
-      c.pNoErrVal(c.limiter.schedule({priority: 6}, c.slowPromise, 50, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule({priority: 5}, c.promise, null, 2), 2)
-      c.pNoErrVal(c.limiter.schedule({priority: 4}, c.promise, null, 3), 3)
-      c.pNoErrVal(c.limiter.schedule({priority: 3}, c.promise, null, 4), 4)
-      return c.last()
-    })
+    c.pNoErrVal(c.limiter.schedule({priority: 6}, c.slowPromise, 50, null, 1), 1)
+    c.pNoErrVal(c.limiter.schedule({priority: 5}, c.promise, null, 2), 2)
+    c.pNoErrVal(c.limiter.schedule({priority: 4}, c.promise, null, 3), 3)
+    c.pNoErrVal(c.limiter.schedule({priority: 3}, c.promise, null, 4), 4)
+
+    return c.last()
     .then(function (results) {
       c.checkDuration(300)
       c.checkResultsOrder([[1], [4], [3], [2]])

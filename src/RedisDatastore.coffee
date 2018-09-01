@@ -7,7 +7,6 @@ class RedisDatastore
   constructor: (@instance, @initSettings, options) ->
     @originalId = @instance.id
     parser.load options, options, @
-    @isReady = false
 
     @connection = if @_groupConnection then @_groupConnection
     else if @instance.datastore == "redis" then new RedisConnection @clientOptions, @Promise, @instance.Events
@@ -16,8 +15,7 @@ class RedisDatastore
     @ready = @connection.ready
     .then (@clients) =>
       args = @prepareInitSettings @clearDatastore
-      @isReady = true
-      @runScript "init", args
+      @runScript "init", false, args
     .then =>
       @connection.addLimiter @instance, (message) =>
         [type, info] = message.split ":"
@@ -29,19 +27,20 @@ class RedisDatastore
     if !@_groupConnection?
       @connection.disconnect flush
 
-  runScript: (name, args) ->
-    if !@isReady then @Promise.reject new BottleneckError "This limiter is not done connecting to Redis yet. Wait for the '.ready()' promise to resolve before submitting requests."
-    else
-      new @Promise (resolve, reject) =>
-        @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
-        arr = @connection.scriptArgs name, @originalId, args, (err, replies) ->
-          if err? then return reject err
-          return resolve replies
-        @connection.scriptFn(name).apply {}, arr
-      .catch (e) =>
-        if e.message == "SETTINGS_KEY_NOT_FOUND"
-        then @runScript("init", @prepareInitSettings(false)).then => @runScript(name, args)
-        else @Promise.reject e
+  runScript: (name, hasNow, args) ->
+    await @ready unless name == "init"
+    args[args.length - 1] = Date.now() if hasNow
+    new @Promise (resolve, reject) =>
+      @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
+      arr = @connection.scriptArgs name, @originalId, args, (err, replies) ->
+        if err? then return reject err
+        return resolve replies
+      @connection.scriptFn(name).apply {}, arr
+    .catch (e) =>
+      if e.message == "SETTINGS_KEY_NOT_FOUND"
+        @runScript("init", false, @prepareInitSettings(false))
+        .then => @runScript(name, hasNow, args)
+      else @Promise.reject e
 
   prepareArray: (arr) -> arr.map (x) -> if x? then x.toString() else ""
 
@@ -64,20 +63,20 @@ class RedisDatastore
 
   convertBool: (b) -> !!b
 
-  __updateSettings__: (options) -> await @runScript "update_settings", @prepareObject options
+  __updateSettings__: (options) -> await @runScript "update_settings", false, @prepareObject options
 
-  __running__: -> await @runScript "running", [Date.now()]
+  __running__: -> await @runScript "running", true, [0]
 
-  __groupCheck__: -> @convertBool await @runScript "group_check", []
+  __groupCheck__: -> @convertBool await @runScript "group_check", false, []
 
-  __incrementReservoir__: (incr) -> await @runScript "increment_reservoir", [incr]
+  __incrementReservoir__: (incr) -> await @runScript "increment_reservoir", false, [incr]
 
-  __currentReservoir__: -> await @runScript "current_reservoir", []
+  __currentReservoir__: -> await @runScript "current_reservoir", false, []
 
-  __check__: (weight) -> @convertBool await @runScript "check", @prepareArray [weight, Date.now()]
+  __check__: (weight) -> @convertBool await @runScript "check", true, @prepareArray [weight, 0]
 
   __register__: (index, weight, expiration) ->
-    [success, wait, reservoir] = await @runScript "register", @prepareArray [index, weight, expiration, Date.now()]
+    [success, wait, reservoir] = await @runScript "register", true, @prepareArray [index, weight, expiration, 0]
     return {
       success: @convertBool(success),
       wait,
@@ -86,7 +85,7 @@ class RedisDatastore
 
   __submit__: (queueLength, weight) ->
     try
-      [reachedHWM, blocked, strategy] = await @runScript "submit", @prepareArray [queueLength, weight, Date.now()]
+      [reachedHWM, blocked, strategy] = await @runScript "submit", true, @prepareArray [queueLength, weight, 0]
       return {
         reachedHWM: @convertBool(reachedHWM),
         blocked: @convertBool(blocked),
@@ -100,7 +99,7 @@ class RedisDatastore
         throw e
 
   __free__: (index, weight) ->
-    result = await @runScript "free", @prepareArray [index, Date.now()]
+    result = await @runScript "free", true, @prepareArray [index, 0]
     return { running: result }
 
 module.exports = RedisDatastore
