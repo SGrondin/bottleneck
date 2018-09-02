@@ -74,7 +74,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         sDefaults = parser.load(options, this.storeDefaults, {});
         this._store = function () {
           if (this.datastore === "local") {
-            return new LocalDatastore(parser.load(options, this.storeInstanceDefaults, sDefaults));
+            return new LocalDatastore(this, parser.load(options, this.storeInstanceDefaults, sDefaults));
           } else if (this.datastore === "redis" || this.datastore === "ioredis") {
             return new RedisDatastore(this, sDefaults, parser.load(options, this.storeInstanceDefaults, {}));
           } else {
@@ -89,6 +89,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
       clients() {
         return this._store.clients;
+      }
+
+      publish(message) {
+        return this._store.__publish__(message);
       }
 
       disconnect(flush = true) {
@@ -1018,7 +1022,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   BottleneckError = require("./BottleneckError");
 
   LocalDatastore = class LocalDatastore {
-    constructor(options) {
+    constructor(instance, options) {
+      this.instance = instance;
       parser.load(options, options, this);
       this._nextRequest = Date.now();
       this._running = 0;
@@ -1026,6 +1031,15 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this._unblockTime = 0;
       this.ready = this.yieldLoop();
       this.clients = {};
+    }
+
+    __publish__(message) {
+      var _this = this;
+
+      return _asyncToGenerator(function* () {
+        yield _this.yieldLoop();
+        return _this.instance.Events.trigger("message", [message.toString()]);
+      })();
     }
 
     __disconnect__(flush) {
@@ -1044,30 +1058,30 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __updateSettings__(options) {
-      var _this = this;
+      var _this2 = this;
 
       return _asyncToGenerator(function* () {
-        yield _this.yieldLoop();
-        parser.overwrite(options, options, _this);
+        yield _this2.yieldLoop();
+        parser.overwrite(options, options, _this2);
         return true;
       })();
     }
 
     __running__() {
-      var _this2 = this;
-
-      return _asyncToGenerator(function* () {
-        yield _this2.yieldLoop();
-        return _this2._running;
-      })();
-    }
-
-    __groupCheck__(time) {
       var _this3 = this;
 
       return _asyncToGenerator(function* () {
         yield _this3.yieldLoop();
-        return _this3._nextRequest + _this3.timeout < time;
+        return _this3._running;
+      })();
+    }
+
+    __groupCheck__(time) {
+      var _this4 = this;
+
+      return _asyncToGenerator(function* () {
+        yield _this4.yieldLoop();
+        return _this4._nextRequest + _this4.timeout < time;
       })();
     }
 
@@ -1076,20 +1090,20 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __incrementReservoir__(incr) {
-      var _this4 = this;
-
-      return _asyncToGenerator(function* () {
-        yield _this4.yieldLoop();
-        return _this4.reservoir += incr;
-      })();
-    }
-
-    __currentReservoir__() {
       var _this5 = this;
 
       return _asyncToGenerator(function* () {
         yield _this5.yieldLoop();
-        return _this5.reservoir;
+        return _this5.reservoir += incr;
+      })();
+    }
+
+    __currentReservoir__() {
+      var _this6 = this;
+
+      return _asyncToGenerator(function* () {
+        yield _this6.yieldLoop();
+        return _this6.reservoir;
       })();
     }
 
@@ -1102,43 +1116,43 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __check__(weight) {
-      var _this6 = this;
+      var _this7 = this;
 
       return _asyncToGenerator(function* () {
         var now;
-        yield _this6.yieldLoop();
+        yield _this7.yieldLoop();
         now = Date.now();
-        return _this6.check(weight, now);
+        return _this7.check(weight, now);
       })();
     }
 
     __register__(index, weight, expiration) {
-      var _this7 = this;
+      var _this8 = this;
 
       return _asyncToGenerator(function* () {
         var now, wait;
-        yield _this7.yieldLoop();
+        yield _this8.yieldLoop();
         now = Date.now();
-        if (_this7.conditionsCheck(weight)) {
-          _this7._running += weight;
-          _this7._executing[index] = {
+        if (_this8.conditionsCheck(weight)) {
+          _this8._running += weight;
+          _this8._executing[index] = {
             timeout: expiration != null ? setTimeout(function () {
-              if (!_this7._executing[index].freed) {
-                _this7._executing[index].freed = true;
-                return _this7._running -= weight;
+              if (!_this8._executing[index].freed) {
+                _this8._executing[index].freed = true;
+                return _this8._running -= weight;
               }
             }, expiration) : void 0,
             freed: false
           };
-          if (_this7.reservoir != null) {
-            _this7.reservoir -= weight;
+          if (_this8.reservoir != null) {
+            _this8.reservoir -= weight;
           }
-          wait = Math.max(_this7._nextRequest - now, 0);
-          _this7._nextRequest = now + wait + _this7.minTime;
+          wait = Math.max(_this8._nextRequest - now, 0);
+          _this8._nextRequest = now + wait + _this8.minTime;
           return {
             success: true,
             wait,
-            reservoir: _this7.reservoir
+            reservoir: _this8.reservoir
           };
         } else {
           return {
@@ -1153,41 +1167,41 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __submit__(queueLength, weight) {
-      var _this8 = this;
+      var _this9 = this;
 
       return _asyncToGenerator(function* () {
         var blocked, now, reachedHWM;
-        yield _this8.yieldLoop();
-        if (_this8.maxConcurrent != null && weight > _this8.maxConcurrent) {
-          throw new BottleneckError(`Impossible to add a job having a weight of ${weight} to a limiter having a maxConcurrent setting of ${_this8.maxConcurrent}`);
+        yield _this9.yieldLoop();
+        if (_this9.maxConcurrent != null && weight > _this9.maxConcurrent) {
+          throw new BottleneckError(`Impossible to add a job having a weight of ${weight} to a limiter having a maxConcurrent setting of ${_this9.maxConcurrent}`);
         }
         now = Date.now();
-        reachedHWM = _this8.highWater != null && queueLength === _this8.highWater && !_this8.check(weight, now);
-        blocked = _this8.strategyIsBlock() && (reachedHWM || _this8.isBlocked(now));
+        reachedHWM = _this9.highWater != null && queueLength === _this9.highWater && !_this9.check(weight, now);
+        blocked = _this9.strategyIsBlock() && (reachedHWM || _this9.isBlocked(now));
         if (blocked) {
-          _this8._unblockTime = now + _this8.computePenalty();
-          _this8._nextRequest = _this8._unblockTime + _this8.minTime;
+          _this9._unblockTime = now + _this9.computePenalty();
+          _this9._nextRequest = _this9._unblockTime + _this9.minTime;
         }
         return {
           reachedHWM,
           blocked,
-          strategy: _this8.strategy
+          strategy: _this9.strategy
         };
       })();
     }
 
     __free__(index, weight) {
-      var _this9 = this;
+      var _this10 = this;
 
       return _asyncToGenerator(function* () {
-        yield _this9.yieldLoop();
-        clearTimeout(_this9._executing[index].timeout);
-        if (!_this9._executing[index].freed) {
-          _this9._executing[index].freed = true;
-          _this9._running -= weight;
+        yield _this10.yieldLoop();
+        clearTimeout(_this10._executing[index].timeout);
+        if (!_this10._executing[index].freed) {
+          _this10._executing[index].freed = true;
+          _this10._running -= weight;
         }
         return {
-          running: _this9._running
+          running: _this10._running
         };
       })();
     }
@@ -1339,21 +1353,34 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return this.runScript("init", false, args);
       }).then(() => {
         this.connection.addLimiter(this.instance, message => {
-          var info, type;
-
-          var _message$split = message.split(":");
-
-          var _message$split2 = _slicedToArray(_message$split, 2);
-
-          type = _message$split2[0];
-          info = _message$split2[1];
+          var data, pos, type;
+          pos = message.indexOf(":");
+          var _ref = [message.slice(0, pos), message.slice(pos + 1)];
+          type = _ref[0];
+          data = _ref[1];
 
           if (type === "freed") {
-            return this.instance._drainAll(~~info);
+            return this.instance._drainAll(~~data);
+          } else if (type === "message") {
+            return this.instance.Events.trigger("message", [data]);
           }
         });
         return this.clients;
       });
+    }
+
+    __publish__(message) {
+      var _this = this;
+
+      return _asyncToGenerator(function* () {
+        var client;
+
+        var _ref2 = yield _this.ready;
+
+        client = _ref2.client;
+
+        return client.publish(`bottleneck_${_this.instance.id}`, `message:${message.toString()}`);
+      })();
     }
 
     __disconnect__(flush) {
@@ -1364,32 +1391,32 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     runScript(name, hasNow, args) {
-      var _this = this;
+      var _this2 = this;
 
       return _asyncToGenerator(function* () {
         if (name !== "init") {
-          yield _this.ready;
+          yield _this2.ready;
         }
         if (hasNow) {
           args[args.length - 1] = Date.now();
         }
-        return new _this.Promise(function (resolve, reject) {
+        return new _this2.Promise(function (resolve, reject) {
           var arr;
-          _this.instance.Events.trigger("debug", [`Calling Redis script: ${name}.lua`, args]);
-          arr = _this.connection.scriptArgs(name, _this.originalId, args, function (err, replies) {
+          _this2.instance.Events.trigger("debug", [`Calling Redis script: ${name}.lua`, args]);
+          arr = _this2.connection.scriptArgs(name, _this2.originalId, args, function (err, replies) {
             if (err != null) {
               return reject(err);
             }
             return resolve(replies);
           });
-          return _this.connection.scriptFn(name).apply({}, arr);
+          return _this2.connection.scriptFn(name).apply({}, arr);
         }).catch(function (e) {
           if (e.message === "SETTINGS_KEY_NOT_FOUND") {
-            return _this.runScript("init", false, _this.prepareInitSettings(false)).then(function () {
-              return _this.runScript(name, hasNow, args);
+            return _this2.runScript("init", false, _this2.prepareInitSettings(false)).then(function () {
+              return _this2.runScript(name, hasNow, args);
             });
           } else {
-            return _this.Promise.reject(e);
+            return _this2.Promise.reject(e);
           }
         });
       })();
@@ -1434,69 +1461,69 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __updateSettings__(options) {
-      var _this2 = this;
+      var _this3 = this;
 
       return _asyncToGenerator(function* () {
-        return yield _this2.runScript("update_settings", false, _this2.prepareObject(options));
+        return yield _this3.runScript("update_settings", false, _this3.prepareObject(options));
       })();
     }
 
     __running__() {
-      var _this3 = this;
+      var _this4 = this;
 
       return _asyncToGenerator(function* () {
-        return yield _this3.runScript("running", true, [0]);
+        return yield _this4.runScript("running", true, [0]);
       })();
     }
 
     __groupCheck__() {
-      var _this4 = this;
+      var _this5 = this;
 
       return _asyncToGenerator(function* () {
-        return _this4.convertBool((yield _this4.runScript("group_check", false, [])));
+        return _this5.convertBool((yield _this5.runScript("group_check", false, [])));
       })();
     }
 
     __incrementReservoir__(incr) {
-      var _this5 = this;
+      var _this6 = this;
 
       return _asyncToGenerator(function* () {
-        return yield _this5.runScript("increment_reservoir", false, [incr]);
+        return yield _this6.runScript("increment_reservoir", false, [incr]);
       })();
     }
 
     __currentReservoir__() {
-      var _this6 = this;
+      var _this7 = this;
 
       return _asyncToGenerator(function* () {
-        return yield _this6.runScript("current_reservoir", false, []);
+        return yield _this7.runScript("current_reservoir", false, []);
       })();
     }
 
     __check__(weight) {
-      var _this7 = this;
+      var _this8 = this;
 
       return _asyncToGenerator(function* () {
-        return _this7.convertBool((yield _this7.runScript("check", true, _this7.prepareArray([weight, 0]))));
+        return _this8.convertBool((yield _this8.runScript("check", true, _this8.prepareArray([weight, 0]))));
       })();
     }
 
     __register__(index, weight, expiration) {
-      var _this8 = this;
+      var _this9 = this;
 
       return _asyncToGenerator(function* () {
         var reservoir, success, wait;
 
-        var _ref = yield _this8.runScript("register", true, _this8.prepareArray([index, weight, expiration, 0]));
+        var _ref3 = yield _this9.runScript("register", true, _this9.prepareArray([index, weight, expiration, 0]));
 
-        var _ref2 = _slicedToArray(_ref, 3);
+        var _ref4 = _slicedToArray(_ref3, 3);
 
-        success = _ref2[0];
-        wait = _ref2[1];
-        reservoir = _ref2[2];
+        success = _ref4[0];
+        wait = _ref4[1];
+        reservoir = _ref4[2];
 
         return {
-          success: _this8.convertBool(success),
+          success: _this9.convertBool(success),
           wait,
           reservoir
         };
@@ -1504,22 +1531,22 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __submit__(queueLength, weight) {
-      var _this9 = this;
+      var _this10 = this;
 
       return _asyncToGenerator(function* () {
         var blocked, e, maxConcurrent, overweight, reachedHWM, strategy;
         try {
-          var _ref3 = yield _this9.runScript("submit", true, _this9.prepareArray([queueLength, weight, 0]));
+          var _ref5 = yield _this10.runScript("submit", true, _this10.prepareArray([queueLength, weight, 0]));
 
-          var _ref4 = _slicedToArray(_ref3, 3);
+          var _ref6 = _slicedToArray(_ref5, 3);
 
-          reachedHWM = _ref4[0];
-          blocked = _ref4[1];
-          strategy = _ref4[2];
+          reachedHWM = _ref6[0];
+          blocked = _ref6[1];
+          strategy = _ref6[2];
 
           return {
-            reachedHWM: _this9.convertBool(reachedHWM),
-            blocked: _this9.convertBool(blocked),
+            reachedHWM: _this10.convertBool(reachedHWM),
+            blocked: _this10.convertBool(blocked),
             strategy
           };
         } catch (error) {
@@ -1542,11 +1569,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __free__(index, weight) {
-      var _this10 = this;
+      var _this11 = this;
 
       return _asyncToGenerator(function* () {
         var result;
-        result = yield _this10.runScript("free", true, _this10.prepareArray([index, 0]));
+        result = yield _this11.runScript("free", true, _this11.prepareArray([index, 0]));
         return {
           running: result
         };

@@ -58,13 +58,15 @@ class Bottleneck
     @_submitLock = new Sync "submit"
     @_registerLock = new Sync "register"
     sDefaults = parser.load options, @storeDefaults, {}
-    @_store = if @datastore == "local" then new LocalDatastore parser.load options, @storeInstanceDefaults, sDefaults
+    @_store = if @datastore == "local" then new LocalDatastore @, parser.load options, @storeInstanceDefaults, sDefaults
     else if @datastore == "redis" || @datastore == "ioredis" then new RedisDatastore @, sDefaults, parser.load options, @storeInstanceDefaults, {}
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
 
   ready: => @_store.ready
 
   clients: => @_store.clients
+
+  publish: (message) -> @_store.__publish__ message
 
   disconnect: (flush=true) =>
     await @_store.__disconnect__ flush

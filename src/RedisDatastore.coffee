@@ -18,9 +18,15 @@ class RedisDatastore
       @runScript "init", false, args
     .then =>
       @connection.addLimiter @instance, (message) =>
-        [type, info] = message.split ":"
-        if type == "freed" then @instance._drainAll ~~info
+        pos = message.indexOf(":")
+        [type, data] = [message.slice(0, pos), message.slice(pos+1)]
+        if type == "freed" then @instance._drainAll ~~data
+        else if type == "message" then @instance.Events.trigger "message", [data]
       @clients
+
+  __publish__: (message) ->
+    { client } = await @ready
+    client.publish("bottleneck_#{@instance.id}", "message:#{message.toString()}")
 
   __disconnect__: (flush) ->
     @connection.removeLimiter @instance
@@ -29,7 +35,7 @@ class RedisDatastore
 
   runScript: (name, hasNow, args) ->
     await @ready unless name == "init"
-    args[args.length - 1] = Date.now() if hasNow
+    if hasNow then args[args.length - 1] = Date.now()
     new @Promise (resolve, reject) =>
       @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
       arr = @connection.scriptArgs name, @originalId, args, (err, replies) ->

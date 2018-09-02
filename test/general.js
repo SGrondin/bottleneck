@@ -464,4 +464,32 @@ describe('General', function () {
     })
   })
 
+  describe.only('Pubsub', function () {
+    it('Should pass strings', function (done) {
+      c = makeTest({ maxConcurrent: 2 })
+
+      c.limiter.on('message', function (msg) {
+        c.mustEqual(msg, 'hello')
+        done()
+      })
+
+      c.limiter.publish('hello')
+    })
+
+    it('Should pass objects', function (done) {
+      c = makeTest({ maxConcurrent: 2 })
+      var obj = {
+        array: ['abc', true],
+        num: 235.59
+      }
+
+      c.limiter.on('message', function (msg) {
+        c.mustEqual(JSON.parse(msg), obj)
+        done()
+      })
+
+      c.limiter.publish(JSON.stringify(obj))
+    })
+  })
+
 })

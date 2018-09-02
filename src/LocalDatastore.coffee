@@ -3,7 +3,7 @@ DLList = require "./DLList"
 BottleneckError = require "./BottleneckError"
 
 class LocalDatastore
-  constructor: (options) ->
+  constructor: (@instance, options) ->
     parser.load options, options, @
     @_nextRequest = Date.now()
     @_running = 0
@@ -11,6 +11,10 @@ class LocalDatastore
     @_unblockTime = 0
     @ready = @yieldLoop()
     @clients = {}
+
+  __publish__: (message) ->
+    await @yieldLoop()
+    @instance.Events.trigger "message", [message.toString()]
 
   __disconnect__: (flush) -> @Promise.resolve()
 
