@@ -10,6 +10,9 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
     afterEach(function () {
       return c.limiter.disconnect(false)
+      .catch(function () {
+        console.log(111)
+      })
     })
 
     it('Should accept deprecated .ready() method', function () {
@@ -152,17 +155,24 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
-    it('Should safely handle connection failures', function (done) {
-      c = makeTest()
-      var limiter = new Bottleneck({ datastore: process.env.DATASTORE, clientOptions: { port: 1 }})
+    it('Should safely handle connection failures', function () {
+      c = makeTest({
+        clientOptions: { port: 1 },
+        errorEventsExpected: true
+      })
 
-      limiter.ready()
-      .catch(function (err) {
-        assert(err != null)
+      return new Promise(function (resolve, reject) {
+        c.limiter.on('error', function (err) {
+          assert(err != null)
+          resolve()
+        })
 
-        return limiter.disconnect(false)
+        c.limiter.ready()
         .then(function () {
-          done()
+          reject(new Error('Should not have connected'))
+        })
+        .catch(function (err) {
+          reject(err)
         })
       })
     })

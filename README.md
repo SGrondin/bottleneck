@@ -249,19 +249,19 @@ wrapped()
 
 ```js
 // Submit
-limiter.submit(options, someAsyncCall, arg1, arg2, callback);
+limiter.submit({ /* options */ }, someAsyncCall, arg1, arg2, callback);
 
 // Schedule
-limiter.schedule(options, fn, arg1, arg2);
+limiter.schedule({ /* options */ }, fn, arg1, arg2);
 
 // Wrap
 const wrapped = limiter.wrap(fn);
-wrapped.withOptions(options, arg1, arg2);
+wrapped.withOptions({ /* options */ }, arg1, arg2);
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `priority` | `5` | A priority between `0` and `9`. A job with a priority of `4` will _always_ be executed before a job with a priority of `5`. |
+| `priority` | `5` | A priority between `0` and `9`. A job with a priority of `4` will _always_ be executed before a job with a priority of `5`. Priorities work best with a low `maxConcurrent` value. |
 | `weight` | `1` | Must be an integer equal to or higher than `0`. The `weight` is what increases the number of running jobs (up to `maxConcurrent`, if using) and decreases the `reservoir` value (if using). |
 | `expiration` | `null` (unlimited) | The number of milliseconds a job has to finish. Jobs that take longer than `expiration` ms will be failed with a `BottleneckError`. |
 | `id` | `<no-id>` | You can give an ID to your jobs, for easier debugging. See [Debugging your application](#debugging-your-application). |
@@ -535,23 +535,51 @@ const limiter = new Bottleneck({
 | `clusterNodes` | `null` | **ioredis only.** When `clusterNodes` is not null, the client will be instantiated by calling `new Redis.Cluster(clusterNodes, clientOptions)` instead of `new Redis(clientOptions)`. |
 | `timeout` | `null` | The Redis TTL in milliseconds ([TTL](https://redis.io/commands/ttl)) for the keys created by the limiter. When `timeout` is set, the limiter's state will be automatically removed from Redis after `timeout` milliseconds of inactivity. **Note:** `timeout` is `300000` (5 minutes) by default when using a Group. |
 
+The `ready()`, `publish()`, `disconnect()` and `clients()` methods also exist when using the `local` datastore, for code compatibility reasons: code written for `redis`/`ioredis` won't break with `local`.
+
 ###### `.ready()`
 
-Since your limiter has to connect to Redis, and this operation takes time and can fail, you need to wait for your limiter to be connected before using it.
+This method returns a promise that resolves once the limiter is connected to Redis.
+
+As of v2.9.0, it's no longer necessary to wait for `.ready()` to resolve before issuing commands to a limiter. The commands will be queued until the limiter successfully connects. Make sure to listen to the `error` event to handle connection errors.
 
 ```js
 const limiter = new Bottleneck({ /* ... */ });
 
+limiter.on("error", (err) => {
+  // handle network errors
+});
+
 limiter.ready()
 .then(() => {
   // The limiter is ready
-})
-.catch((error) => {
-  // The limiter couldn't start
 });
 ```
 
-The `.ready()` method also exists when using the `local` datastore, for code compatibility reasons: code written for `redis`/`ioredis` will also work with `local`.
+###### `.publish(message)`
+
+This method broadcasts the `message` string to every limiter in the Cluster. It returns a promise.
+
+```js
+const limiter = new Bottleneck({ /* ... */ });
+
+limiter.on("message", (msg) => {
+  // handle messages
+});
+
+limiter.publish("this is a string");
+```
+
+To send objects, stringify them first.
+
+```js
+limiter.on("message", (msg) => {
+  console.log(JSON.parse(msg).hello) // Prints "world"
+});
+
+limiter.publish(JSON.stringify({ hello: "world" }));
+```
+
 
 ###### `.disconnect(flush)`
 
@@ -577,8 +605,6 @@ If you need direct access to the redis clients, use `.clients()`:
 console.log(limiter.clients());
 // { client: <Redis Client>, subscriber: <Redis Client> }
 ```
-
-Just like `.ready()`, calling `.clients()` when using the `local` datastore won't fail, it just won't return anything.
 
 ##### Important considerations when Clustering
 

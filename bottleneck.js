@@ -922,25 +922,16 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.ready = new this.Promise((resolve, reject) => {
         var count, done, errorListener;
         errorListener = e => {
-          [this.client, this.subClient].forEach(client => {
-            return client.removeListener("error", errorListener);
-          });
-          return reject(e);
+          return this.Events.trigger("error", [e]);
         };
         count = 0;
         done = () => {
           count++;
           if (count === 2) {
-            [this.client, this.subClient].forEach(client => {
-              client.removeListener("error", errorListener);
-              return client.on("error", e => {
-                return this.Events.trigger("error", [e]);
-              });
+            [this.client, this.subClient].forEach(c => {
+              return c.removeAllListeners("ready");
             });
-            return resolve({
-              client: this.client,
-              subscriber: this.subClient
-            });
+            return resolve();
           }
         };
         this.client.on("error", errorListener);
@@ -1233,20 +1224,14 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.ready = new this.Promise((resolve, reject) => {
         var count, done, errorListener;
         errorListener = e => {
-          [this.client, this.subClient].forEach(client => {
-            return client.removeListener("error", errorListener);
-          });
-          return reject(e);
+          return this.Events.trigger("error", [e]);
         };
         count = 0;
         done = () => {
           count++;
           if (count === 2) {
-            [this.client, this.subClient].forEach(client => {
-              client.removeListener("error", errorListener);
-              return client.on("error", e => {
-                return this.Events.trigger("error", [e]);
-              });
+            [this.client, this.subClient].forEach(c => {
+              return c.removeAllListeners("ready");
             });
             return resolve();
           }

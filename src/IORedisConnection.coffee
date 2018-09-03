@@ -12,18 +12,13 @@ class IORedisConnection
     @pubsubs = {}
 
     @ready = new @Promise (resolve, reject) =>
-      errorListener = (e) =>
-        [@client, @subClient].forEach (client) =>
-          client.removeListener "error", errorListener
-        reject e
+      errorListener = (e) => @Events.trigger "error", [e]
       count = 0
       done = =>
         count++
         if count == 2
-          [@client, @subClient].forEach (client) =>
-            client.removeListener "error", errorListener
-            client.on "error", (e) => @Events.trigger "error", [e]
-          resolve({ client: @client, subscriber: @subClient })
+          [@client, @subClient].forEach (c) => c.removeAllListeners "ready"
+          resolve()
       @client.on "error", errorListener
       @client.on "ready", -> done()
       @subClient.on "error", errorListener
