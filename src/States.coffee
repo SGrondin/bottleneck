@@ -27,6 +27,15 @@ class States
 
   jobStatus: (id) -> @status[@jobs[id]] ? null
 
+  statusJobs: (status) ->
+    if status?
+      index = @status.indexOf status
+      if index < 0
+        throw new BottleneckError "status must be one of #{@status.join ', '}"
+      k for k,v of @jobs when v == index
+    else
+      Object.keys @jobs
+
   statusCounts: -> @counts.reduce(((acc, v, i) => acc[@status[i]] = v; acc), {})
 
 module.exports = States

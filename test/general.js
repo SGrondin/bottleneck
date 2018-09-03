@@ -183,6 +183,43 @@ describe('General', function () {
     })
   })
 
+  it('Should return jobs for a status', function () {
+    c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
+
+    c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
+
+    c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
+    c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 2 }, c.slowPromise, 200, null, 2), 2)
+    c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 3 }, c.slowPromise, 100, null, 3), 3)
+    c.mustEqual(c.limiter.counts(), { RECEIVED: 3, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
+
+    c.mustEqual(c.limiter.jobs(), ['1', '2', '3'])
+    c.mustEqual(c.limiter.jobs('RECEIVED'), ['1', '2', '3'])
+
+    return c.wait(50)
+    .then(function () {
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 1, EXECUTING: 1, DONE: 0 })
+      c.mustEqual(c.limiter.jobs('EXECUTING'), ['1'])
+      c.mustEqual(c.limiter.jobs('RUNNING'), ['2'])
+      c.mustEqual(c.limiter.jobs('QUEUED'), ['3'])
+
+      return c.wait(100)
+    })
+    .then(function () {
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 0, EXECUTING: 1, DONE: 1 })
+      c.mustEqual(c.limiter.jobs('DONE'), ['1'])
+      c.mustEqual(c.limiter.jobs('EXECUTING'), ['2'])
+      c.mustEqual(c.limiter.jobs('QUEUED'), ['3'])
+
+      return c.last()
+    })
+    .then(function (results) {
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 4 })
+      c.checkDuration(400)
+      c.checkResultsOrder([[1], [2], [3]])
+    })
+  })
+
   describe('Events', function () {
     it('Should return itself', function () {
       c = makeTest({ id: 'test-limiter' })

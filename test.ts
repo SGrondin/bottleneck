@@ -116,7 +116,7 @@ wrapped(1, 2).then((x) => {
   assert(s == "Total: 3");
 });
 
-wrapped.withOptions({ priority: 1 }, 9, 9).then((x) => {
+wrapped.withOptions({ priority: 1, id: 'some-id' }, 9, 9).then((x) => {
   let s: string = x;
   console.log(s);
   assert(s == "Total: 18");
@@ -125,6 +125,8 @@ wrapped.withOptions({ priority: 1 }, 9, 9).then((x) => {
 let counts = limiter.counts();
 console.log(`${counts.EXECUTING + 2}`);
 console.log(limiter.jobStatus('some-id'))
+console.log(limiter.jobs());
+console.log(limiter.jobs(Bottleneck.Status.RUNNING));
 
 
 group.deleteKey("pizza");

@@ -133,6 +133,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return this._states.jobStatus(id);
       }
 
+      jobs(status) {
+        return this._states.statusJobs(status);
+      }
+
       counts() {
         return this._states.statusCounts();
       }
@@ -1685,8 +1689,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   BottleneckError = require("./BottleneckError");
 
   States = class States {
-    constructor(status) {
-      this.status = status;
+    constructor(status1) {
+      this.status = status1;
       this.jobs = {};
       this.counts = this.status.map(function () {
         return 0;
@@ -1724,6 +1728,27 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     jobStatus(id) {
       var ref;
       return (ref = this.status[this.jobs[id]]) != null ? ref : null;
+    }
+
+    statusJobs(status) {
+      var index, k, ref, results, v;
+      if (status != null) {
+        index = this.status.indexOf(status);
+        if (index < 0) {
+          throw new BottleneckError(`status must be one of ${this.status.join(', ')}`);
+        }
+        ref = this.jobs;
+        results = [];
+        for (k in ref) {
+          v = ref[k];
+          if (v === index) {
+            results.push(k);
+          }
+        }
+        return results;
+      } else {
+        return Object.keys(this.jobs);
+      }
     }
 
     statusCounts() {

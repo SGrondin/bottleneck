@@ -234,6 +234,11 @@ declare module "bottleneck" {
         jobStatus(id: string): Bottleneck.Status;
 
         /**
+         * Returns the status of the job with the provided job id.
+         */
+        jobs(status?: Bottleneck.Status): string[];
+
+        /**
          * Returns the number of requests queued.
          * @param priority - Returns the number of requests queued with the specified priority.
          */

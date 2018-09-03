@@ -319,7 +319,18 @@ console.log(limiter.jobStatus("some-job-id"));
 // Example: QUEUED
 ```
 
-Returns the status of the job with the provided job id. See [Job Options](#job-options). Returns `null` if no job with that id exist.
+Returns the status of the job with the provided job id. Returns `null` if no job with that id exist.
+
+**Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable that feature by passing `trackDoneStatus: true` as an option when creating a limiter.
+
+#### jobs()
+
+```js
+console.log(limiter.jobs("RUNNING"));
+// Example: ['id1', 'id2']
+```
+
+Returns an array of all the job ids with the specified status. Not passing a status string returns all the known ids.
 
 **Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable that feature by passing `trackDoneStatus: true` as an option when creating a limiter.
 
@@ -680,7 +691,7 @@ When Bottleneck has to fail one of your jobs, it does so by using `BottleneckErr
 limiter.schedule(fn)
 .then((result) => { /* ... */ } )
 .catch((error) => {
-  if (error instanceof Bottleneck.prototype.BottleneckError) {
+  if (error instanceof Bottleneck.BottleneckError) {
     /* ... */
   }
 });
@@ -691,7 +702,7 @@ Some Promise libraries also support selective `catch()` blocks that only catch a
 ```js
 limiter.schedule(fn)
 .then((result) => { /* ... */ } )
-.catch(Bottleneck.prototype.BottleneckError, (error) => {
+.catch(Bottleneck.BottleneckError, (error) => {
   /* ... */
 })
 .catch((error) => {

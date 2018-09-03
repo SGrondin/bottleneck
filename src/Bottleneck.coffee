@@ -82,6 +82,8 @@ class Bottleneck
 
   jobStatus: (id) -> @_states.jobStatus id
 
+  jobs: (status) -> @_states.statusJobs status
+
   counts: -> @_states.statusCounts()
 
   _makeQueues: -> new DLList() for i in [1..NUM_PRIORITIES]
