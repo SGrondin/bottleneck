@@ -629,7 +629,7 @@ clusterLimiter.ready()
 - Each standalone limiter has its own 2 connections.
 - Redis connectivity errors trigger an `error` event on the owner of the connection (the Group or the limiter).
 - Bottleneck is compatible with [Redis Clusters](https://redis.io/topics/cluster-tutorial) and Redis Sentinel, but you must use the `ioredis` datastore and pass the `clusterNodes` option.
-- Bottleneck's data is stored in Redis keys starting with `b_`. It also uses pub/sub channels starting with `bottleneck_` It will not interfere with any other data stored on the server.
+- Bottleneck's data is stored in Redis keys starting with `b_`. It also uses pub/sub channels starting with `b_` It will not interfere with any other data stored on the server.
 - Bottleneck loads a few Lua scripts on the Redis server using the `SCRIPT LOAD` command. These scripts only take up a few Kb of memory. Running the `SCRIPT FLUSH` command will cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
 - The Lua scripts are highly optimized and designed to use as few resources (CPU, especially) as possible.
 

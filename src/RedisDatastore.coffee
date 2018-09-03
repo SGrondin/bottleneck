@@ -22,11 +22,12 @@ class RedisDatastore
         [type, data] = [message.slice(0, pos), message.slice(pos+1)]
         if type == "freed" then @instance._drainAll ~~data
         else if type == "message" then @instance.Events.trigger "message", [data]
+    .then =>
       @clients
 
   __publish__: (message) ->
     { client } = await @ready
-    client.publish("bottleneck_#{@instance.id}", "message:#{message.toString()}")
+    client.publish(@instance._channel(), "message:#{message.toString()}")
 
   __disconnect__: (flush) ->
     @connection.removeLimiter @instance

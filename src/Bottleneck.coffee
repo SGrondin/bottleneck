@@ -66,11 +66,11 @@ class Bottleneck
 
   clients: => @_store.clients
 
+  _channel: -> "b_#{@id}"
+
   publish: (message) -> @_store.__publish__ message
 
-  disconnect: (flush=true) =>
-    await @_store.__disconnect__ flush
-    @
+  disconnect: (flush=true) -> @_store.__disconnect__ flush
 
   chain: (@_limiter) => @
 

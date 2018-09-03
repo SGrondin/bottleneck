@@ -464,7 +464,7 @@ describe('General', function () {
     })
   })
 
-  describe.only('Pubsub', function () {
+  describe('Pubsub', function () {
     it('Should pass strings', function (done) {
       c = makeTest({ maxConcurrent: 2 })
 

@@ -27,19 +27,21 @@ class IORedisConnection
       @client.on "error", errorListener
       @client.on "ready", -> done()
       @subClient.on "error", errorListener
-      @subClient.on "ready", =>
-        @subClient.psubscribe "bottleneck_*", -> done()
-      @subClient.on "pmessage", (pattern, channel, message) =>
+      @subClient.on "ready", -> done()
+      @subClient.on "message", (channel, message) =>
         @pubsubs[channel]?(message)
 
     .then => Scripts.names.forEach (name) => @client.defineCommand name, { lua: Scripts.payload(name) }
     .then => @Promise.resolve { client: @client, subscriber: @subClient }
 
   addLimiter: (instance, pubsub) ->
-    @pubsubs["bottleneck_#{instance.id}"] = pubsub
+    new instance.Promise (resolve, reject) =>
+      @subClient.subscribe instance._channel(), =>
+        @pubsubs[instance._channel()] = pubsub
+        resolve()
 
   removeLimiter: (instance) ->
-    delete @pubsubs["bottleneck_#{instance.id}"]
+    delete @pubsubs[instance._channel()]
 
   scriptArgs: (name, id, args, cb) ->
     keys = Scripts.keys name, id

@@ -32,8 +32,8 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       c = makeTest({ maxConcurrent: 2 })
 
       return c.limiter.disconnect()
-      .then(function (limiter) {
-        assert(limiter instanceof Bottleneck)
+      .then(function () {
+        // do nothing
       })
     })
 
@@ -279,6 +279,96 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       .then(function (running) {
         c.mustEqual(running, 0)
         return limiter.disconnect(false)
+      })
+    })
+
+    it('Should pass messages to all limiters in Cluster', function (done) {
+      c = makeTest({
+        maxConcurrent: 1,
+        minTime: 100,
+        id: 'super-duper'
+      })
+      var limiter1 = new Bottleneck({
+        maxConcurrent: 1,
+        minTime: 100,
+        id: 'super-duper',
+        datastore: process.env.DATASTORE
+      })
+      var limiter2 = new Bottleneck({
+        maxConcurrent: 1,
+        minTime: 100,
+        id: 'nope',
+        datastore: process.env.DATASTORE
+      })
+      var received = []
+
+      c.limiter.on('message', (msg) => {
+        received.push(1, msg)
+      })
+      limiter1.on('message', (msg) => {
+        received.push(2, msg)
+      })
+      limiter2.on('message', (msg) => {
+        received.push(3, msg)
+      })
+
+      Promise.all([c.limiter.ready(), limiter2.ready()])
+      .then(function () {
+        limiter1.publish(555)
+      })
+
+      setTimeout(function () {
+        limiter1.disconnect()
+        limiter2.disconnect()
+        c.mustEqual(received.sort(), [1, 2, '555', '555'])
+        done()
+      }, 150)
+    })
+
+    it('Should pass messages to correct limiter after Group re-instantiations', function () {
+      c = makeTest()
+      var group = new Bottleneck.Group({
+        maxConcurrent: 1,
+        minTime: 100,
+        datastore: process.env.DATASTORE
+      })
+      var received = []
+
+      return new Promise(function (resolve, reject) {
+        var limiter = group.key('A')
+
+        limiter.on('message', function (msg) {
+          received.push('1', msg)
+          return resolve()
+        })
+        limiter.publish('Bonjour!')
+      })
+      .then(function () {
+        return new Promise(function (resolve, reject) {
+          var limiter = group.key('B')
+
+          limiter.on('message', function (msg) {
+            received.push('2', msg)
+            return resolve()
+          })
+          limiter.publish('Comment allez-vous?')
+        })
+      })
+      .then(function () {
+        return new Promise(function (resolve, reject) {
+          group.deleteKey('A')
+          var limiter = group.key('A')
+
+          limiter.on('message', function (msg) {
+            received.push('3', msg)
+            return resolve()
+          })
+          limiter.publish('Au revoir!')
+        })
+      })
+      .then(function () {
+        c.mustEqual(received, ['1', 'Bonjour!', '2', 'Comment allez-vous?', '3', 'Au revoir!'])
+        group.disconnect()
       })
     })
 

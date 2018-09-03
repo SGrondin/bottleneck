@@ -24,10 +24,8 @@ class RedisConnection
       @client.on "error", errorListener
       @client.on "ready", -> done()
       @subClient.on "error", errorListener
-      @subClient.on "ready", =>
-        @subClient.on "psubscribe", -> done()
-        @subClient.psubscribe "bottleneck_*"
-      @subClient.on "pmessage", (pattern, channel, message) =>
+      @subClient.on "ready", -> done()
+      @subClient.on "message", (channel, message) =>
         @pubsubs[channel]?(message)
 
     .then => @Promise.all(Scripts.names.map (k) => @_loadScript k)
@@ -42,10 +40,14 @@ class RedisConnection
         return resolve replies[0]
 
   addLimiter: (instance, pubsub) ->
-    @pubsubs["bottleneck_#{instance.id}"] = pubsub
+    new instance.Promise (resolve, reject) =>
+      @subClient.on "subscribe", =>
+        @pubsubs[instance._channel()] = pubsub
+        resolve()
+      @subClient.subscribe instance._channel()
 
   removeLimiter: (instance) ->
-    delete @pubsubs["bottleneck_#{instance.id}"]
+    delete @pubsubs[instance._channel()]
 
   scriptArgs: (name, id, args, cb) ->
     keys = Scripts.keys name, id

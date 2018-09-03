@@ -27,8 +27,9 @@ class Group
     limiter
 
   deleteKey: (key="") =>
-    @instances[key]?.disconnect()
+    instance = @instances[key]
     delete @instances[key]
+    instance?.disconnect()
 
   limiters: =>
     for k, v of @instances then { key: k, limiter: v }

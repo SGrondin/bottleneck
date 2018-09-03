@@ -48,7 +48,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         var sDefaults;
         this.ready = this.ready.bind(this);
         this.clients = this.clients.bind(this);
-        this.disconnect = this.disconnect.bind(this);
         this.chain = this.chain.bind(this);
         this.queued = this.queued.bind(this);
         this.running = this.running.bind(this);
@@ -91,17 +90,16 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return this._store.clients;
       }
 
+      _channel() {
+        return `b_${this.id}`;
+      }
+
       publish(message) {
         return this._store.__publish__(message);
       }
 
       disconnect(flush = true) {
-        var _this = this;
-
-        return _asyncToGenerator(function* () {
-          yield _this._store.__disconnect__(flush);
-          return _this;
-        })();
+        return this._store.__disconnect__(flush);
       }
 
       chain(_limiter) {
@@ -124,10 +122,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       running() {
-        var _this2 = this;
+        var _this = this;
 
         return _asyncToGenerator(function* () {
-          return yield _this2._store.__running__();
+          return yield _this._store.__running__();
         })();
       }
 
@@ -184,15 +182,15 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       check(weight = 1) {
-        var _this3 = this;
+        var _this2 = this;
 
         return _asyncToGenerator(function* () {
-          return yield _this3._store.__check__(weight);
+          return yield _this2._store.__check__(weight);
         })();
       }
 
       _run(next, wait, index) {
-        var _this4 = this;
+        var _this3 = this;
 
         var completed, done;
         this.Events.trigger("debug", [`Scheduling ${next.options.id}`, {
@@ -206,36 +204,36 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             if (!done) {
               try {
                 done = true;
-                _this4._states.next(next.options.id); // DONE
-                clearTimeout(_this4._scheduled[index].expiration);
-                delete _this4._scheduled[index];
-                _this4.Events.trigger("debug", [`Completed ${next.options.id}`, {
+                _this3._states.next(next.options.id); // DONE
+                clearTimeout(_this3._scheduled[index].expiration);
+                delete _this3._scheduled[index];
+                _this3.Events.trigger("debug", [`Completed ${next.options.id}`, {
                   args: next.args,
                   options: next.options
                 }]);
-                _this4.Events.trigger("done", [`Completed ${next.options.id}`, {
+                _this3.Events.trigger("done", [`Completed ${next.options.id}`, {
                   args: next.args,
                   options: next.options
                 }]);
 
-                var _ref2 = yield _this4._store.__free__(index, next.options.weight);
+                var _ref2 = yield _this3._store.__free__(index, next.options.weight);
 
                 running = _ref2.running;
 
-                _this4.Events.trigger("debug", [`Freed ${next.options.id}`, {
+                _this3.Events.trigger("debug", [`Freed ${next.options.id}`, {
                   args: next.args,
                   options: next.options
                 }]);
-                _this4._drainAll().catch(function (e) {
-                  return _this4.Events.trigger("error", [e]);
+                _this3._drainAll().catch(function (e) {
+                  return _this3.Events.trigger("error", [e]);
                 });
-                if (running === 0 && _this4.empty()) {
-                  _this4.Events.trigger("idle", []);
+                if (running === 0 && _this3.empty()) {
+                  _this3.Events.trigger("idle", []);
                 }
                 return (ref = next.cb) != null ? ref.apply({}, args) : void 0;
               } catch (error) {
                 e = error;
-                return _this4.Events.trigger("error", [e]);
+                return _this3.Events.trigger("error", [e]);
               }
             }
           });
@@ -390,7 +388,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       submit(...args) {
-        var _this5 = this;
+        var _this4 = this;
 
         var cb, job, options, ref, ref1, ref2, task;
         if (typeof args[0] === "function") {
@@ -420,17 +418,17 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return this._submitLock.schedule(_asyncToGenerator(function* () {
           var blocked, e, reachedHWM, ref3, shifted, strategy;
           try {
-            var _ref10 = yield _this5._store.__submit__(_this5.queued(), options.weight);
+            var _ref10 = yield _this4._store.__submit__(_this4.queued(), options.weight);
 
             reachedHWM = _ref10.reachedHWM;
             blocked = _ref10.blocked;
             strategy = _ref10.strategy;
 
-            _this5.Events.trigger("debug", [`Queued ${options.id}`, { args, options, reachedHWM, blocked }]);
+            _this4.Events.trigger("debug", [`Queued ${options.id}`, { args, options, reachedHWM, blocked }]);
           } catch (error) {
             e = error;
-            _this5._states.remove(options.id);
-            _this5.Events.trigger("debug", [`Could not queue ${options.id}`, {
+            _this4._states.remove(options.id);
+            _this4.Events.trigger("debug", [`Could not queue ${options.id}`, {
               args,
               options,
               error: e
@@ -441,24 +439,24 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             return false;
           }
           if (blocked) {
-            _this5._queues = _this5._makeQueues();
-            _this5._drop(job);
+            _this4._queues = _this4._makeQueues();
+            _this4._drop(job);
             return true;
           } else if (reachedHWM) {
-            shifted = strategy === Bottleneck.prototype.strategy.LEAK ? _this5._getFirst(_this5._queues.slice(options.priority).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? _this5._getFirst(_this5._queues.slice(options.priority + 1).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
+            shifted = strategy === Bottleneck.prototype.strategy.LEAK ? _this4._getFirst(_this4._queues.slice(options.priority).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? _this4._getFirst(_this4._queues.slice(options.priority + 1).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
             if (shifted != null) {
-              _this5._drop(shifted);
+              _this4._drop(shifted);
             }
             if (shifted == null || strategy === Bottleneck.prototype.strategy.OVERFLOW) {
               if (shifted == null) {
-                _this5._drop(job);
+                _this4._drop(job);
               }
               return reachedHWM;
             }
           }
-          _this5._states.next(job.options.id); // QUEUED
-          _this5._queues[options.priority].push(job);
-          yield _this5._drainAll();
+          _this4._states.next(job.options.id); // QUEUED
+          _this4._queues[options.priority].push(job);
+          yield _this4._drainAll();
           return reachedHWM;
         }));
       }
@@ -518,35 +516,35 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       updateSettings(options = {}) {
-        var _this6 = this;
+        var _this5 = this;
 
         return _asyncToGenerator(function* () {
-          yield _this6._store.__updateSettings__(parser.overwrite(options, _this6.storeDefaults));
-          parser.overwrite(options, _this6.instanceDefaults, _this6);
-          _this6._drainAll().catch(function (e) {
-            return _this6.Events.trigger("error", [e]);
+          yield _this5._store.__updateSettings__(parser.overwrite(options, _this5.storeDefaults));
+          parser.overwrite(options, _this5.instanceDefaults, _this5);
+          _this5._drainAll().catch(function (e) {
+            return _this5.Events.trigger("error", [e]);
           });
-          return _this6;
+          return _this5;
         })();
       }
 
       currentReservoir() {
-        var _this7 = this;
+        var _this6 = this;
 
         return _asyncToGenerator(function* () {
-          return yield _this7._store.__currentReservoir__();
+          return yield _this6._store.__currentReservoir__();
         })();
       }
 
       incrementReservoir(incr = 0) {
-        var _this8 = this;
+        var _this7 = this;
 
         return _asyncToGenerator(function* () {
-          yield _this8._store.__incrementReservoir__(incr);
-          _this8._drainAll().catch(function (e) {
-            return _this8.Events.trigger("error", [e]);
+          yield _this7._store.__incrementReservoir__(incr);
+          _this7._drainAll().catch(function (e) {
+            return _this7.Events.trigger("error", [e]);
           });
-          return _this8;
+          return _this7;
         })();
       }
 
@@ -821,11 +819,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       deleteKey(key = "") {
-        var ref;
-        if ((ref = this.instances[key]) != null) {
-          ref.disconnect();
-        }
-        return delete this.instances[key];
+        var instance;
+        instance = this.instances[key];
+        delete this.instances[key];
+        return instance != null ? instance.disconnect() : void 0;
       }
 
       limiters() {
@@ -951,12 +948,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           return done();
         });
         this.subClient.on("error", errorListener);
-        this.subClient.on("ready", () => {
-          return this.subClient.psubscribe("bottleneck_*", function () {
-            return done();
-          });
+        this.subClient.on("ready", function () {
+          return done();
         });
-        return this.subClient.on("pmessage", (pattern, channel, message) => {
+        return this.subClient.on("message", (channel, message) => {
           var base;
           return typeof (base = this.pubsubs)[channel] === "function" ? base[channel](message) : void 0;
         });
@@ -975,11 +970,16 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     addLimiter(instance, pubsub) {
-      return this.pubsubs[`bottleneck_${instance.id}`] = pubsub;
+      return new instance.Promise((resolve, reject) => {
+        return this.subClient.subscribe(instance._channel(), () => {
+          this.pubsubs[instance._channel()] = pubsub;
+          return resolve();
+        });
+      });
     }
 
     removeLimiter(instance) {
-      return delete this.pubsubs[`bottleneck_${instance.id}`];
+      return delete this.pubsubs[instance._channel()];
     }
 
     scriptArgs(name, id, args, cb) {
@@ -1256,13 +1256,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           return done();
         });
         this.subClient.on("error", errorListener);
-        this.subClient.on("ready", () => {
-          this.subClient.on("psubscribe", function () {
-            return done();
-          });
-          return this.subClient.psubscribe("bottleneck_*");
+        this.subClient.on("ready", function () {
+          return done();
         });
-        return this.subClient.on("pmessage", (pattern, channel, message) => {
+        return this.subClient.on("message", (channel, message) => {
           var base;
           return typeof (base = this.pubsubs)[channel] === "function" ? base[channel](message) : void 0;
         });
@@ -1293,11 +1290,17 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     addLimiter(instance, pubsub) {
-      return this.pubsubs[`bottleneck_${instance.id}`] = pubsub;
+      return new instance.Promise((resolve, reject) => {
+        this.subClient.on("subscribe", () => {
+          this.pubsubs[instance._channel()] = pubsub;
+          return resolve();
+        });
+        return this.subClient.subscribe(instance._channel());
+      });
     }
 
     removeLimiter(instance) {
-      return delete this.pubsubs[`bottleneck_${instance.id}`];
+      return delete this.pubsubs[instance._channel()];
     }
 
     scriptArgs(name, id, args, cb) {
@@ -1352,7 +1355,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         args = this.prepareInitSettings(this.clearDatastore);
         return this.runScript("init", false, args);
       }).then(() => {
-        this.connection.addLimiter(this.instance, message => {
+        return this.connection.addLimiter(this.instance, message => {
           var data, pos, type;
           pos = message.indexOf(":");
           var _ref = [message.slice(0, pos), message.slice(pos + 1)];
@@ -1365,6 +1368,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             return this.instance.Events.trigger("message", [data]);
           }
         });
+      }).then(() => {
         return this.clients;
       });
     }
@@ -1379,7 +1383,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
         client = _ref2.client;
 
-        return client.publish(`bottleneck_${_this.instance.id}`, `message:${message.toString()}`);
+        return client.publish(_this.instance._channel(), `message:${message.toString()}`);
       })();
     }
 
@@ -1841,7 +1845,7 @@ module.exports={
   "increment_reservoir.lua": "local settings_key = KEYS[1]\nlocal incr = ARGV[1]\n\nreturn redis.call('hincrby', settings_key, 'reservoir', incr)\n",
   "init.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal clear = tonumber(ARGV[1])\n\nif clear == 1 then\n  redis.call('del', settings_key, running_key, executing_key)\nend\n\nif redis.call('exists', settings_key) == 0 then\n  local args = {'hmset', settings_key}\n\n  for i = 2, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
   "refresh_expiration.lua": "local refresh_expiration = function (executing_key, running_key, settings_key, now, nextRequest, groupTimeout)\n\n  if groupTimeout ~= nil then\n    local ttl = (nextRequest + groupTimeout) - now\n\n    redis.call('pexpire', executing_key, ttl)\n    redis.call('pexpire', running_key, ttl)\n    redis.call('pexpire', settings_key, ttl)\n  end\n\nend\n",
-  "refresh_running.lua": "local refresh_running = function (executing_key, running_key, settings_key, now)\n\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired == 0 then\n    return redis.call('hget', settings_key, 'running')\n  else\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local args = {'hmget', running_key}\n    for i = 1, #expired do\n      table.insert(args, expired[i])\n    end\n\n    local weights = redis.call(unpack(args))\n\n    args[1] = 'hdel'\n    local deleted = redis.call(unpack(args))\n\n    local total = 0\n    for i = 1, #weights do\n      total = total + (tonumber(weights[i]) or 0)\n    end\n    local incr = -total\n    if total == 0 then\n      incr = 0\n    else\n      local id = redis.call('hget', settings_key, 'id')\n      redis.call('publish', 'bottleneck_'..id, 'freed:'..total)\n    end\n\n    return redis.call('hincrby', settings_key, 'running', incr)\n  end\n\nend\n",
+  "refresh_running.lua": "local refresh_running = function (executing_key, running_key, settings_key, now)\n\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired == 0 then\n    return redis.call('hget', settings_key, 'running')\n  else\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local args = {'hmget', running_key}\n    for i = 1, #expired do\n      table.insert(args, expired[i])\n    end\n\n    local weights = redis.call(unpack(args))\n\n    args[1] = 'hdel'\n    local deleted = redis.call(unpack(args))\n\n    local total = 0\n    for i = 1, #weights do\n      total = total + (tonumber(weights[i]) or 0)\n    end\n    local incr = -total\n    if total == 0 then\n      incr = 0\n    else\n      local id = redis.call('hget', settings_key, 'id')\n      redis.call('publish', 'b_'..id, 'freed:'..total)\n    end\n\n    return redis.call('hincrby', settings_key, 'running', incr)\n  end\n\nend\n",
   "register.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal index = ARGV[1]\nlocal weight = tonumber(ARGV[2])\nlocal expiration = tonumber(ARGV[3])\nlocal now = tonumber(ARGV[4])\n\nlocal running = tonumber(refresh_running(executing_key, running_key, settings_key, now))\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'reservoir',\n  'nextRequest',\n  'minTime',\n  'groupTimeout'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal reservoir = tonumber(settings[2])\nlocal nextRequest = tonumber(settings[3])\nlocal minTime = tonumber(settings[4])\nlocal groupTimeout = tonumber(settings[5])\n\nif conditions_check(weight, maxConcurrent, running, reservoir) then\n\n  if expiration ~= nil then\n    redis.call('zadd', executing_key, now + expiration, index)\n  end\n  redis.call('hset', running_key, index, weight)\n  redis.call('hincrby', settings_key, 'running', weight)\n\n  local wait = math.max(nextRequest - now, 0)\n  local newNextRequest = now + wait + minTime\n\n  if reservoir == nil then\n    redis.call('hset', settings_key,\n    'nextRequest', newNextRequest\n    )\n  else\n    reservoir = reservoir - weight\n    redis.call('hmset', settings_key,\n      'reservoir', reservoir,\n      'nextRequest', newNextRequest\n    )\n  end\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\n\n  return {true, wait, reservoir}\n\nelse\n  return {false}\nend\n",
   "running.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\nlocal now = ARGV[1]\n\nreturn tonumber(refresh_running(executing_key, running_key, settings_key, now))\n",
   "submit.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal queueLength = tonumber(ARGV[1])\nlocal weight = tonumber(ARGV[2])\nlocal now = tonumber(ARGV[3])\n\nlocal running = tonumber(refresh_running(executing_key, running_key, settings_key, now))\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'highWater',\n  'reservoir',\n  'nextRequest',\n  'strategy',\n  'unblockTime',\n  'penalty',\n  'minTime',\n  'groupTimeout'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal highWater = tonumber(settings[2])\nlocal reservoir = tonumber(settings[3])\nlocal nextRequest = tonumber(settings[4])\nlocal strategy = tonumber(settings[5])\nlocal unblockTime = tonumber(settings[6])\nlocal penalty = tonumber(settings[7])\nlocal minTime = tonumber(settings[8])\nlocal groupTimeout = tonumber(settings[9])\n\nif maxConcurrent ~= nil and weight > maxConcurrent then\n  return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)\nend\n\nlocal reachedHWM = (highWater ~= nil and queueLength == highWater\n  and not (\n    conditions_check(weight, maxConcurrent, running, reservoir)\n    and nextRequest - now <= 0\n  )\n)\n\nlocal blocked = strategy == 3 and (reachedHWM or unblockTime >= now)\n\nif blocked then\n  local computedPenalty = penalty\n  if computedPenalty == nil then\n    if minTime == 0 then\n      computedPenalty = 5000\n    else\n      computedPenalty = 15 * minTime\n    end\n  end\n\n  local newNextRequest = now + computedPenalty + minTime\n\n  redis.call('hmset', settings_key,\n    'unblockTime', now + computedPenalty,\n    'nextRequest', newNextRequest\n  )\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\nend\n\nreturn {reachedHWM, blocked, strategy}\n",

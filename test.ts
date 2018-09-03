@@ -59,6 +59,10 @@ foo.then(function (result: string) {
   assert(s == "promise 1");
 });
 
+limiter.on("message", (msg) => console.log(msg));
+
+limiter.publish(JSON.stringify({ a: "abc", b: { c: 123 }}));
+
 let group = new Bottleneck.Group({
   maxConcurrent: 5,
   minTime: 1000,

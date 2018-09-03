@@ -131,6 +131,7 @@ declare module "bottleneck" {
              * @param fn - The callback function.
              */
             on(name: string, fn: Function): void;
+            on(name: "error", fn: (error: any) => void): void;
             on(name: "created", fn: (created: Bottleneck, key: string) => void): void;
 
             /**
@@ -139,6 +140,7 @@ declare module "bottleneck" {
              * @param fn - The callback function.
              */
             once(name: string, fn: Function): void;
+            once(name: "error", fn: (error: any) => void): void;
             once(name: "created", fn: (created: Bottleneck, key: string) => void): void;
 
             /**
@@ -157,7 +159,13 @@ declare module "bottleneck" {
              * Deletes the limiter for the given key
              * @param str - The key
              */
-            deleteKey(str: string): void;
+            deleteKey(str: string): Promise<void>;
+
+            /**
+             * Disconnects all redis clients.
+             * @param flush - Write transient data before closing.
+             */
+            disconnect(flush?: boolean): Promise<void>;
 
             /**
              * Returns all the key-limiter pairs.
@@ -208,7 +216,12 @@ declare module "bottleneck" {
          * Disconnects all redis clients.
          * @param flush - Write transient data before closing.
          */
-        disconnect(flush?: boolean): Bottleneck;
+        disconnect(flush?: boolean): Promise<void>;
+
+        /**
+         * Broadcast a string to every limiter in the Cluster.
+         */
+        publish(message: string): Promise<void>;
 
         /**
          * Returns an object with the current number of jobs per status.
@@ -253,6 +266,7 @@ declare module "bottleneck" {
         on(name: "idle", fn: () => void): void;
         on(name: "depleted", fn: (empty: boolean) => void): void;
         on(name: "dropped", fn: (dropped: any) => void): void;
+        on(name: "message", fn: (message: string) => void): void;
         on(name: "debug", fn: (message: string, data: any) => void): void;
 
         /**
@@ -266,6 +280,7 @@ declare module "bottleneck" {
         once(name: "idle", fn: () => void): void;
         once(name: "depleted", fn: (empty: boolean) => void): void;
         once(name: "dropped", fn: (dropped: any) => void): void;
+        once(name: "message", fn: (message: string) => void): void;
         once(name: "debug", fn: (message: string, data: any) => void): void;
 
         /**
