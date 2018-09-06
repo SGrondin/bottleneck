@@ -1,7 +1,7 @@
 Scripts = require "./Scripts"
 
 class IORedisConnection
-  constructor: (@clusterNodes, @clientOptions, @Promise, @Events) ->
+  constructor: (@clientOptions, @clusterNodes, @Promise, @Events) ->
     Redis = eval("require")("ioredis") # Obfuscated or else Webpack/Angular will try to inline the optional ioredis module
     if @clusterNodes?
       @client = new Redis.Cluster @clusterNodes, @clientOptions

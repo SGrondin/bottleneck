@@ -804,7 +804,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         if (this.limiterOptions.datastore === "redis") {
           this._connection = new RedisConnection((ref = this.limiterOptions.clientOptions) != null ? ref : {}, (ref1 = this.limiterOptions.Promise) != null ? ref1 : Promise, this.Events);
         } else if (this.limiterOptions.datastore === "ioredis") {
-          this._connection = new IORedisConnection((ref2 = this.limiterOptions.clusterNodes) != null ? ref2 : null, (ref3 = this.limiterOptions.clientOptions) != null ? ref3 : {}, (ref4 = this.limiterOptions.Promise) != null ? ref4 : Promise, this.Events);
+          this._connection = new IORedisConnection((ref2 = this.limiterOptions.clientOptions) != null ? ref2 : {}, (ref3 = this.limiterOptions.clusterNodes) != null ? ref3 : null, (ref4 = this.limiterOptions.Promise) != null ? ref4 : Promise, this.Events);
         }
       }
 
@@ -908,10 +908,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   Scripts = require("./Scripts");
 
   IORedisConnection = class IORedisConnection {
-    constructor(clusterNodes, clientOptions, Promise, Events) {
+    constructor(clientOptions, clusterNodes, Promise, Events) {
       var Redis;
-      this.clusterNodes = clusterNodes;
       this.clientOptions = clientOptions;
+      this.clusterNodes = clusterNodes;
       this.Promise = Promise;
       this.Events = Events;
       Redis = eval("require")("ioredis"); // Obfuscated or else Webpack/Angular will try to inline the optional ioredis module
@@ -1337,7 +1337,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.initSettings = initSettings;
       this.originalId = this.instance.id;
       parser.load(options, options, this);
-      this.connection = this._groupConnection ? this._groupConnection : this.instance.datastore === "redis" ? new RedisConnection(this.clientOptions, this.Promise, this.instance.Events) : this.instance.datastore === "ioredis" ? new IORedisConnection(this.clusterNodes, this.clientOptions, this.Promise, this.instance.Events) : void 0;
+      this.connection = this._groupConnection ? this._groupConnection : this.instance.datastore === "redis" ? new RedisConnection(this.clientOptions, this.Promise, this.instance.Events) : this.instance.datastore === "ioredis" ? new IORedisConnection(this.clientOptions, this.clusterNodes, this.Promise, this.instance.Events) : void 0;
       this.ready = this.connection.ready.then(clients => {
         var args;
         this.clients = clients;
