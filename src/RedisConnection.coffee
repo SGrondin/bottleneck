@@ -1,8 +1,18 @@
+parser = require "./parser"
+Events = require "./Events"
 Scripts = require "./Scripts"
 
 class RedisConnection
-  constructor: (@clientOptions, @Promise, @Events) ->
+  defaults:
+    clientOptions: {}
+    Promise: Promise
+    Events: null
+
+  constructor: (options) ->
     Redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
+    parser.load options, @defaults, @
+    @Events ?= new Events @
+
     @client = Redis.createClient @clientOptions
     @subClient = Redis.createClient @clientOptions
     @pubsubs = {}

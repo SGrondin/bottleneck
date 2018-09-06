@@ -9,8 +9,8 @@ class RedisDatastore
     parser.load options, options, @
 
     @connection = if @_groupConnection then @_groupConnection
-    else if @instance.datastore == "redis" then new RedisConnection @clientOptions, @Promise, @instance.Events
-    else if @instance.datastore == "ioredis" then new IORedisConnection @clientOptions, @clusterNodes, @Promise, @instance.Events
+    else if @instance.datastore == "redis" then new RedisConnection { @clientOptions, @Promise, Events: @instance.Events }
+    else if @instance.datastore == "ioredis" then new IORedisConnection { @clientOptions, @clusterNodes, @Promise, Events: @instance.Events }
 
     @ready = @connection.ready
     .then (@clients) =>
