@@ -250,9 +250,14 @@ declare module "bottleneck" {
         empty(): boolean;
 
         /**
-         * Returns the number of requests running.
+         * Returns the total weight of jobs in a RUNNING or EXECUTING state in the Cluster.
          */
         running(): Promise<number>;
+
+        /**
+         * Returns the total weight of jobs in a DONE state in the Cluster.
+         */
+        done(): Promise<number>;
 
         /**
          * If a request was added right now, would it be run immediately?

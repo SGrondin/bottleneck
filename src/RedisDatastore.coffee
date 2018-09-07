@@ -36,7 +36,7 @@ class RedisDatastore
 
   runScript: (name, hasNow, args) ->
     await @ready unless name == "init"
-    if hasNow then args[args.length - 1] = Date.now()
+    if hasNow then args[args.length - 1] = Date.now().toString()
     new @Promise (resolve, reject) =>
       @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
       arr = @connection.scriptArgs name, @originalId, args, (err, replies) ->
@@ -49,7 +49,7 @@ class RedisDatastore
         .then => @runScript(name, hasNow, args)
       else @Promise.reject e
 
-  prepareArray: (arr) -> arr.map (x) -> if x? then x.toString() else ""
+  prepareArray: (arr) -> (if x? then x.toString() else "") for x in arr
 
   prepareObject: (obj) ->
     arr = []
@@ -61,6 +61,7 @@ class RedisDatastore
       id: @originalId,
       nextRequest: Date.now(),
       running: 0,
+      done: 0,
       unblockTime: 0,
       version: @instance.version,
       groupTimeout: @timeout
@@ -70,15 +71,17 @@ class RedisDatastore
 
   convertBool: (b) -> !!b
 
-  __updateSettings__: (options) -> await @runScript "update_settings", false, @prepareObject options
+  __updateSettings__: (options) -> @runScript "update_settings", false, @prepareObject options
 
-  __running__: -> await @runScript "running", true, [0]
+  __running__: -> @runScript "running", true, [0]
+
+  __done__: -> @runScript "done", true, [0]
 
   __groupCheck__: -> @convertBool await @runScript "group_check", false, []
 
-  __incrementReservoir__: (incr) -> await @runScript "increment_reservoir", false, [incr]
+  __incrementReservoir__: (incr) -> @runScript "increment_reservoir", false, [incr]
 
-  __currentReservoir__: -> await @runScript "current_reservoir", false, []
+  __currentReservoir__: -> @runScript "current_reservoir", false, []
 
   __check__: (weight) -> @convertBool await @runScript "check", true, @prepareArray [weight, 0]
 

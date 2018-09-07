@@ -41,6 +41,10 @@ limiter.running().then(function (x) {
   let i: number = x;
 });
 
+limiter.done().then(function (x) {
+  let i: number = x;
+});
+
 limiter.submit(withCb, 1, () => {}, (err, result) => {
   let s: string = result;
   console.log(s);

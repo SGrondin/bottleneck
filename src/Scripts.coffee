@@ -20,6 +20,10 @@ templates =
     keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
     libs: ["validate_keys", "refresh_running"]
     code: lua["running.lua"]
+  done:
+    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: ["validate_keys", "refresh_running"]
+    code: lua["done.lua"]
   group_check:
     keys: (id) -> ["b_#{id}_settings"]
     libs: []

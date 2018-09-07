@@ -55,16 +55,16 @@ class Bottleneck
     @_states = new States ["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(if @trackDoneStatus then ["DONE"] else [])
     @_limiter = null
     @Events = new Events @
-    @_submitLock = new Sync "submit"
-    @_registerLock = new Sync "register"
+    @_submitLock = new Sync "submit", @
+    @_registerLock = new Sync "register", @
     sDefaults = parser.load options, @storeDefaults, {}
     @_store = if @datastore == "local" then new LocalDatastore @, parser.load options, @storeInstanceDefaults, sDefaults
     else if @datastore == "redis" || @datastore == "ioredis" then new RedisDatastore @, sDefaults, parser.load options, @storeInstanceDefaults, {}
     else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
 
-  ready: => @_store.ready
+  ready: -> @_store.ready
 
-  clients: => @_store.clients
+  clients: -> @_store.clients
 
   _channel: -> "b_#{@id}"
 
@@ -72,13 +72,15 @@ class Bottleneck
 
   disconnect: (flush=true) -> @_store.__disconnect__ flush
 
-  chain: (@_limiter) => @
+  chain: (@_limiter) -> @
 
-  queued: (priority) => if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a+b.length), 0
+  queued: (priority) -> if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a + b.length), 0
 
   empty: -> @queued() == 0 and @_submitLock.isEmpty()
 
-  running: => await @_store.__running__()
+  running: -> @_store.__running__()
+
+  done: -> @_store.__done__()
 
   jobStatus: (id) -> @_states.jobStatus id
 
@@ -98,7 +100,7 @@ class Bottleneck
 
   _randomIndex: -> Math.random().toString(36).slice(2)
 
-  check: (weight=1) => await @_store.__check__ weight
+  check: (weight=1) -> @_store.__check__ weight
 
   _run: (next, wait, index) ->
     @Events.trigger "debug", ["Scheduling #{next.options.id}", { args: next.args, options: next.options }]
@@ -257,10 +259,10 @@ class Bottleneck
         (if args[0]? then reject else args.shift(); resolve).apply {}, args
       .catch (e) => @Events.trigger "error", [e]
 
-  wrap: (fn) =>
-    ret = (args...) => @schedule.apply {}, Array::concat fn, args
-    ret.withOptions = (options, args...) => @schedule.apply {}, Array::concat options, fn, args
-    ret
+  wrap: (fn) ->
+    wrapped = (args...) => @schedule.apply {}, Array::concat fn, args
+    wrapped.withOptions = (options, args...) => @schedule.apply {}, Array::concat options, fn, args
+    wrapped
 
   updateSettings: (options={}) =>
     await @_store.__updateSettings__ parser.overwrite options, @storeDefaults
@@ -268,7 +270,7 @@ class Bottleneck
     @_drainAll().catch (e) => @Events.trigger "error", [e]
     @
 
-  currentReservoir: => await @_store.__currentReservoir__()
+  currentReservoir: -> @_store.__currentReservoir__()
 
   incrementReservoir: (incr=0) =>
     await @_store.__incrementReservoir__ incr

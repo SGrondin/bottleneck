@@ -7,7 +7,7 @@ class LocalDatastore
     parser.load options, options, @
     @_nextRequest = Date.now()
     @_running = 0
-    @_executing = {}
+    @_done = 0
     @_unblockTime = 0
     @ready = @yieldLoop()
     @clients = {}
@@ -30,6 +30,10 @@ class LocalDatastore
   __running__: ->
     await @yieldLoop()
     @_running
+
+  __done__: ->
+    await @yieldLoop()
+    @_done
 
   __groupCheck__: (time) ->
     await @yieldLoop()
@@ -61,13 +65,6 @@ class LocalDatastore
     now = Date.now()
     if @conditionsCheck weight
       @_running += weight
-      @_executing[index] =
-        timeout: if expiration? then setTimeout =>
-          if not @_executing[index].freed
-            @_executing[index].freed = true
-            @_running -= weight
-        , expiration
-        freed: false
       if @reservoir? then @reservoir -= weight
       wait = Math.max @_nextRequest-now, 0
       @_nextRequest = now + wait + @minTime
@@ -90,10 +87,8 @@ class LocalDatastore
 
   __free__: (index, weight) ->
     await @yieldLoop()
-    clearTimeout @_executing[index].timeout
-    if not @_executing[index].freed
-      @_executing[index].freed = true
-      @_running -= weight
+    @_running -= weight
+    @_done += weight
     { running: @_running }
 
 module.exports = LocalDatastore

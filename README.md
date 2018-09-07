@@ -319,7 +319,7 @@ console.log(limiter.jobStatus("some-job-id"));
 // Example: QUEUED
 ```
 
-Returns the status of the job with the provided job id. Returns `null` if no job with that id exist.
+Returns the status of the job with the provided job id **in the limiter**. Returns `null` if no job with that id exist.
 
 **Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable that feature by passing `trackDoneStatus: true` as an option when creating a limiter.
 
@@ -330,7 +330,7 @@ console.log(limiter.jobs("RUNNING"));
 // Example: ['id1', 'id2']
 ```
 
-Returns an array of all the job ids with the specified status. Not passing a status string returns all the known ids.
+Returns an array of all the job ids with the specified status **in the limiter**. Not passing a status string returns all the known ids.
 
 **Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable that feature by passing `trackDoneStatus: true` as an option when creating a limiter.
 
@@ -342,7 +342,7 @@ const count = limiter.queued(priority);
 console.log(count);
 ```
 
-`priority` is optional. Returns the number of `QUEUED` jobs with the given `priority` level. Omitting the `priority` argument returns the total number of queued jobs in the limiter.
+`priority` is optional. Returns the number of `QUEUED` jobs with the given `priority` level. Omitting the `priority` argument returns the total number of queued jobs **in the limiter**.
 
 #### empty()
 
@@ -352,7 +352,7 @@ if (limiter.empty()) {
 }
 ```
 
-Returns a boolean which indicates whether there are any `RECEIVED` or `QUEUED` jobs in the limiter.
+Returns a boolean which indicates whether there are any `RECEIVED` or `QUEUED` jobs **in the limiter**.
 
 #### running()
 
@@ -361,7 +361,16 @@ limiter.running()
 .then((count) => console.log(count));
 ```
 
-Returns a promise that returns the *total weight* of the `RUNNING` and `EXECUTING` jobs in the Cluster.
+Returns a promise that returns the **total weight** of the `RUNNING` and `EXECUTING` jobs **in the Cluster**.
+
+#### done()
+
+```js
+limiter.done()
+.then((count) => console.log(count));
+```
+
+Returns a promise that returns the **total weight** of `DONE` jobs **in the Cluster**.
 
 #### check()
 

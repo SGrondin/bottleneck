@@ -26,6 +26,7 @@ local refresh_running = function (executing_key, running_key, settings_key, now)
       incr = 0
     else
       local id = redis.call('hget', settings_key, 'id')
+      redis.call('hincrby', settings_key, 'done', total)
       redis.call('publish', 'b_'..id, 'freed:'..total)
     end
 

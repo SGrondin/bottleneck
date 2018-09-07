@@ -1,6 +1,6 @@
 DLList = require "./DLList"
 class Sync
-  constructor: (@name) ->
+  constructor: (@name, @instance) ->
     @_running = 0
     @_queue = new DLList()
   isEmpty: -> @_queue.length == 0
@@ -15,12 +15,12 @@ class Sync
   submit: (task, args..., cb) =>
     @_queue.push {task, args, cb}
     @_tryToRun()
-  schedule: (task, args...) =>
+  schedule: (task, args...) ->
     wrapped = (args..., cb) ->
       (task.apply {}, args)
       .then (args...) -> cb.apply {}, Array::concat null, args
       .catch (args...) -> cb.apply {}, args
-    new Promise (resolve, reject) =>
+    new @instance.Promise (resolve, reject) =>
       @submit.apply {}, Array::concat wrapped, args, (args...) ->
         (if args[0]? then reject else args.shift(); resolve).apply {}, args
 

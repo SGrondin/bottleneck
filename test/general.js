@@ -73,12 +73,13 @@ describe('General', function () {
 
   })
 
-  it('Should return the running count', function () {
+  it('Should return the running and done counts', function () {
     c = makeTest({maxConcurrent: 5, minTime: 0})
 
-    return c.limiter.running()
-    .then(function (running) {
+    return Promise.all([c.limiter.running(), c.limiter.done()])
+    .then(function ([running, done]) {
       c.mustEqual(running, 0)
+      c.mustEqual(done, 0)
       c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
       c.pNoErrVal(c.limiter.schedule({ weight: 3, id: 2 }, c.slowPromise, 200, null, 2), 2)
       c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 3 }, c.slowPromise, 100, null, 3), 3)
@@ -86,20 +87,27 @@ describe('General', function () {
       return c.limiter.schedule({ weight: 0, id: 4 }, c.promise, null)
     })
     .then(function () {
-      return c.limiter.running()
+      return Promise.all([c.limiter.running(), c.limiter.done()])
     })
-    .then(function (running) {
+    .then(function ([running, done]) {
       c.mustEqual(running, 5)
+      c.mustEqual(done, 0)
       return c.wait(125)
     })
-    .then(c.limiter.running)
-    .then(function (running) {
+    .then(function () {
+      return Promise.all([c.limiter.running(), c.limiter.done()])
+    })
+    .then(function ([running, done]) {
       c.mustEqual(running, 3)
+      c.mustEqual(done, 2)
       return c.wait(100)
     })
-    .then(c.limiter.running)
-    .then(function (running) {
+    .then(function () {
+      return Promise.all([c.limiter.running(), c.limiter.done()])
+    })
+    .then(function ([running, done]) {
       c.mustEqual(running, 0)
+      c.mustEqual(done, 5)
       return c.last()
     })
     .then(function (results) {
@@ -484,19 +492,21 @@ describe('General', function () {
           var duration = Date.now() - t0
           assert(duration > 45 && duration < 80)
 
-          return c.limiter.running()
+          return Promise.all([c.limiter.running(), c.limiter.done()])
         })
-        .then(function (r) {
-          c.mustEqual(r, 1)
+        .then(function ([running, done]) {
+          c.mustEqual(running, 1)
+          c.mustEqual(done, 1)
         })
       ])
       .then(function () {
         var duration = Date.now() - t0
         assert(duration > 145 && duration < 180)
-        return c.limiter.running()
-      })
-      .then(function (r) {
-        c.mustEqual(r, 0)
+          return Promise.all([c.limiter.running(), c.limiter.done()])
+        })
+        .then(function ([running, done]) {
+        c.mustEqual(running, 0)
+        c.mustEqual(done, 2)
       })
     })
   })

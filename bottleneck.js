@@ -46,18 +46,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     class Bottleneck {
       constructor(options = {}, ...invalid) {
         var sDefaults;
-        this.ready = this.ready.bind(this);
-        this.clients = this.clients.bind(this);
-        this.chain = this.chain.bind(this);
-        this.queued = this.queued.bind(this);
-        this.running = this.running.bind(this);
-        this.check = this.check.bind(this);
         this._drainOne = this._drainOne.bind(this);
         this.submit = this.submit.bind(this);
         this.schedule = this.schedule.bind(this);
-        this.wrap = this.wrap.bind(this);
         this.updateSettings = this.updateSettings.bind(this);
-        this.currentReservoir = this.currentReservoir.bind(this);
         this.incrementReservoir = this.incrementReservoir.bind(this);
         if (!(options != null && typeof options === "object" && invalid.length === 0)) {
           throw new Bottleneck.prototype.BottleneckError("Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1.");
@@ -68,8 +60,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         this._states = new States(["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(this.trackDoneStatus ? ["DONE"] : []));
         this._limiter = null;
         this.Events = new Events(this);
-        this._submitLock = new Sync("submit");
-        this._registerLock = new Sync("register");
+        this._submitLock = new Sync("submit", this);
+        this._registerLock = new Sync("register", this);
         sDefaults = parser.load(options, this.storeDefaults, {});
         this._store = function () {
           if (this.datastore === "local") {
@@ -122,11 +114,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       running() {
-        var _this = this;
+        return this._store.__running__();
+      }
 
-        return _asyncToGenerator(function* () {
-          return yield _this._store.__running__();
-        })();
+      done() {
+        return this._store.__done__();
       }
 
       jobStatus(id) {
@@ -186,15 +178,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       check(weight = 1) {
-        var _this2 = this;
-
-        return _asyncToGenerator(function* () {
-          return yield _this2._store.__check__(weight);
-        })();
+        return this._store.__check__(weight);
       }
 
       _run(next, wait, index) {
-        var _this3 = this;
+        var _this = this;
 
         var completed, done;
         this.Events.trigger("debug", [`Scheduling ${next.options.id}`, {
@@ -208,36 +196,36 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             if (!done) {
               try {
                 done = true;
-                _this3._states.next(next.options.id); // DONE
-                clearTimeout(_this3._scheduled[index].expiration);
-                delete _this3._scheduled[index];
-                _this3.Events.trigger("debug", [`Completed ${next.options.id}`, {
+                _this._states.next(next.options.id); // DONE
+                clearTimeout(_this._scheduled[index].expiration);
+                delete _this._scheduled[index];
+                _this.Events.trigger("debug", [`Completed ${next.options.id}`, {
                   args: next.args,
                   options: next.options
                 }]);
-                _this3.Events.trigger("done", [`Completed ${next.options.id}`, {
+                _this.Events.trigger("done", [`Completed ${next.options.id}`, {
                   args: next.args,
                   options: next.options
                 }]);
 
-                var _ref2 = yield _this3._store.__free__(index, next.options.weight);
+                var _ref2 = yield _this._store.__free__(index, next.options.weight);
 
                 running = _ref2.running;
 
-                _this3.Events.trigger("debug", [`Freed ${next.options.id}`, {
+                _this.Events.trigger("debug", [`Freed ${next.options.id}`, {
                   args: next.args,
                   options: next.options
                 }]);
-                _this3._drainAll().catch(function (e) {
-                  return _this3.Events.trigger("error", [e]);
+                _this._drainAll().catch(function (e) {
+                  return _this.Events.trigger("error", [e]);
                 });
-                if (running === 0 && _this3.empty()) {
-                  _this3.Events.trigger("idle", []);
+                if (running === 0 && _this.empty()) {
+                  _this.Events.trigger("idle", []);
                 }
                 return (ref = next.cb) != null ? ref.apply({}, args) : void 0;
               } catch (error) {
                 e = error;
-                return _this3.Events.trigger("error", [e]);
+                return _this.Events.trigger("error", [e]);
               }
             }
           });
@@ -392,7 +380,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       submit(...args) {
-        var _this4 = this;
+        var _this2 = this;
 
         var cb, job, options, ref, ref1, ref2, task;
         if (typeof args[0] === "function") {
@@ -422,17 +410,17 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return this._submitLock.schedule(_asyncToGenerator(function* () {
           var blocked, e, reachedHWM, ref3, shifted, strategy;
           try {
-            var _ref10 = yield _this4._store.__submit__(_this4.queued(), options.weight);
+            var _ref10 = yield _this2._store.__submit__(_this2.queued(), options.weight);
 
             reachedHWM = _ref10.reachedHWM;
             blocked = _ref10.blocked;
             strategy = _ref10.strategy;
 
-            _this4.Events.trigger("debug", [`Queued ${options.id}`, { args, options, reachedHWM, blocked }]);
+            _this2.Events.trigger("debug", [`Queued ${options.id}`, { args, options, reachedHWM, blocked }]);
           } catch (error) {
             e = error;
-            _this4._states.remove(options.id);
-            _this4.Events.trigger("debug", [`Could not queue ${options.id}`, {
+            _this2._states.remove(options.id);
+            _this2.Events.trigger("debug", [`Could not queue ${options.id}`, {
               args,
               options,
               error: e
@@ -443,24 +431,24 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             return false;
           }
           if (blocked) {
-            _this4._queues = _this4._makeQueues();
-            _this4._drop(job);
+            _this2._queues = _this2._makeQueues();
+            _this2._drop(job);
             return true;
           } else if (reachedHWM) {
-            shifted = strategy === Bottleneck.prototype.strategy.LEAK ? _this4._getFirst(_this4._queues.slice(options.priority).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? _this4._getFirst(_this4._queues.slice(options.priority + 1).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
+            shifted = strategy === Bottleneck.prototype.strategy.LEAK ? _this2._getFirst(_this2._queues.slice(options.priority).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? _this2._getFirst(_this2._queues.slice(options.priority + 1).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
             if (shifted != null) {
-              _this4._drop(shifted);
+              _this2._drop(shifted);
             }
             if (shifted == null || strategy === Bottleneck.prototype.strategy.OVERFLOW) {
               if (shifted == null) {
-                _this4._drop(job);
+                _this2._drop(job);
               }
               return reachedHWM;
             }
           }
-          _this4._states.next(job.options.id); // QUEUED
-          _this4._queues[options.priority].push(job);
-          yield _this4._drainAll();
+          _this2._states.next(job.options.id); // QUEUED
+          _this2._queues[options.priority].push(job);
+          yield _this2._drainAll();
           return reachedHWM;
         }));
       }
@@ -509,46 +497,42 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       wrap(fn) {
-        var ret;
-        ret = (...args) => {
+        var wrapped;
+        wrapped = (...args) => {
           return this.schedule.apply({}, Array.prototype.concat(fn, args));
         };
-        ret.withOptions = (options, ...args) => {
+        wrapped.withOptions = (options, ...args) => {
           return this.schedule.apply({}, Array.prototype.concat(options, fn, args));
         };
-        return ret;
+        return wrapped;
       }
 
       updateSettings(options = {}) {
-        var _this5 = this;
+        var _this3 = this;
 
         return _asyncToGenerator(function* () {
-          yield _this5._store.__updateSettings__(parser.overwrite(options, _this5.storeDefaults));
-          parser.overwrite(options, _this5.instanceDefaults, _this5);
-          _this5._drainAll().catch(function (e) {
-            return _this5.Events.trigger("error", [e]);
+          yield _this3._store.__updateSettings__(parser.overwrite(options, _this3.storeDefaults));
+          parser.overwrite(options, _this3.instanceDefaults, _this3);
+          _this3._drainAll().catch(function (e) {
+            return _this3.Events.trigger("error", [e]);
           });
-          return _this5;
+          return _this3;
         })();
       }
 
       currentReservoir() {
-        var _this6 = this;
-
-        return _asyncToGenerator(function* () {
-          return yield _this6._store.__currentReservoir__();
-        })();
+        return this._store.__currentReservoir__();
       }
 
       incrementReservoir(incr = 0) {
-        var _this7 = this;
+        var _this4 = this;
 
         return _asyncToGenerator(function* () {
-          yield _this7._store.__incrementReservoir__(incr);
-          _this7._drainAll().catch(function (e) {
-            return _this7.Events.trigger("error", [e]);
+          yield _this4._store.__incrementReservoir__(incr);
+          _this4._drainAll().catch(function (e) {
+            return _this4.Events.trigger("error", [e]);
           });
-          return _this7;
+          return _this4;
         })();
       }
 
@@ -1036,7 +1020,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       parser.load(options, options, this);
       this._nextRequest = Date.now();
       this._running = 0;
-      this._executing = {};
+      this._done = 0;
       this._unblockTime = 0;
       this.ready = this.yieldLoop();
       this.clients = {};
@@ -1085,12 +1069,21 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       })();
     }
 
-    __groupCheck__(time) {
+    __done__() {
       var _this4 = this;
 
       return _asyncToGenerator(function* () {
         yield _this4.yieldLoop();
-        return _this4._nextRequest + _this4.timeout < time;
+        return _this4._done;
+      })();
+    }
+
+    __groupCheck__(time) {
+      var _this5 = this;
+
+      return _asyncToGenerator(function* () {
+        yield _this5.yieldLoop();
+        return _this5._nextRequest + _this5.timeout < time;
       })();
     }
 
@@ -1099,20 +1092,20 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __incrementReservoir__(incr) {
-      var _this5 = this;
-
-      return _asyncToGenerator(function* () {
-        yield _this5.yieldLoop();
-        return _this5.reservoir += incr;
-      })();
-    }
-
-    __currentReservoir__() {
       var _this6 = this;
 
       return _asyncToGenerator(function* () {
         yield _this6.yieldLoop();
-        return _this6.reservoir;
+        return _this6.reservoir += incr;
+      })();
+    }
+
+    __currentReservoir__() {
+      var _this7 = this;
+
+      return _asyncToGenerator(function* () {
+        yield _this7.yieldLoop();
+        return _this7.reservoir;
       })();
     }
 
@@ -1125,43 +1118,34 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __check__(weight) {
-      var _this7 = this;
+      var _this8 = this;
 
       return _asyncToGenerator(function* () {
         var now;
-        yield _this7.yieldLoop();
+        yield _this8.yieldLoop();
         now = Date.now();
-        return _this7.check(weight, now);
+        return _this8.check(weight, now);
       })();
     }
 
     __register__(index, weight, expiration) {
-      var _this8 = this;
+      var _this9 = this;
 
       return _asyncToGenerator(function* () {
         var now, wait;
-        yield _this8.yieldLoop();
+        yield _this9.yieldLoop();
         now = Date.now();
-        if (_this8.conditionsCheck(weight)) {
-          _this8._running += weight;
-          _this8._executing[index] = {
-            timeout: expiration != null ? setTimeout(function () {
-              if (!_this8._executing[index].freed) {
-                _this8._executing[index].freed = true;
-                return _this8._running -= weight;
-              }
-            }, expiration) : void 0,
-            freed: false
-          };
-          if (_this8.reservoir != null) {
-            _this8.reservoir -= weight;
+        if (_this9.conditionsCheck(weight)) {
+          _this9._running += weight;
+          if (_this9.reservoir != null) {
+            _this9.reservoir -= weight;
           }
-          wait = Math.max(_this8._nextRequest - now, 0);
-          _this8._nextRequest = now + wait + _this8.minTime;
+          wait = Math.max(_this9._nextRequest - now, 0);
+          _this9._nextRequest = now + wait + _this9.minTime;
           return {
             success: true,
             wait,
-            reservoir: _this8.reservoir
+            reservoir: _this9.reservoir
           };
         } else {
           return {
@@ -1176,41 +1160,38 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __submit__(queueLength, weight) {
-      var _this9 = this;
+      var _this10 = this;
 
       return _asyncToGenerator(function* () {
         var blocked, now, reachedHWM;
-        yield _this9.yieldLoop();
-        if (_this9.maxConcurrent != null && weight > _this9.maxConcurrent) {
-          throw new BottleneckError(`Impossible to add a job having a weight of ${weight} to a limiter having a maxConcurrent setting of ${_this9.maxConcurrent}`);
+        yield _this10.yieldLoop();
+        if (_this10.maxConcurrent != null && weight > _this10.maxConcurrent) {
+          throw new BottleneckError(`Impossible to add a job having a weight of ${weight} to a limiter having a maxConcurrent setting of ${_this10.maxConcurrent}`);
         }
         now = Date.now();
-        reachedHWM = _this9.highWater != null && queueLength === _this9.highWater && !_this9.check(weight, now);
-        blocked = _this9.strategyIsBlock() && (reachedHWM || _this9.isBlocked(now));
+        reachedHWM = _this10.highWater != null && queueLength === _this10.highWater && !_this10.check(weight, now);
+        blocked = _this10.strategyIsBlock() && (reachedHWM || _this10.isBlocked(now));
         if (blocked) {
-          _this9._unblockTime = now + _this9.computePenalty();
-          _this9._nextRequest = _this9._unblockTime + _this9.minTime;
+          _this10._unblockTime = now + _this10.computePenalty();
+          _this10._nextRequest = _this10._unblockTime + _this10.minTime;
         }
         return {
           reachedHWM,
           blocked,
-          strategy: _this9.strategy
+          strategy: _this10.strategy
         };
       })();
     }
 
     __free__(index, weight) {
-      var _this10 = this;
+      var _this11 = this;
 
       return _asyncToGenerator(function* () {
-        yield _this10.yieldLoop();
-        clearTimeout(_this10._executing[index].timeout);
-        if (!_this10._executing[index].freed) {
-          _this10._executing[index].freed = true;
-          _this10._running -= weight;
-        }
+        yield _this11.yieldLoop();
+        _this11._running -= weight;
+        _this11._done += weight;
         return {
-          running: _this10._running
+          running: _this11._running
         };
       })();
     }
@@ -1429,7 +1410,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           yield _this2.ready;
         }
         if (hasNow) {
-          args[args.length - 1] = Date.now();
+          args[args.length - 1] = Date.now().toString();
         }
         return new _this2.Promise(function (resolve, reject) {
           var arr;
@@ -1454,13 +1435,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     prepareArray(arr) {
-      return arr.map(function (x) {
-        if (x != null) {
-          return x.toString();
-        } else {
-          return "";
-        }
-      });
+      var i, len, results, x;
+      results = [];
+      for (i = 0, len = arr.length; i < len; i++) {
+        x = arr[i];
+        results.push(x != null ? x.toString() : "");
+      }
+      return results;
     }
 
     prepareObject(obj) {
@@ -1479,6 +1460,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         id: this.originalId,
         nextRequest: Date.now(),
         running: 0,
+        done: 0,
         unblockTime: 0,
         version: this.instance.version,
         groupTimeout: this.timeout
@@ -1492,60 +1474,48 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __updateSettings__(options) {
-      var _this3 = this;
-
-      return _asyncToGenerator(function* () {
-        return yield _this3.runScript("update_settings", false, _this3.prepareObject(options));
-      })();
+      return this.runScript("update_settings", false, this.prepareObject(options));
     }
 
     __running__() {
-      var _this4 = this;
+      return this.runScript("running", true, [0]);
+    }
 
-      return _asyncToGenerator(function* () {
-        return yield _this4.runScript("running", true, [0]);
-      })();
+    __done__() {
+      return this.runScript("done", true, [0]);
     }
 
     __groupCheck__() {
-      var _this5 = this;
+      var _this3 = this;
 
       return _asyncToGenerator(function* () {
-        return _this5.convertBool((yield _this5.runScript("group_check", false, [])));
+        return _this3.convertBool((yield _this3.runScript("group_check", false, [])));
       })();
     }
 
     __incrementReservoir__(incr) {
-      var _this6 = this;
-
-      return _asyncToGenerator(function* () {
-        return yield _this6.runScript("increment_reservoir", false, [incr]);
-      })();
+      return this.runScript("increment_reservoir", false, [incr]);
     }
 
     __currentReservoir__() {
-      var _this7 = this;
-
-      return _asyncToGenerator(function* () {
-        return yield _this7.runScript("current_reservoir", false, []);
-      })();
+      return this.runScript("current_reservoir", false, []);
     }
 
     __check__(weight) {
-      var _this8 = this;
+      var _this4 = this;
 
       return _asyncToGenerator(function* () {
-        return _this8.convertBool((yield _this8.runScript("check", true, _this8.prepareArray([weight, 0]))));
+        return _this4.convertBool((yield _this4.runScript("check", true, _this4.prepareArray([weight, 0]))));
       })();
     }
 
     __register__(index, weight, expiration) {
-      var _this9 = this;
+      var _this5 = this;
 
       return _asyncToGenerator(function* () {
         var reservoir, success, wait;
 
-        var _ref3 = yield _this9.runScript("register", true, _this9.prepareArray([index, weight, expiration, 0]));
+        var _ref3 = yield _this5.runScript("register", true, _this5.prepareArray([index, weight, expiration, 0]));
 
         var _ref4 = _slicedToArray(_ref3, 3);
 
@@ -1554,7 +1524,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         reservoir = _ref4[2];
 
         return {
-          success: _this9.convertBool(success),
+          success: _this5.convertBool(success),
           wait,
           reservoir
         };
@@ -1562,12 +1532,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __submit__(queueLength, weight) {
-      var _this10 = this;
+      var _this6 = this;
 
       return _asyncToGenerator(function* () {
         var blocked, e, maxConcurrent, overweight, reachedHWM, strategy;
         try {
-          var _ref5 = yield _this10.runScript("submit", true, _this10.prepareArray([queueLength, weight, 0]));
+          var _ref5 = yield _this6.runScript("submit", true, _this6.prepareArray([queueLength, weight, 0]));
 
           var _ref6 = _slicedToArray(_ref5, 3);
 
@@ -1576,8 +1546,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           strategy = _ref6[2];
 
           return {
-            reachedHWM: _this10.convertBool(reachedHWM),
-            blocked: _this10.convertBool(blocked),
+            reachedHWM: _this6.convertBool(reachedHWM),
+            blocked: _this6.convertBool(blocked),
             strategy
           };
         } catch (error) {
@@ -1600,11 +1570,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __free__(index, weight) {
-      var _this11 = this;
+      var _this7 = this;
 
       return _asyncToGenerator(function* () {
         var result;
-        result = yield _this11.runScript("free", true, _this11.prepareArray([index, 0]));
+        result = yield _this7.runScript("free", true, _this7.prepareArray([index, 0]));
         return {
           running: result
         };
@@ -1653,6 +1623,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       },
       libs: ["validate_keys", "refresh_running"],
       code: lua["running.lua"]
+    },
+    done: {
+      keys: function keys(id) {
+        return [`b_${id}_settings`, `b_${id}_running`, `b_${id}_executing`];
+      },
+      libs: ["validate_keys", "refresh_running"],
+      code: lua["done.lua"]
     },
     group_check: {
       keys: function keys(id) {
@@ -1816,10 +1793,10 @@ function _toArray(arr) { return Array.isArray(arr) ? arr : Array.from(arr); }
   DLList = require("./DLList");
 
   Sync = class Sync {
-    constructor(name) {
+    constructor(name, instance) {
       this.submit = this.submit.bind(this);
-      this.schedule = this.schedule.bind(this);
       this.name = name;
+      this.instance = instance;
       this._running = 0;
       this._queue = new DLList();
     }
@@ -1864,7 +1841,7 @@ function _toArray(arr) { return Array.isArray(arr) ? arr : Array.from(arr); }
           return cb.apply({}, args);
         });
       };
-      return new Promise((resolve, reject) => {
+      return new this.instance.Promise((resolve, reject) => {
         return this.submit.apply({}, Array.prototype.concat(wrapped, args, function (...args) {
           return (args[0] != null ? reject : (args.shift(), resolve)).apply({}, args);
         }));
@@ -1887,13 +1864,14 @@ module.exports={
   "check.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal weight = tonumber(ARGV[1])\nlocal now = tonumber(ARGV[2])\n\nlocal running = tonumber(refresh_running(executing_key, running_key, settings_key, now))\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'reservoir',\n  'nextRequest'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal reservoir = tonumber(settings[2])\nlocal nextRequest = tonumber(settings[3])\n\nlocal conditionsCheck = conditions_check(weight, maxConcurrent, running, reservoir)\n\nlocal result = conditionsCheck and nextRequest - now <= 0\n\nreturn result\n",
   "conditions_check.lua": "local conditions_check = function (weight, maxConcurrent, running, reservoir)\n  return (\n    (maxConcurrent == nil or running + weight <= maxConcurrent) and\n    (reservoir == nil or reservoir - weight >= 0)\n  )\nend\n",
   "current_reservoir.lua": "local settings_key = KEYS[1]\n\nreturn tonumber(redis.call('hget', settings_key, 'reservoir'))\n",
+  "done.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\nlocal now = ARGV[1]\n\nlocal running = tonumber(refresh_running(executing_key, running_key, settings_key, now))\n\n-- [LEGACY] hincrby instead of hget because \"done\" doesn't exist <= 2.9.0\nreturn tonumber(redis.call('hincrby', settings_key, 'done', 0))\n",
   "free.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal index = ARGV[1]\nlocal now = ARGV[2]\n\nredis.call('zadd', executing_key, 0, index)\n\nreturn refresh_running(executing_key, running_key, settings_key, now)\n",
   "get_time.lua": "redis.replicate_commands()\n\nlocal get_time = function ()\n  local time = redis.call('time')\n\n  return tonumber(time[1]..string.sub(time[2], 1, 3))\nend\n",
   "group_check.lua": "local settings_key = KEYS[1]\n\nreturn not (redis.call('exists', settings_key) == 1)\n",
   "increment_reservoir.lua": "local settings_key = KEYS[1]\nlocal incr = ARGV[1]\n\nreturn redis.call('hincrby', settings_key, 'reservoir', incr)\n",
   "init.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal clear = tonumber(ARGV[1])\n\nif clear == 1 then\n  redis.call('del', settings_key, running_key, executing_key)\nend\n\nif redis.call('exists', settings_key) == 0 then\n  local args = {'hmset', settings_key}\n\n  for i = 2, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
   "refresh_expiration.lua": "local refresh_expiration = function (executing_key, running_key, settings_key, now, nextRequest, groupTimeout)\n\n  if groupTimeout ~= nil then\n    local ttl = (nextRequest + groupTimeout) - now\n\n    redis.call('pexpire', executing_key, ttl)\n    redis.call('pexpire', running_key, ttl)\n    redis.call('pexpire', settings_key, ttl)\n  end\n\nend\n",
-  "refresh_running.lua": "local refresh_running = function (executing_key, running_key, settings_key, now)\n\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired == 0 then\n    return redis.call('hget', settings_key, 'running')\n  else\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local args = {'hmget', running_key}\n    for i = 1, #expired do\n      table.insert(args, expired[i])\n    end\n\n    local weights = redis.call(unpack(args))\n\n    args[1] = 'hdel'\n    local deleted = redis.call(unpack(args))\n\n    local total = 0\n    for i = 1, #weights do\n      total = total + (tonumber(weights[i]) or 0)\n    end\n    local incr = -total\n    if total == 0 then\n      incr = 0\n    else\n      local id = redis.call('hget', settings_key, 'id')\n      redis.call('publish', 'b_'..id, 'freed:'..total)\n    end\n\n    return redis.call('hincrby', settings_key, 'running', incr)\n  end\n\nend\n",
+  "refresh_running.lua": "local refresh_running = function (executing_key, running_key, settings_key, now)\n\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired == 0 then\n    return redis.call('hget', settings_key, 'running')\n  else\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local args = {'hmget', running_key}\n    for i = 1, #expired do\n      table.insert(args, expired[i])\n    end\n\n    local weights = redis.call(unpack(args))\n\n    args[1] = 'hdel'\n    local deleted = redis.call(unpack(args))\n\n    local total = 0\n    for i = 1, #weights do\n      total = total + (tonumber(weights[i]) or 0)\n    end\n    local incr = -total\n    if total == 0 then\n      incr = 0\n    else\n      local id = redis.call('hget', settings_key, 'id')\n      redis.call('hincrby', settings_key, 'done', total)\n      redis.call('publish', 'b_'..id, 'freed:'..total)\n    end\n\n    return redis.call('hincrby', settings_key, 'running', incr)\n  end\n\nend\n",
   "register.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal index = ARGV[1]\nlocal weight = tonumber(ARGV[2])\nlocal expiration = tonumber(ARGV[3])\nlocal now = tonumber(ARGV[4])\n\nlocal running = tonumber(refresh_running(executing_key, running_key, settings_key, now))\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'reservoir',\n  'nextRequest',\n  'minTime',\n  'groupTimeout'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal reservoir = tonumber(settings[2])\nlocal nextRequest = tonumber(settings[3])\nlocal minTime = tonumber(settings[4])\nlocal groupTimeout = tonumber(settings[5])\n\nif conditions_check(weight, maxConcurrent, running, reservoir) then\n\n  if expiration ~= nil then\n    redis.call('zadd', executing_key, now + expiration, index)\n  end\n  redis.call('hset', running_key, index, weight)\n  redis.call('hincrby', settings_key, 'running', weight)\n\n  local wait = math.max(nextRequest - now, 0)\n  local newNextRequest = now + wait + minTime\n\n  if reservoir == nil then\n    redis.call('hset', settings_key,\n    'nextRequest', newNextRequest\n    )\n  else\n    reservoir = reservoir - weight\n    redis.call('hmset', settings_key,\n      'reservoir', reservoir,\n      'nextRequest', newNextRequest\n    )\n  end\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\n\n  return {true, wait, reservoir}\n\nelse\n  return {false}\nend\n",
   "running.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\nlocal now = ARGV[1]\n\nreturn tonumber(refresh_running(executing_key, running_key, settings_key, now))\n",
   "submit.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal queueLength = tonumber(ARGV[1])\nlocal weight = tonumber(ARGV[2])\nlocal now = tonumber(ARGV[3])\n\nlocal running = tonumber(refresh_running(executing_key, running_key, settings_key, now))\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'highWater',\n  'reservoir',\n  'nextRequest',\n  'strategy',\n  'unblockTime',\n  'penalty',\n  'minTime',\n  'groupTimeout'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal highWater = tonumber(settings[2])\nlocal reservoir = tonumber(settings[3])\nlocal nextRequest = tonumber(settings[4])\nlocal strategy = tonumber(settings[5])\nlocal unblockTime = tonumber(settings[6])\nlocal penalty = tonumber(settings[7])\nlocal minTime = tonumber(settings[8])\nlocal groupTimeout = tonumber(settings[9])\n\nif maxConcurrent ~= nil and weight > maxConcurrent then\n  return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)\nend\n\nlocal reachedHWM = (highWater ~= nil and queueLength == highWater\n  and not (\n    conditions_check(weight, maxConcurrent, running, reservoir)\n    and nextRequest - now <= 0\n  )\n)\n\nlocal blocked = strategy == 3 and (reachedHWM or unblockTime >= now)\n\nif blocked then\n  local computedPenalty = penalty\n  if computedPenalty == nil then\n    if minTime == 0 then\n      computedPenalty = 5000\n    else\n      computedPenalty = 15 * minTime\n    end\n  end\n\n  local newNextRequest = now + computedPenalty + minTime\n\n  redis.call('hmset', settings_key,\n    'unblockTime', now + computedPenalty,\n    'nextRequest', newNextRequest\n  )\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\nend\n\nreturn {reachedHWM, blocked, strategy}\n",
