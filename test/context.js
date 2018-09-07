@@ -87,9 +87,6 @@ module.exports = function (options={}) {
       if (process.env.DEBUG) console.log('In c.pNoErrVal. Expected:', expected)
       return promise.then(function (actual) {
         mustEqual(actual, expected)
-      }).catch(function (err) {
-        console.error('%%%%', expected, err)
-        // return Promise.reject(err)
       })
     },
     noErrVal: function (...expected) {

@@ -10,7 +10,11 @@ describe('Stop', function () {
   })
 
   it('Should stop and drop the queue', function (done) {
-    c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
+    c = makeTest({
+      maxConcurrent: 2,
+      minTime: 100,
+      trackDoneStatus: true
+    })
     var submitFailed = false
     var queuedDropped = false
     var scheduledDropped = false
@@ -74,7 +78,11 @@ describe('Stop', function () {
   })
 
   it('Should stop and let the queue finish', function (done) {
-    c = makeTest({maxConcurrent: 1, minTime: 100, trackDoneStatus: true})
+    c = makeTest({
+      maxConcurrent: 1,
+      minTime: 100,
+      trackDoneStatus: true
+    })
     var submitFailed = false
     var dropped = 0
 
@@ -119,6 +127,82 @@ describe('Stop', function () {
       })
 
     }, 75)
+  })
+
+  it('Should still resolve when rejectOnDrop is false', function (done) {
+    c = makeTest({
+      maxConcurrent: 1,
+      minTime: 100,
+      rejectOnDrop: false
+    })
+
+    c.pNoErrVal(c.limiter.schedule({id: '1'}, c.promise, null, 1), 1)
+    c.pNoErrVal(c.limiter.schedule({id: '2'}, c.promise, null, 2), 2)
+    c.pNoErrVal(c.limiter.schedule({id: '3'}, c.slowPromise, 100, null, 3), 3)
+
+    c.limiter.stop()
+    .then(function () {
+      return c.limiter.stop()
+    })
+    .then(function () {
+      console.log("Should not be here")
+    })
+    .catch(function (err) {
+      c.mustEqual(err.message, "stop() has already been called")
+      done()
+    })
+  })
+
+  it('Should not allow calling stop() twice when dropWaitingJobs=true', function (done) {
+    c = makeTest({
+      maxConcurrent: 1,
+      minTime: 100
+    })
+    var failed = 0
+    var handler = function (err) {
+      c.mustEqual(err.message, "This limiter has been stopped.")
+      failed++
+    }
+
+    c.pNoErrVal(c.limiter.schedule({id: '1'}, c.promise, null, 1), 1).catch(handler)
+    c.pNoErrVal(c.limiter.schedule({id: '2'}, c.promise, null, 2), 2).catch(handler)
+    c.pNoErrVal(c.limiter.schedule({id: '3'}, c.slowPromise, 100, null, 3), 3).catch(handler)
+
+    c.limiter.stop({ dropWaitingJobs: true })
+    .then(function () {
+      return c.limiter.stop({ dropWaitingJobs: true })
+    })
+    .then(function () {
+      console.log("Should not be here")
+    })
+    .catch(function (err) {
+      c.mustEqual(err.message, "stop() has already been called")
+      c.mustEqual(failed, 3)
+      done()
+    })
+  })
+
+  it('Should not allow calling stop() twice when dropWaitingJobs=false', function (done) {
+    c = makeTest({
+      maxConcurrent: 1,
+      minTime: 100
+    })
+
+    c.pNoErrVal(c.limiter.schedule({id: '1'}, c.promise, null, 1), 1)
+    c.pNoErrVal(c.limiter.schedule({id: '2'}, c.promise, null, 2), 2)
+    c.pNoErrVal(c.limiter.schedule({id: '3'}, c.slowPromise, 100, null, 3), 3)
+
+    c.limiter.stop({ dropWaitingJobs: false })
+    .then(function () {
+      return c.limiter.stop({ dropWaitingJobs: false })
+    })
+    .then(function () {
+      console.log("Should not be here")
+    })
+    .catch(function (err) {
+      c.mustEqual(err.message, "stop() has already been called")
+      done()
+    })
   })
 
 })

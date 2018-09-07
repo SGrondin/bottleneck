@@ -173,17 +173,15 @@ class Bottleneck
         (counts[0] + counts[1] + counts[2] + counts[3]) == at
       new @Promise (resolve, reject) =>
         if finished() then resolve()
-        else @on "done", =>
-          if finished()
-            @removeAllListeners "done"
-            resolve()
+        else
+          @on "done", =>
+            if finished()
+              @removeAllListeners "done"
+              resolve()
     done = if options.dropWaitingJobs
       @_run = (next) => @_drop next, options.dropErrorMessage
       @_drainOne = => Promise.resolve false
-      @Promise.all([
-        @_registerLock.schedule => Promise.resolve(true),
-        @_submitLock.schedule => Promise.resolve(true)
-      ]).then =>
+      @_registerLock.schedule => @_submitLock.schedule =>
         for k, v of @_scheduled
           if @jobStatus(v.job.options.id) == "RUNNING"
             clearTimeout v.timeout
@@ -194,6 +192,7 @@ class Bottleneck
     else
       @schedule { priority: NUM_PRIORITIES-1, weight: 0 }, => waitForExecuting(1)
     @submit = (args..., cb) => cb?.apply {}, [new Bottleneck::BottleneckError options.enqueueErrorMessage]
+    @stop = => @Promise.reject new Bottleneck::BottleneckError "stop() has already been called"
     done
 
   submit: (args...) =>
