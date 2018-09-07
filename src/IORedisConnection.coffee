@@ -23,22 +23,16 @@ class IORedisConnection
     @pubsubs = {}
 
     @ready = new @Promise (resolve, reject) =>
-      errorListener = (e) => @Events.trigger "error", [e]
       count = 0
-      done = =>
-        count++
-        if count == 2
-          [@client, @subClient].forEach (c) => c.removeAllListeners "ready"
-          resolve()
+      errorListener = (e) => @Events.trigger "error", [e]
+      done = => if ++count == 2 then resolve { client: @client, subscriber: @subClient }
       @client.on "error", errorListener
-      @client.on "ready", -> done()
+      @client.once "ready", done
       @subClient.on "error", errorListener
-      @subClient.on "ready", -> done()
-      @subClient.on "message", (channel, message) =>
-        @pubsubs[channel]?(message)
+      @subClient.once "ready", done
+      @subClient.on "message", (channel, message) => @pubsubs[channel]?(message)
 
-    .then => Scripts.names.forEach (name) => @client.defineCommand name, { lua: Scripts.payload(name) }
-    .then => @Promise.resolve { client: @client, subscriber: @subClient }
+  loadScripts: -> Scripts.names.forEach (name) => @client.defineCommand name, { lua: Scripts.payload(name) }
 
   addLimiter: (instance, pubsub) ->
     new instance.Promise (resolve, reject) =>

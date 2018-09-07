@@ -7,23 +7,22 @@ class RedisDatastore
   constructor: (@instance, @initSettings, options) ->
     @originalId = @instance.id
     parser.load options, options, @
+    @clients = {}
 
     @connection = if @_groupConnection then @_groupConnection
     else if @instance.datastore == "redis" then new RedisConnection { @clientOptions, @Promise, Events: @instance.Events }
     else if @instance.datastore == "ioredis" then new IORedisConnection { @clientOptions, @clusterNodes, @Promise, Events: @instance.Events }
 
     @ready = @connection.ready
-    .then (@clients) =>
-      args = @prepareInitSettings @clearDatastore
-      @runScript "init", false, args
+    .then (@clients) => @connection.loadScripts()
+    .then => @runScript "init", false, @prepareInitSettings @clearDatastore
     .then =>
       @connection.addLimiter @instance, (message) =>
         pos = message.indexOf(":")
         [type, data] = [message.slice(0, pos), message.slice(pos+1)]
         if type == "freed" then @instance._drainAll ~~data
         else if type == "message" then @instance.Events.trigger "message", [data]
-    .then =>
-      @clients
+    .then => @clients
 
   __publish__: (message) ->
     { client } = await @ready

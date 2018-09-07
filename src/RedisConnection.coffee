@@ -19,22 +19,14 @@ class RedisConnection
     @shas = {}
 
     @ready = new @Promise (resolve, reject) =>
-      errorListener = (e) => @Events.trigger "error", [e]
       count = 0
-      done = =>
-        count++
-        if count == 2
-          [@client, @subClient].forEach (c) => c.removeAllListeners "ready"
-          resolve()
+      errorListener = (e) => @Events.trigger "error", [e]
+      done = => if ++count == 2 then resolve { client: @client, subscriber: @subClient }
       @client.on "error", errorListener
-      @client.on "ready", -> done()
+      @client.once "ready", done
       @subClient.on "error", errorListener
-      @subClient.on "ready", -> done()
-      @subClient.on "message", (channel, message) =>
-        @pubsubs[channel]?(message)
-
-    .then => @Promise.all(Scripts.names.map (k) => @_loadScript k)
-    .then => @Promise.resolve { client: @client, subscriber: @subClient }
+      @subClient.once "ready", done
+      @subClient.on "message", (channel, message) => @pubsubs[channel]?(message)
 
   _loadScript: (name) ->
     new @Promise (resolve, reject) =>
@@ -42,7 +34,9 @@ class RedisConnection
       @client.multi([["script", "load", payload]]).exec (err, replies) =>
         if err? then return reject err
         @shas[name] = replies[0]
-        return resolve replies[0]
+        resolve replies[0]
+
+  loadScripts: -> @Promise.all(Scripts.names.map (k) => @_loadScript k)
 
   addLimiter: (instance, pubsub) ->
     new instance.Promise (resolve, reject) =>

@@ -914,41 +914,33 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         this.pubsubs = {};
         this.ready = new this.Promise((resolve, reject) => {
           var count, done, errorListener;
+          count = 0;
           errorListener = e => {
             return this.Events.trigger("error", [e]);
           };
-          count = 0;
           done = () => {
-            count++;
-            if (count === 2) {
-              [this.client, this.subClient].forEach(c => {
-                return c.removeAllListeners("ready");
+            if (++count === 2) {
+              return resolve({
+                client: this.client,
+                subscriber: this.subClient
               });
-              return resolve();
             }
           };
           this.client.on("error", errorListener);
-          this.client.on("ready", function () {
-            return done();
-          });
+          this.client.once("ready", done);
           this.subClient.on("error", errorListener);
-          this.subClient.on("ready", function () {
-            return done();
-          });
+          this.subClient.once("ready", done);
           return this.subClient.on("message", (channel, message) => {
             var base;
             return typeof (base = this.pubsubs)[channel] === "function" ? base[channel](message) : void 0;
           });
-        }).then(() => {
-          return Scripts.names.forEach(name => {
-            return this.client.defineCommand(name, {
-              lua: Scripts.payload(name)
-            });
-          });
-        }).then(() => {
-          return this.Promise.resolve({
-            client: this.client,
-            subscriber: this.subClient
+        });
+      }
+
+      loadScripts() {
+        return Scripts.names.forEach(name => {
+          return this.client.defineCommand(name, {
+            lua: Scripts.payload(name)
           });
         });
       }
@@ -1229,39 +1221,25 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         this.shas = {};
         this.ready = new this.Promise((resolve, reject) => {
           var count, done, errorListener;
+          count = 0;
           errorListener = e => {
             return this.Events.trigger("error", [e]);
           };
-          count = 0;
           done = () => {
-            count++;
-            if (count === 2) {
-              [this.client, this.subClient].forEach(c => {
-                return c.removeAllListeners("ready");
+            if (++count === 2) {
+              return resolve({
+                client: this.client,
+                subscriber: this.subClient
               });
-              return resolve();
             }
           };
           this.client.on("error", errorListener);
-          this.client.on("ready", function () {
-            return done();
-          });
+          this.client.once("ready", done);
           this.subClient.on("error", errorListener);
-          this.subClient.on("ready", function () {
-            return done();
-          });
+          this.subClient.once("ready", done);
           return this.subClient.on("message", (channel, message) => {
             var base;
             return typeof (base = this.pubsubs)[channel] === "function" ? base[channel](message) : void 0;
-          });
-        }).then(() => {
-          return this.Promise.all(Scripts.names.map(k => {
-            return this._loadScript(k);
-          }));
-        }).then(() => {
-          return this.Promise.resolve({
-            client: this.client,
-            subscriber: this.subClient
           });
         });
       }
@@ -1278,6 +1256,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             return resolve(replies[0]);
           });
         });
+      }
+
+      loadScripts() {
+        return this.Promise.all(Scripts.names.map(k => {
+          return this._loadScript(k);
+        }));
       }
 
       addLimiter(instance, pubsub) {
@@ -1353,6 +1337,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.initSettings = initSettings;
       this.originalId = this.instance.id;
       parser.load(options, options, this);
+      this.clients = {};
       this.connection = this._groupConnection ? this._groupConnection : this.instance.datastore === "redis" ? new RedisConnection({
         clientOptions: this.clientOptions,
         Promise: this.Promise,
@@ -1364,10 +1349,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         Events: this.instance.Events
       }) : void 0;
       this.ready = this.connection.ready.then(clients => {
-        var args;
         this.clients = clients;
-        args = this.prepareInitSettings(this.clearDatastore);
-        return this.runScript("init", false, args);
+        return this.connection.loadScripts();
+      }).then(() => {
+        return this.runScript("init", false, this.prepareInitSettings(this.clearDatastore));
       }).then(() => {
         return this.connection.addLimiter(this.instance, message => {
           var data, pos, type;
