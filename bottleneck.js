@@ -1282,10 +1282,15 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
       addLimiter(instance, pubsub) {
         return new instance.Promise((resolve, reject) => {
-          this.subClient.on("subscribe", () => {
-            this.pubsubs[instance._channel()] = pubsub;
-            return resolve();
-          });
+          var handler;
+          handler = channel => {
+            if (channel === instance._channel()) {
+              this.subClient.removeListener("subscribe", handler);
+              this.pubsubs[channel] = pubsub;
+              return resolve();
+            }
+          };
+          this.subClient.on("subscribe", handler);
           return this.subClient.subscribe(instance._channel());
         });
       }

@@ -46,9 +46,12 @@ class RedisConnection
 
   addLimiter: (instance, pubsub) ->
     new instance.Promise (resolve, reject) =>
-      @subClient.on "subscribe", =>
-        @pubsubs[instance._channel()] = pubsub
-        resolve()
+      handler = (channel) =>
+        if channel == instance._channel()
+          @subClient.removeListener "subscribe", handler
+          @pubsubs[channel] = pubsub
+          resolve()
+      @subClient.on "subscribe", handler
       @subClient.subscribe instance._channel()
 
   removeLimiter: (instance) ->
