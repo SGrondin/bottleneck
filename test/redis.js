@@ -5,6 +5,25 @@ var assert = require('assert')
 var packagejson = require('../package.json')
 
 if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
+
+  var limiterKeys = function (limiter) {
+    return Scripts.keys("init", limiter._store.originalId)
+  }
+  var countKeys = function (limiter) {
+    return runCommand(limiter, 'exists', limiterKeys(limiter))
+  }
+  var deleteKeys = function (limiter) {
+    return runCommand(limiter, 'del', limiterKeys(limiter))
+  }
+  var runCommand = function (limiter, command, args) {
+    return new Promise(function (resolve, reject) {
+      limiter._store.clients.client[command](...args, function (err, data) {
+        if (err != null) return reject(err)
+        return resolve(data)
+      })
+    })
+  }
+
   describe('Redis-only', function () {
     var c
 
@@ -15,7 +34,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
-    it('Should accept deprecated .ready() method', function () {
+    it('Should return a promise for ready()', function () {
       c = makeTest({ maxConcurrent: 2 })
 
       return c.limiter.ready()
@@ -45,14 +64,11 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
       return c.limiter.ready()
       .then(function () {
-        return new Promise(function (resolve, reject) {
-          var settings_key = Scripts.keys("update_settings", c.limiter._store.originalId)[0]
-          c.limiter._store.clients.client.ttl(settings_key, function (err, ttl) {
-            if (err != null) return reject(err)
-            assert(ttl < 0)
-            return resolve()
-          })
-        })
+        var settings_key = limiterKeys(c.limiter)[0]
+        return runCommand(c.limiter, 'ttl', [settings_key])
+      })
+      .then(function (ttl) {
+        assert(ttl < 0)
       })
     })
 
@@ -61,14 +77,11 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
       return c.limiter.ready()
       .then(function () {
-        return new Promise(function (resolve, reject) {
-          var settings_key = Scripts.keys("update_settings", c.limiter._store.originalId)[0]
-          c.limiter._store.clients.client.ttl(settings_key, function (err, ttl) {
-            if (err != null) return reject(err)
-            assert(ttl >= 290 && ttl <= 305)
-            return resolve()
-          })
-        })
+        var settings_key = limiterKeys(c.limiter)[0]
+        return runCommand(c.limiter, 'ttl', [settings_key])
+      })
+      .then(function (ttl) {
+        assert(ttl >= 290 && ttl <= 305)
       })
     })
 
@@ -94,17 +107,85 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         c.checkDuration(200)
 
         // Also check that the version gets set
-        return new Promise(function (resolve, reject) {
-          var settings_key = Scripts.keys("update_settings", limiter2._store.originalId)[0]
-          limiter2._store.clients.client.hget(settings_key, 'version', function (err, data) {
-            if (err != null) return reject(err)
-            c.mustEqual(data, packagejson.version)
-            return resolve()
-          })
-        })
+        var settings_key = limiterKeys(limiter2)[0]
+        return runCommand(limiter2, 'hget', [settings_key, 'version'])
+      })
+      .then(function (data) {
+        c.mustEqual(data, packagejson.version)
+        return limiter2.disconnect(false)
+      })
+    })
+
+    it('Should remove lost jobs', function () {
+      c = makeTest({
+        id: 'lost',
+        errorEventsExpected: true
+      })
+      var sumRunning = function (running) {
+        return Object.keys(running).reduce((acc, x) => {
+          return acc + ~~running[x]
+        }, 0)
+      }
+      var limiter
+
+      return c.limiter.ready()
+      .then(function () {
+        c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 150, null, 1), 1),
+        c.limiter.schedule({ expiration: 50, weight: 2 }, c.slowPromise, 75, null, 2),
+        c.limiter.schedule({ expiration: 50, weight: 3 }, c.slowPromise, 75, null, 3),
+        c.limiter.schedule({ expiration: 50, weight: 4 }, c.slowPromise, 75, null, 4),
+        c.limiter.schedule({ expiration: 50, weight: 5 }, c.slowPromise, 75, null, 5)
+
+        return c.limiter._submitLock.schedule(() => Promise.resolve(true))
       })
       .then(function () {
-        return limiter2.disconnect(false)
+        return c.limiter._drainAll()
+      })
+      .then(function () {
+        return c.limiter.disconnect(false)
+      })
+      .then(function () {
+        return c.wait(50)
+      })
+      .then(function () {
+        limiter = new Bottleneck({
+          id: 'lost',
+          datastore: process.env.DATASTORE
+        })
+        return limiter.ready()
+      })
+      .then(function () {
+        var [settings_key, running_key, executing_key] = limiterKeys(limiter)
+        return Promise.all([
+          runCommand(limiter, 'hmget', [settings_key, 'running', 'done']),
+          runCommand(limiter, 'hgetall', [running_key]),
+          runCommand(limiter, 'zcard', [executing_key])
+        ])
+      })
+      .then(function ([settings, running, executing]) {
+        c.mustEqual(settings, ['15', '0'])
+        c.mustEqual(sumRunning(running), 15)
+        c.mustEqual(executing, 4)
+
+        return Promise.all([limiter.running(), limiter.done()])
+      })
+      .then(function (counters) {
+        c.mustEqual(counters, [1, 14])
+
+        var [settings_key, running_key, executing_key] = limiterKeys(limiter)
+        return Promise.all([
+          runCommand(limiter, 'hmget', [settings_key, 'running', 'done']),
+          runCommand(limiter, 'hgetall', [running_key]),
+          runCommand(limiter, 'zcard', [executing_key])
+        ])
+      })
+      .then(function ([settings, running, executing]) {
+        c.mustEqual(settings, ['1', '14'])
+        c.mustEqual(sumRunning(running), 1)
+        c.mustEqual(executing, 0)
+      })
+      .then(function () {
+        return limiter.disconnect(false)
       })
     })
 
@@ -248,16 +329,9 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
       return limiter.ready()
       .then(function () {
-        var settings_key = Scripts.keys("update_settings", limiter._store.originalId)[0]
-        assert(settings_key.indexOf(randomId) > 0)
-
-        return new Promise(function (resolve, reject) {
-          limiter._store.clients.client.del(settings_key, function (err, data) {
-            if (err != null) return reject(err)
-            return resolve(data)
-          })
-        })
-
+        var keys = limiterKeys(limiter)
+        keys.forEach((key) => assert(key.indexOf(randomId) > 0))
+        return deleteKeys(limiter)
       })
       .then(function (deleted) {
         c.mustEqual(deleted, 1)
@@ -272,22 +346,22 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       return limiter.running()
       .then(function (running) {
         c.mustEqual(running, 0)
-        var settings_key = Scripts.keys("update_settings", limiter._store.originalId)[0]
-
-        return new Promise(function (resolve, reject) {
-          limiter._store.clients.client.del(settings_key, function (err, data) {
-            if (err != null) return reject(err)
-            return resolve(data)
-          })
-        })
-
+        return deleteKeys(limiter)
       })
       .then(function (deleted) {
         c.mustEqual(deleted, 1) // Should be 1, since 1 key should have been deleted
+        return countKeys(limiter)
+      })
+      .then(function (count) {
+        c.mustEqual(count, 0)
         return limiter.running()
       })
       .then(function (running) {
         c.mustEqual(running, 0)
+        return countKeys(limiter)
+      })
+      .then(function (count) {
+        c.mustEqual(count, 1)
         return limiter.disconnect(false)
       })
     })
@@ -390,15 +464,12 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
       return group.key('one').ready()
       .then(function () {
-        return new Promise(function (resolve, reject) {
-          var limiter = group.key('one')
-          var settings_key = Scripts.keys("update_settings", limiter._store.originalId)[0]
-          limiter._store.clients.client.ttl(settings_key, function (err, ttl) {
-            if (err != null) return reject(err)
-            assert(ttl >= 290 && ttl <= 305)
-            return resolve()
-          })
-        })
+        var limiter = group.key('one')
+        var settings_key = limiterKeys(limiter)[0]
+        return runCommand(limiter, 'ttl', [settings_key])
+      })
+      .then(function (ttl) {
+        assert(ttl >= 290 && ttl <= 305)
       })
       .then(function () {
         return group.disconnect(false)
@@ -417,19 +488,6 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       var limiter2
       var limiter3
 
-      var limiterKeys = function (limiter) {
-        return Scripts.keys("init", limiter._store.originalId)[0]
-      }
-      var keysExist = function (keys) {
-        return new Promise(function (resolve, reject) {
-          return c.limiter._store.clients.client.exists(...keys, function (err, data) {
-            if (err != null) {
-              return reject(err)
-            }
-            return resolve(data)
-          })
-        })
-      }
       var t0 = Date.now()
       var results = {}
       var job = function (x) {
@@ -446,12 +504,10 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return Promise.all([limiter1.ready(), limiter2.ready(), limiter3.ready()])
       })
       .then(function () {
-        return keysExist(
-          [].concat(limiterKeys(limiter1), limiterKeys(limiter2), limiterKeys(limiter3))
-        )
+        return Promise.all([countKeys(limiter1), countKeys(limiter2), countKeys(limiter3)])
       })
-      .then(function (exist) {
-        c.mustEqual(exist, 3)
+      .then(function (counts) {
+        c.mustEqual(counts, [1, 1, 1])
         return Promise.all([
           limiter1.schedule(job, 'a'),
           limiter1.schedule(job, 'b'),
@@ -478,12 +534,10 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return c.wait(400)
       })
       .then(function () {
-        return keysExist(
-          [].concat(limiterKeys(limiter1), limiterKeys(limiter2), limiterKeys(limiter3))
-        )
+        return Promise.all([countKeys(limiter1), countKeys(limiter2), countKeys(limiter3)])
       })
-      .then(function (exist) {
-        c.mustEqual(exist, 0)
+      .then(function (counts) {
+        c.mustEqual(counts, [0, 0, 0])
         c.mustEqual(group.keys().length, 0)
         c.mustEqual(Object.keys(group._connection.pubsubs).length, 0)
         return group.disconnect(false)

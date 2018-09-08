@@ -7,20 +7,33 @@ local refresh_running = function (executing_key, running_key, settings_key, now)
   else
     redis.call('zremrangebyscore', executing_key, '-inf', '('..now)
 
-    local args = {'hmget', running_key}
-    for i = 1, #expired do
-      table.insert(args, expired[i])
+    local make_batch = function ()
+      return {'hmget', running_key}
     end
 
-    local weights = redis.call(unpack(args))
+    local flush_batch = function (batch)
+      local weights = redis.call(unpack(batch))
+      batch[1] = 'hdel'
+      local deleted = redis.call(unpack(batch))
 
-    args[1] = 'hdel'
-    local deleted = redis.call(unpack(args))
+      local sum = 0
+      for i = 1, #weights do
+        sum = sum + (tonumber(weights[i]) or 0)
+      end
+      return sum
+    end
 
     local total = 0
-    for i = 1, #weights do
-      total = total + (tonumber(weights[i]) or 0)
+    local batch_size = 1000
+
+    for i = 1, #expired, batch_size do
+      local batch = make_batch()
+      for j = i, math.min(i + batch_size - 1, #expired) do
+        table.insert(batch, expired[j])
+      end
+      total = total + flush_batch(batch)
     end
+
     local incr = -total
     if total == 0 then
       incr = 0

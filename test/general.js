@@ -18,213 +18,215 @@ describe('General', function () {
     }
   })
 
-  it('Should check() and return the queued count with and without a priority value', function () {
-    c = makeTest({maxConcurrent: 1, minTime: 100})
+  describe('Counts and statuses', function () {
+    it('Should check() and return the queued count with and without a priority value', function () {
+      c = makeTest({maxConcurrent: 1, minTime: 100})
 
-    return c.limiter.check()
-    .then(function (willRunNow) {
-      c.mustEqual(willRunNow, true)
-
-      c.mustEqual(c.limiter.queued(), 0)
-      return c.limiter.submit({id: 1}, c.slowJob, 50, null, 1, c.noErrVal(1))
-    })
-    .then(function () {
-      c.mustEqual(c.limiter.queued(), 0) // It's already running
       return c.limiter.check()
+      .then(function (willRunNow) {
+        c.mustEqual(willRunNow, true)
+
+        c.mustEqual(c.limiter.queued(), 0)
+        return c.limiter.submit({id: 1}, c.slowJob, 50, null, 1, c.noErrVal(1))
+      })
+      .then(function () {
+        c.mustEqual(c.limiter.queued(), 0) // It's already running
+        return c.limiter.check()
+      })
+      .then(function (willRunNow) {
+        c.mustEqual(willRunNow, false)
+
+        return c.limiter.submit({id: 2}, c.slowJob, 50, null, 2, c.noErrVal(2))
+      })
+      .then(function () {
+        c.mustEqual(c.limiter.queued(), 1)
+        c.mustEqual(c.limiter.queued(1), 0)
+        c.mustEqual(c.limiter.queued(5), 1)
+
+        return c.limiter.submit({id: 3}, c.slowJob, 50, null, 3, c.noErrVal(3))
+      })
+      .then(function () {
+        c.mustEqual(c.limiter.queued(), 2)
+        c.mustEqual(c.limiter.queued(1), 0)
+        c.mustEqual(c.limiter.queued(5), 2)
+
+        return c.limiter.submit({id: 4}, c.slowJob, 50, null, 4, c.noErrVal(4))
+      })
+      .then(function () {
+        c.mustEqual(c.limiter.queued(), 3)
+        c.mustEqual(c.limiter.queued(1), 0)
+        c.mustEqual(c.limiter.queued(5), 3)
+
+        return c.limiter.submit({priority: 1, id: 5}, c.job, null, 5, c.noErrVal(5))
+      })
+      .then(function () {
+        c.mustEqual(c.limiter.queued(), 4)
+        c.mustEqual(c.limiter.queued(1), 1)
+        c.mustEqual(c.limiter.queued(5), 3)
+
+        return c.last()
+      })
+      .then(function (results) {
+        c.mustEqual(c.limiter.queued(), 0)
+        c.checkResultsOrder([[1], [5], [2], [3], [4]])
+        c.checkDuration(450)
+      })
+
     })
-    .then(function (willRunNow) {
-      c.mustEqual(willRunNow, false)
 
-      return c.limiter.submit({id: 2}, c.slowJob, 50, null, 2, c.noErrVal(2))
+    it('Should return the running and done counts', function () {
+      c = makeTest({maxConcurrent: 5, minTime: 0})
+
+      return Promise.all([c.limiter.running(), c.limiter.done()])
+      .then(function ([running, done]) {
+        c.mustEqual(running, 0)
+        c.mustEqual(done, 0)
+        c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
+        c.pNoErrVal(c.limiter.schedule({ weight: 3, id: 2 }, c.slowPromise, 200, null, 2), 2)
+        c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 3 }, c.slowPromise, 100, null, 3), 3)
+
+        return c.limiter.schedule({ weight: 0, id: 4 }, c.promise, null)
+      })
+      .then(function () {
+        return Promise.all([c.limiter.running(), c.limiter.done()])
+      })
+      .then(function ([running, done]) {
+        c.mustEqual(running, 5)
+        c.mustEqual(done, 0)
+        return c.wait(125)
+      })
+      .then(function () {
+        return Promise.all([c.limiter.running(), c.limiter.done()])
+      })
+      .then(function ([running, done]) {
+        c.mustEqual(running, 3)
+        c.mustEqual(done, 2)
+        return c.wait(100)
+      })
+      .then(function () {
+        return Promise.all([c.limiter.running(), c.limiter.done()])
+      })
+      .then(function ([running, done]) {
+        c.mustEqual(running, 0)
+        c.mustEqual(done, 5)
+        return c.last()
+      })
+      .then(function (results) {
+        c.checkDuration(200)
+        c.checkResultsOrder([[], [1], [3], [2]])
+      })
     })
-    .then(function () {
-      c.mustEqual(c.limiter.queued(), 1)
-      c.mustEqual(c.limiter.queued(1), 0)
-      c.mustEqual(c.limiter.queued(5), 1)
 
-      return c.limiter.submit({id: 3}, c.slowJob, 50, null, 3, c.noErrVal(3))
-    })
-    .then(function () {
-      c.mustEqual(c.limiter.queued(), 2)
-      c.mustEqual(c.limiter.queued(1), 0)
-      c.mustEqual(c.limiter.queued(5), 2)
+    it('Should reject duplicate Job IDs', function (done) {
+      c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
 
-      return c.limiter.submit({id: 4}, c.slowJob, 50, null, 4, c.noErrVal(4))
-    })
-    .then(function () {
-      c.mustEqual(c.limiter.queued(), 3)
-      c.mustEqual(c.limiter.queued(1), 0)
-      c.mustEqual(c.limiter.queued(5), 3)
-
-      return c.limiter.submit({priority: 1, id: 5}, c.job, null, 5, c.noErrVal(5))
-    })
-    .then(function () {
-      c.mustEqual(c.limiter.queued(), 4)
-      c.mustEqual(c.limiter.queued(1), 1)
-      c.mustEqual(c.limiter.queued(5), 3)
-
-      return c.last()
-    })
-    .then(function (results) {
-      c.mustEqual(c.limiter.queued(), 0)
-      c.checkResultsOrder([[1], [5], [2], [3], [4]])
-      c.checkDuration(450)
+      c.limiter.schedule({ id: 'a' }, c.promise, null, 1)
+      .then(function () {
+        return c.limiter.schedule({ id: 'b' }, c.promise, null, 2)
+      })
+      .then(function () {
+        return c.limiter.schedule({ id: 'a' }, c.promise, null, 3)
+      })
+      .catch(function (e) {
+        c.mustEqual(e.message, 'A job with the same id already exists (id=a)')
+        done()
+      })
     })
 
-  })
+    it('Should return job statuses', function () {
+      c = makeTest({maxConcurrent: 2, minTime: 100})
 
-  it('Should return the running and done counts', function () {
-    c = makeTest({maxConcurrent: 5, minTime: 0})
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0 })
 
-    return Promise.all([c.limiter.running(), c.limiter.done()])
-    .then(function ([running, done]) {
-      c.mustEqual(running, 0)
-      c.mustEqual(done, 0)
       c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
-      c.pNoErrVal(c.limiter.schedule({ weight: 3, id: 2 }, c.slowPromise, 200, null, 2), 2)
-      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 3 }, c.slowPromise, 100, null, 3), 3)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 2 }, c.slowPromise, 200, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 3 }, c.slowPromise, 100, null, 3), 3)
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 3, QUEUED: 0, RUNNING: 0, EXECUTING: 0 })
 
-      return c.limiter.schedule({ weight: 0, id: 4 }, c.promise, null)
+      return c.wait(50)
+      .then(function () {
+        c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 1, EXECUTING: 1 })
+        c.mustEqual(c.limiter.jobStatus(1), 'EXECUTING')
+        c.mustEqual(c.limiter.jobStatus(2), 'RUNNING')
+        c.mustEqual(c.limiter.jobStatus(3), 'QUEUED')
+
+        return c.last()
+      })
+      .then(function (results) {
+        c.checkDuration(400)
+        c.checkResultsOrder([[1], [2], [3]])
+      })
     })
-    .then(function () {
-      return Promise.all([c.limiter.running(), c.limiter.done()])
+
+    it('Should return job statuses, including DONE', function () {
+      c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
+
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
+
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 2 }, c.slowPromise, 200, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 3 }, c.slowPromise, 100, null, 3), 3)
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 3, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
+
+      return c.wait(50)
+      .then(function () {
+        c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 1, EXECUTING: 1, DONE: 0 })
+        c.mustEqual(c.limiter.jobStatus(1), 'EXECUTING')
+        c.mustEqual(c.limiter.jobStatus(2), 'RUNNING')
+        c.mustEqual(c.limiter.jobStatus(3), 'QUEUED')
+
+        return c.wait(100)
+      })
+      .then(function () {
+        c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 0, EXECUTING: 1, DONE: 1 })
+        c.mustEqual(c.limiter.jobStatus(1), 'DONE')
+        c.mustEqual(c.limiter.jobStatus(2), 'EXECUTING')
+        c.mustEqual(c.limiter.jobStatus(3), 'QUEUED')
+
+        return c.last()
+      })
+      .then(function (results) {
+        c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 4 })
+        c.checkDuration(400)
+        c.checkResultsOrder([[1], [2], [3]])
+      })
     })
-    .then(function ([running, done]) {
-      c.mustEqual(running, 5)
-      c.mustEqual(done, 0)
-      return c.wait(125)
-    })
-    .then(function () {
-      return Promise.all([c.limiter.running(), c.limiter.done()])
-    })
-    .then(function ([running, done]) {
-      c.mustEqual(running, 3)
-      c.mustEqual(done, 2)
-      return c.wait(100)
-    })
-    .then(function () {
-      return Promise.all([c.limiter.running(), c.limiter.done()])
-    })
-    .then(function ([running, done]) {
-      c.mustEqual(running, 0)
-      c.mustEqual(done, 5)
-      return c.last()
-    })
-    .then(function (results) {
-      c.checkDuration(200)
-      c.checkResultsOrder([[], [1], [3], [2]])
-    })
-  })
 
-  it('Should reject duplicate Job IDs', function (done) {
-    c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
+    it('Should return jobs for a status', function () {
+      c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
 
-    c.limiter.schedule({ id: 'a' }, c.promise, null, 1)
-    .then(function () {
-      return c.limiter.schedule({ id: 'b' }, c.promise, null, 2)
-    })
-    .then(function () {
-      return c.limiter.schedule({ id: 'a' }, c.promise, null, 3)
-    })
-    .catch(function (e) {
-      c.mustEqual(e.message, 'A job with the same id already exists (id=a)')
-      done()
-    })
-  })
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
 
-  it('Should return job statuses', function () {
-    c = makeTest({maxConcurrent: 2, minTime: 100})
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 2 }, c.slowPromise, 200, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 3 }, c.slowPromise, 100, null, 3), 3)
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 3, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
 
-    c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0 })
+      c.mustEqual(c.limiter.jobs(), ['1', '2', '3'])
+      c.mustEqual(c.limiter.jobs('RECEIVED'), ['1', '2', '3'])
 
-    c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
-    c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 2 }, c.slowPromise, 200, null, 2), 2)
-    c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 3 }, c.slowPromise, 100, null, 3), 3)
-    c.mustEqual(c.limiter.counts(), { RECEIVED: 3, QUEUED: 0, RUNNING: 0, EXECUTING: 0 })
+      return c.wait(50)
+      .then(function () {
+        c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 1, EXECUTING: 1, DONE: 0 })
+        c.mustEqual(c.limiter.jobs('EXECUTING'), ['1'])
+        c.mustEqual(c.limiter.jobs('RUNNING'), ['2'])
+        c.mustEqual(c.limiter.jobs('QUEUED'), ['3'])
 
-    return c.wait(50)
-    .then(function () {
-      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 1, EXECUTING: 1 })
-      c.mustEqual(c.limiter.jobStatus(1), 'EXECUTING')
-      c.mustEqual(c.limiter.jobStatus(2), 'RUNNING')
-      c.mustEqual(c.limiter.jobStatus(3), 'QUEUED')
+        return c.wait(100)
+      })
+      .then(function () {
+        c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 0, EXECUTING: 1, DONE: 1 })
+        c.mustEqual(c.limiter.jobs('DONE'), ['1'])
+        c.mustEqual(c.limiter.jobs('EXECUTING'), ['2'])
+        c.mustEqual(c.limiter.jobs('QUEUED'), ['3'])
 
-      return c.last()
-    })
-    .then(function (results) {
-      c.checkDuration(400)
-      c.checkResultsOrder([[1], [2], [3]])
-    })
-  })
-
-  it('Should return job statuses, including DONE', function () {
-    c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
-
-    c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
-
-    c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
-    c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 2 }, c.slowPromise, 200, null, 2), 2)
-    c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 3 }, c.slowPromise, 100, null, 3), 3)
-    c.mustEqual(c.limiter.counts(), { RECEIVED: 3, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
-
-    return c.wait(50)
-    .then(function () {
-      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 1, EXECUTING: 1, DONE: 0 })
-      c.mustEqual(c.limiter.jobStatus(1), 'EXECUTING')
-      c.mustEqual(c.limiter.jobStatus(2), 'RUNNING')
-      c.mustEqual(c.limiter.jobStatus(3), 'QUEUED')
-
-      return c.wait(100)
-    })
-    .then(function () {
-      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 0, EXECUTING: 1, DONE: 1 })
-      c.mustEqual(c.limiter.jobStatus(1), 'DONE')
-      c.mustEqual(c.limiter.jobStatus(2), 'EXECUTING')
-      c.mustEqual(c.limiter.jobStatus(3), 'QUEUED')
-
-      return c.last()
-    })
-    .then(function (results) {
-      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 4 })
-      c.checkDuration(400)
-      c.checkResultsOrder([[1], [2], [3]])
-    })
-  })
-
-  it('Should return jobs for a status', function () {
-    c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
-
-    c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
-
-    c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
-    c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 2 }, c.slowPromise, 200, null, 2), 2)
-    c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 3 }, c.slowPromise, 100, null, 3), 3)
-    c.mustEqual(c.limiter.counts(), { RECEIVED: 3, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
-
-    c.mustEqual(c.limiter.jobs(), ['1', '2', '3'])
-    c.mustEqual(c.limiter.jobs('RECEIVED'), ['1', '2', '3'])
-
-    return c.wait(50)
-    .then(function () {
-      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 1, EXECUTING: 1, DONE: 0 })
-      c.mustEqual(c.limiter.jobs('EXECUTING'), ['1'])
-      c.mustEqual(c.limiter.jobs('RUNNING'), ['2'])
-      c.mustEqual(c.limiter.jobs('QUEUED'), ['3'])
-
-      return c.wait(100)
-    })
-    .then(function () {
-      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 0, EXECUTING: 1, DONE: 1 })
-      c.mustEqual(c.limiter.jobs('DONE'), ['1'])
-      c.mustEqual(c.limiter.jobs('EXECUTING'), ['2'])
-      c.mustEqual(c.limiter.jobs('QUEUED'), ['3'])
-
-      return c.last()
-    })
-    .then(function (results) {
-      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 4 })
-      c.checkDuration(400)
-      c.checkResultsOrder([[1], [2], [3]])
+        return c.last()
+      })
+      .then(function (results) {
+        c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 4 })
+        c.checkDuration(400)
+        c.checkResultsOrder([[1], [2], [3]])
+      })
     })
   })
 
@@ -482,9 +484,9 @@ describe('General', function () {
 
       return Promise.all([
         c.pNoErrVal(c.limiter.schedule(c.slowPromise, 150, null, 1), 1),
+
         c.limiter.schedule({ expiration: 50 }, c.slowPromise, 75, null, 2)
         .then(function () {
-          console.log('ERROR: Job still completed')
           return Promise.reject(new Error("Should have timed out."))
         })
         .catch(function (err) {
@@ -498,13 +500,14 @@ describe('General', function () {
           c.mustEqual(running, 1)
           c.mustEqual(done, 1)
         })
+
       ])
       .then(function () {
         var duration = Date.now() - t0
         assert(duration > 145 && duration < 180)
-          return Promise.all([c.limiter.running(), c.limiter.done()])
-        })
-        .then(function ([running, done]) {
+        return Promise.all([c.limiter.running(), c.limiter.done()])
+      })
+      .then(function ([running, done]) {
         c.mustEqual(running, 0)
         c.mustEqual(done, 2)
       })
