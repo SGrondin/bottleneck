@@ -65,7 +65,7 @@ class RedisDatastore
       version: @instance.version,
       groupTimeout: @timeout
     })
-    args.unshift (if clear then 1 else 0)
+    args.unshift (if clear then 1 else 0), Date.now().toString()
     args
 
   convertBool: (b) -> !!b

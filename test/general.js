@@ -268,9 +268,6 @@ describe('General', function () {
         c.mustEqual(calledDepleted, 0)
         return c.last()
       })
-      .catch(function (err) {
-        console.log('ERROR!', err)
-      })
     })
 
     it('Should fire events once', function () {

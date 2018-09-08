@@ -29,9 +29,6 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
     afterEach(function () {
       return c.limiter.disconnect(false)
-      .catch(function () {
-        console.log(111)
-      })
     })
 
     it('Should return a promise for ready()', function () {
@@ -121,14 +118,23 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         id: 'lost',
         errorEventsExpected: true
       })
+      var limiter1 = new Bottleneck({ datastore: process.env.DATASTORE })
+      var limiter2
+      var getData = function (limiter) {
+        var [settings_key, running_key, executing_key] = limiterKeys(limiter)
+        return Promise.all([
+          runCommand(limiter1, 'hmget', [settings_key, 'running', 'done']),
+          runCommand(limiter1, 'hgetall', [running_key]),
+          runCommand(limiter1, 'zcard', [executing_key])
+        ])
+      }
       var sumRunning = function (running) {
         return Object.keys(running).reduce((acc, x) => {
           return acc + ~~running[x]
         }, 0)
       }
-      var limiter
 
-      return c.limiter.ready()
+      return Promise.all([c.limiter.ready(), limiter1.ready()])
       .then(function () {
         c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 150, null, 1), 1),
         c.limiter.schedule({ expiration: 50, weight: 2 }, c.slowPromise, 75, null, 2),
@@ -148,36 +154,21 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return c.wait(50)
       })
       .then(function () {
-        limiter = new Bottleneck({
-          id: 'lost',
-          datastore: process.env.DATASTORE
-        })
-        return limiter.ready()
-      })
-      .then(function () {
-        var [settings_key, running_key, executing_key] = limiterKeys(limiter)
-        return Promise.all([
-          runCommand(limiter, 'hmget', [settings_key, 'running', 'done']),
-          runCommand(limiter, 'hgetall', [running_key]),
-          runCommand(limiter, 'zcard', [executing_key])
-        ])
+        return getData(c.limiter)
       })
       .then(function ([settings, running, executing]) {
         c.mustEqual(settings, ['15', '0'])
         c.mustEqual(sumRunning(running), 15)
         c.mustEqual(executing, 4)
 
-        return Promise.all([limiter.running(), limiter.done()])
+        limiter2 = new Bottleneck({
+          id: 'lost',
+          datastore: process.env.DATASTORE
+        })
+        return limiter2.ready()
       })
-      .then(function (counters) {
-        c.mustEqual(counters, [1, 14])
-
-        var [settings_key, running_key, executing_key] = limiterKeys(limiter)
-        return Promise.all([
-          runCommand(limiter, 'hmget', [settings_key, 'running', 'done']),
-          runCommand(limiter, 'hgetall', [running_key]),
-          runCommand(limiter, 'zcard', [executing_key])
-        ])
+      .then(function () {
+        return getData(limiter2)
       })
       .then(function ([settings, running, executing]) {
         c.mustEqual(settings, ['1', '14'])
@@ -185,7 +176,10 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         c.mustEqual(executing, 0)
       })
       .then(function () {
-        return limiter.disconnect(false)
+        return Promise.all([
+          limiter1.disconnect(false),
+          limiter2.disconnect(false)
+        ])
       })
     })
 

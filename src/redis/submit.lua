@@ -6,7 +6,7 @@ local queueLength = tonumber(ARGV[1])
 local weight = tonumber(ARGV[2])
 local now = tonumber(ARGV[3])
 
-local running = tonumber(refresh_running(executing_key, running_key, settings_key, now))
+local running = refresh_running(executing_key, running_key, settings_key, now)
 local settings = redis.call('hmget', settings_key,
   'maxConcurrent',
   'highWater',

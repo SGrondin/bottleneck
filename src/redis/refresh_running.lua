@@ -3,7 +3,7 @@ local refresh_running = function (executing_key, running_key, settings_key, now)
   local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)
 
   if #expired == 0 then
-    return redis.call('hget', settings_key, 'running')
+    return tonumber(redis.call('hget', settings_key, 'running'))
   else
     redis.call('zremrangebyscore', executing_key, '-inf', '('..now)
 
@@ -43,7 +43,7 @@ local refresh_running = function (executing_key, running_key, settings_key, now)
       redis.call('publish', 'b_'..id, 'freed:'..total)
     end
 
-    return redis.call('hincrby', settings_key, 'running', incr)
+    return tonumber(redis.call('hincrby', settings_key, 'running', incr))
   end
 
 end

@@ -5,7 +5,7 @@ local executing_key = KEYS[3]
 local weight = tonumber(ARGV[1])
 local now = tonumber(ARGV[2])
 
-local running = tonumber(refresh_running(executing_key, running_key, settings_key, now))
+local running = refresh_running(executing_key, running_key, settings_key, now)
 local settings = redis.call('hmget', settings_key,
   'maxConcurrent',
   'reservoir',

@@ -10,7 +10,7 @@ libraries =
 templates =
   init:
     keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["refresh_expiration"]
+    libs: ["refresh_running", "refresh_expiration"]
     code: lua["init.lua"]
   update_settings:
     keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]

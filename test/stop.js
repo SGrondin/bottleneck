@@ -145,7 +145,7 @@ describe('Stop', function () {
       return c.limiter.stop()
     })
     .then(function () {
-      console.log("Should not be here")
+      done(new Error("Should not be here"))
     })
     .catch(function (err) {
       c.mustEqual(err.message, "stop() has already been called")
@@ -173,7 +173,7 @@ describe('Stop', function () {
       return c.limiter.stop({ dropWaitingJobs: true })
     })
     .then(function () {
-      console.log("Should not be here")
+      done(new Error("Should not be here"))
     })
     .catch(function (err) {
       c.mustEqual(err.message, "stop() has already been called")
@@ -197,7 +197,7 @@ describe('Stop', function () {
       return c.limiter.stop({ dropWaitingJobs: false })
     })
     .then(function () {
-      console.log("Should not be here")
+      done(new Error("Should not be here"))
     })
     .catch(function (err) {
       c.mustEqual(err.message, "stop() has already been called")
