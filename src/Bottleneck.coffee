@@ -143,11 +143,12 @@ class Bottleneck
       , wait + next.options.expiration
       job: next
 
-  _drainOne: =>
+  _drainOne: (capacity) =>
     @_registerLock.schedule =>
       if @queued() == 0 then return @Promise.resolve false
       queue = @_getFirst @_queues
       { options, args } = queue.first()
+      if capacity? and options.weight > capacity then return @Promise.resolve false
       @Events.trigger "debug", ["Draining #{options.id}", { args, options }]
       index = @_randomIndex()
       @_store.__register__ index, options.weight, options.expiration
@@ -161,8 +162,8 @@ class Bottleneck
           @_run next, wait, index
         @Promise.resolve success
 
-  _drainAll: ->
-    @_drainOne()
+  _drainAll: (capacity) ->
+    @_drainOne(capacity)
     .then (success) =>
       if success then @_drainAll()
       else @Promise.resolve success

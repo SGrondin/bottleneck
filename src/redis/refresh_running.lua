@@ -1,13 +1,17 @@
 local refresh_running = function (executing_key, running_key, settings_key, now)
 
-  local id = redis.call('hget', settings_key, 'id')
-  redis.call('publish', 'b_'..id, 'freed:')
+  local settings = redis.call('hmget', settings_key,
+    'id',
+    'running',
+    'maxConcurrent'
+  )
+  local id = settings[1]
+  local running = tonumber(settings[2])
+  local maxConcurrent = tonumber(settings[3])
 
   local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)
 
-  if #expired == 0 then
-    return tonumber(redis.call('hget', settings_key, 'running'))
-  else
+  if #expired > 0 then
     redis.call('zremrangebyscore', executing_key, '-inf', '('..now)
 
     local make_batch = function ()
@@ -37,14 +41,12 @@ local refresh_running = function (executing_key, running_key, settings_key, now)
       total = total + flush_batch(batch)
     end
 
-    local incr = -total
-    if total == 0 then
-      incr = 0
-    else
+    if total > 0 then
       redis.call('hincrby', settings_key, 'done', total)
+      running = tonumber(redis.call('hincrby', settings_key, 'running', -total))
+      redis.call('publish', 'b_'..id, 'freed:'..(maxConcurrent and (maxConcurrent - running) or '0'))
     end
-
-    return tonumber(redis.call('hincrby', settings_key, 'running', incr))
   end
 
+  return running
 end

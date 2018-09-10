@@ -90,7 +90,8 @@ class LocalDatastore
     await @yieldLoop()
     @_running -= weight
     @_done += weight
-    @instance._drainAll()
+    capacity = if @storeOptions.maxConcurrent then @storeOptions.maxConcurrent - @_running else 0
+    @instance._drainAll capacity
     { running: @_running }
 
 module.exports = LocalDatastore

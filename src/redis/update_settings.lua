@@ -10,7 +10,10 @@ end
 
 redis.call(unpack(args))
 
-local settings = redis.call('hmget', settings_key, 'id', 'groupTimeout')
+local settings = redis.call('hmget', settings_key,
+  'id',
+  'groupTimeout'
+)
 local id = settings[1]
 local groupTimeout = tonumber(settings[2])
 

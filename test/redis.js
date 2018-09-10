@@ -84,16 +84,20 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
     it('Should publish running decreases', function () {
       c = makeTest({ maxConcurrent: 2 })
-      var limiter2 = new Bottleneck({
-        maxConcurrent: 2,
-        datastore: process.env.DATASTORE
-      })
+      var limiter2
       var p3, p4
 
-      var p1 = c.limiter.schedule({id: 1}, c.slowPromise, 100, null, 1)
-      var p2 = c.limiter.schedule({id: 2}, c.slowPromise, 100, null, 2)
+      return c.limiter.ready()
+      .then(function () {
+        limiter2 = new Bottleneck({ datastore: process.env.DATASTORE })
+        return limiter2.ready()
+      })
+      .then(function () {
+        var p1 = c.limiter.schedule({id: 1}, c.slowPromise, 100, null, 1)
+        var p2 = c.limiter.schedule({id: 2}, c.slowPromise, 100, null, 2)
 
-      return c.limiter.schedule({id: 0, weight: 0}, c.promise, null, 0)
+        return c.limiter.schedule({id: 0, weight: 0}, c.promise, null, 0)
+      })
       .then(function () {
         p3 = limiter2.schedule({id: 3}, c.slowPromise, 100, null, 3)
         return p3
@@ -109,6 +113,58 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
       .then(function (data) {
         c.mustEqual(data, packagejson.version)
+        return limiter2.disconnect(false)
+      })
+    })
+
+    it('Should publish capacity changes on reservoir changes', function () {
+      c = makeTest({
+        maxConcurrent: 2,
+        reservoir: 2
+      })
+      var limiter2
+      var p3, p4
+
+      return c.limiter.ready()
+      .then(function () {
+        limiter2 = new Bottleneck({
+          datastore: process.env.DATASTORE,
+        })
+        return limiter2.ready()
+      })
+      .then(function () {
+        var p1 = c.limiter.schedule({id: 1}, c.slowPromise, 100, null, 1)
+        var p2 = c.limiter.schedule({id: 2}, c.slowPromise, 100, null, 2)
+
+        return c.limiter.schedule({id: 0, weight: 0}, c.promise, null, 0)
+      })
+      .then(function () {
+        p3 = limiter2.schedule({id: 3, weight: 2}, c.slowPromise, 100, null, 3)
+        return c.limiter.currentReservoir()
+      })
+      .then(function (reservoir) {
+        c.mustEqual(reservoir, 0)
+        return c.limiter.updateSettings({ reservoir: 1 })
+      })
+      .then(function () {
+        return c.limiter.incrementReservoir(1)
+      })
+      .then(function () {
+        return p3
+      })
+      .then(function (result) {
+        c.mustEqual(result, [3])
+        return c.limiter.currentReservoir()
+      })
+      .then(function (reservoir) {
+        c.mustEqual(reservoir, 0)
+        return c.last({ weight: 0 })
+      })
+      .then(function (results) {
+        c.checkResultsOrder([[0], [1], [2], [3]])
+        c.checkDuration(210)
+      })
+      .then(function (data) {
         return limiter2.disconnect(false)
       })
     })

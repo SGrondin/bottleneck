@@ -20,8 +20,10 @@ class RedisDatastore
       @connection.addLimiter @instance, (message) =>
         pos = message.indexOf(":")
         [type, data] = [message.slice(0, pos), message.slice(pos+1)]
-        if type == "freed" then @instance._drainAll()
-        else if type == "message" then @instance.Events.trigger "message", [data]
+        if type == "freed"
+          @instance._drainAll(if data.length > 0 then ~~data)
+        else if type == "message"
+          @instance.Events.trigger "message", [data]
     .then => @clients
 
   __publish__: (message) ->
@@ -110,7 +112,7 @@ class RedisDatastore
         throw e
 
   __free__: (index, weight) ->
-    result = await @runScript "free", true, @prepareArray [index, 0]
-    return { running: result }
+    running = await @runScript "free", true, @prepareArray [index, 0]
+    return { running }
 
 module.exports = RedisDatastore
