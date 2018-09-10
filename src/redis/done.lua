@@ -5,5 +5,4 @@ local now = ARGV[1]
 
 refresh_running(executing_key, running_key, settings_key, now)
 
--- [LEGACY] hincrby instead of hget because "done" doesn't exist <= 2.9.0
-return tonumber(redis.call('hincrby', settings_key, 'done', 0))
+return tonumber(redis.call('hget', settings_key, 'done'))

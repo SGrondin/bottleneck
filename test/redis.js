@@ -82,6 +82,34 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
+    it('Should migrate from 2.8.0', function () {
+      c = makeTest()
+      var settings_key = limiterKeys(c.limiter)[0]
+      var limiter2
+
+      return c.limiter.ready()
+      .then(function () {
+        var settings_key = limiterKeys(c.limiter)[0]
+        return Promise.all([
+          runCommand(c.limiter, 'hset', [settings_key, 'version', '2.8.0']),
+          runCommand(c.limiter, 'hdel', [settings_key, 'done'])
+        ])
+      })
+      .then(function () {
+        limiter2 = new Bottleneck({ datastore: process.env.DATASTORE })
+        return limiter2.ready()
+      })
+      .then(function () {
+        return runCommand(c.limiter, 'hmget', [settings_key, 'version', 'done'])
+      })
+      .then(function (values) {
+        c.mustEqual(values, [c.limiter.version, '0'])
+      })
+      .then(function () {
+        return limiter2.disconnect(false)
+      })
+    })
+
     it('Should publish running decreases', function () {
       c = makeTest({ maxConcurrent: 2 })
       var limiter2
