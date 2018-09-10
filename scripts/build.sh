@@ -11,9 +11,9 @@ fi
 node_modules/ejs-cli/bin/ejs-cli bottleneck.d.ts.ejs > bottleneck.d.ts
 
 if [[ $1 = 'dev' ]]; then
-  node_modules/coffeescript/bin/coffee --compile src/*.coffee
+  node_modules/coffeescript/bin/coffee --compile --no-header src/*.coffee
 else
-  node_modules/coffeescript/bin/coffee --compile --transpile src/*.coffee
+  node_modules/coffeescript/bin/coffee --compile --no-header --transpile src/*.coffee
 fi
 
 rm -rf lib/*
