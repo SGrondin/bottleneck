@@ -2,8 +2,8 @@ local settings_key = KEYS[1]
 local running_key = KEYS[2]
 local executing_key = KEYS[3]
 
-local clear = tonumber(ARGV[1])
-local now = tonumber(ARGV[2])
+local now = tonumber(ARGV[1])
+local clear = tonumber(ARGV[2])
 local limiter_version = ARGV[3]
 
 if clear == 1 then
@@ -19,6 +19,7 @@ if redis.call('exists', settings_key) == 0 then
   end
 
   redis.call(unpack(args))
+  redis.call('hset', settings_key, 'nextRequest', now)
 else
 
   -- Apply migrations

@@ -15,7 +15,7 @@ class RedisDatastore
 
     @ready = @connection.ready
     .then (@clients) => @connection.loadScripts()
-    .then => @runScript "init", false, @prepareInitSettings @clearDatastore
+    .then => @runScript "init", @prepareInitSettings @clearDatastore
     .then =>
       @connection.addLimiter @instance, (message) =>
         pos = message.indexOf(":")
@@ -35,9 +35,9 @@ class RedisDatastore
     if !@_groupConnection?
       @connection.disconnect flush
 
-  runScript: (name, hasNow, args) ->
+  runScript: (name, args) ->
     await @ready unless name == "init"
-    if hasNow then args[args.length - 1] = Date.now().toString()
+    args.unshift Date.now().toString()
     new @Promise (resolve, reject) =>
       @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
       arr = @connection.scriptArgs name, @originalId, args, (err, replies) ->
@@ -46,8 +46,8 @@ class RedisDatastore
       @connection.scriptFn(name).apply {}, arr
     .catch (e) =>
       if e.message == "SETTINGS_KEY_NOT_FOUND"
-        @runScript("init", false, @prepareInitSettings(false))
-        .then => @runScript(name, hasNow, args)
+        @runScript("init", @prepareInitSettings(false))
+        .then => @runScript(name, args)
       else @Promise.reject e
 
   prepareArray: (arr) -> (if x? then x.toString() else "") for x in arr
@@ -60,36 +60,36 @@ class RedisDatastore
   prepareInitSettings: (clear) ->
     args = @prepareObject Object.assign({}, @storeOptions, {
       id: @originalId,
-      nextRequest: Date.now(),
+      nextRequest: 0, # set to now by init.lua due to retries
       running: 0,
       done: 0,
       unblockTime: 0,
       version: @instance.version,
       groupTimeout: @timeout
     })
-    args.unshift (if clear then 1 else 0), Date.now().toString(), @instance.version
+    args.unshift (if clear then 1 else 0), @instance.version
     args
 
   convertBool: (b) -> !!b
 
   __updateSettings__: (options) ->
-    await @runScript "update_settings", false, @prepareObject options
+    await @runScript "update_settings", @prepareObject options
     parser.overwrite options, options, @storeOptions
 
-  __running__: -> @runScript "running", true, [0]
+  __running__: -> @runScript "running", []
 
-  __done__: -> @runScript "done", true, [0]
+  __done__: -> @runScript "done", []
 
-  __groupCheck__: -> @convertBool await @runScript "group_check", false, []
+  __groupCheck__: -> @convertBool await @runScript "group_check", []
 
-  __incrementReservoir__: (incr) -> @runScript "increment_reservoir", true, [incr, 0]
+  __incrementReservoir__: (incr) -> @runScript "increment_reservoir", [incr]
 
-  __currentReservoir__: -> @runScript "current_reservoir", false, []
+  __currentReservoir__: -> @runScript "current_reservoir", []
 
-  __check__: (weight) -> @convertBool await @runScript "check", true, @prepareArray [weight, 0]
+  __check__: (weight) -> @convertBool await @runScript "check", @prepareArray [weight]
 
   __register__: (index, weight, expiration) ->
-    [success, wait, reservoir] = await @runScript "register", true, @prepareArray [index, weight, expiration, 0]
+    [success, wait, reservoir] = await @runScript "register", @prepareArray [index, weight, expiration]
     return {
       success: @convertBool(success),
       wait,
@@ -98,7 +98,7 @@ class RedisDatastore
 
   __submit__: (queueLength, weight) ->
     try
-      [reachedHWM, blocked, strategy] = await @runScript "submit", true, @prepareArray [queueLength, weight, 0]
+      [reachedHWM, blocked, strategy] = await @runScript "submit", @prepareArray [queueLength, weight]
       return {
         reachedHWM: @convertBool(reachedHWM),
         blocked: @convertBool(blocked),
@@ -112,7 +112,7 @@ class RedisDatastore
         throw e
 
   __free__: (index, weight) ->
-    running = await @runScript "free", true, @prepareArray [index, 0]
+    running = await @runScript "free", @prepareArray [index]
     return { running }
 
 module.exports = RedisDatastore

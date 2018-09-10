@@ -14,7 +14,7 @@ templates =
     code: lua["init.lua"]
   update_settings:
     keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_expiration"]
+    libs: ["validate_keys", "refresh_capacity", "refresh_expiration"]
     code: lua["update_settings.lua"]
   running:
     keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]

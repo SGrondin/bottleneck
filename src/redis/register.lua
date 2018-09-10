@@ -2,10 +2,10 @@ local settings_key = KEYS[1]
 local running_key = KEYS[2]
 local executing_key = KEYS[3]
 
-local index = ARGV[1]
-local weight = tonumber(ARGV[2])
-local expiration = tonumber(ARGV[3])
-local now = tonumber(ARGV[4])
+local now = tonumber(ARGV[1])
+local index = ARGV[2]
+local weight = tonumber(ARGV[3])
+local expiration = tonumber(ARGV[4])
 
 local state = refresh_capacity(executing_key, running_key, settings_key, now, false)
 local capacity = state[1]

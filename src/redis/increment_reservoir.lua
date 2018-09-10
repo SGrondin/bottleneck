@@ -2,8 +2,8 @@ local settings_key = KEYS[1]
 local running_key = KEYS[2]
 local executing_key = KEYS[3]
 
-local incr = tonumber(ARGV[1])
-local now = tonumber(ARGV[2])
+local now = tonumber(ARGV[1])
+local incr = tonumber(ARGV[2])
 
 redis.call('hincrby', settings_key, 'reservoir', incr)
 
