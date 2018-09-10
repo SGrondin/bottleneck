@@ -164,13 +164,13 @@ describe('Group', function () {
     })
 
     var limiter1 = group.key('AAA')
-    c.mustEqual(limiter1._store.minTime, 100)
+    c.mustEqual(limiter1._store.storeOptions.minTime, 100)
 
     group.updateSettings({ minTime: 200 })
-    c.mustEqual(limiter1._store.minTime, 100)
+    c.mustEqual(limiter1._store.storeOptions.minTime, 100)
 
     var limiter2 = group.key('BBB')
-    c.mustEqual(limiter2._store.minTime, 200)
+    c.mustEqual(limiter2._store.storeOptions.minTime, 200)
   })
 
   it('Should support keys() and limiters()', function () {

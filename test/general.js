@@ -430,15 +430,12 @@ describe('General', function () {
         calledDepleted++
       })
 
-      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
+      var p1 = c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
+      var p2 = c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 2 }, c.slowPromise, 150, null, 2), 2)
+      var p3 = c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 3 }, c.slowPromise, 100, null, 3), 3)
+      var p4 = c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 4 }, c.slowPromise, 100, null, 4), 4)
 
-      var promise2 = c.limiter.schedule({ weight: 2, id: 2 }, c.slowPromise, 150, null, 2)
-      c.pNoErrVal(promise2, 2)
-
-      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 3 }, c.slowPromise, 100, null, 3), 3)
-      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 4 }, c.slowPromise, 100, null, 4), 4)
-
-      return promise2
+      return Promise.all([p1, p2])
       .then(function () {
         c.mustEqual(c.limiter.queued(), 2)
         return c.limiter.currentReservoir()
@@ -460,7 +457,10 @@ describe('General', function () {
       })
       .then(function (reservoir) {
         c.mustEqual(reservoir, 0)
-        return c.limiter.incrementReservoir(1)
+        return c.limiter.updateSettings({ reservoir: 1 })
+      })
+      .then(function () {
+        return Promise.all([p3, p4])
       })
       .then(function () {
         return c.limiter.currentReservoir()
@@ -469,7 +469,6 @@ describe('General', function () {
         c.mustEqual(reservoir, 0)
         c.mustEqual(calledDepleted, 4)
         c.mustEqual(emptyArguments, [false, false, false, true])
-        c.limiter.removeAllListeners('error') // Since we're interrupting the Redis connection immediately after this
       })
     })
   })

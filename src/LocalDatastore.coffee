@@ -1,10 +1,9 @@
 parser = require "./parser"
-DLList = require "./DLList"
 BottleneckError = require "./BottleneckError"
 
 class LocalDatastore
-  constructor: (@instance, options) ->
-    parser.load options, options, @
+  constructor: (@instance, @storeOptions, storeInstanceOptions) ->
+    parser.load storeInstanceOptions, storeInstanceOptions, @
     @_nextRequest = Date.now()
     @_running = 0
     @_done = 0
@@ -20,11 +19,12 @@ class LocalDatastore
 
   yieldLoop: (t=0) -> new @Promise (resolve, reject) -> setTimeout resolve, t
 
-  computePenalty: -> @penalty ? ((15 * @minTime) or 5000)
+  computePenalty: -> @storeOptions.penalty ? ((15 * @storeOptions.minTime) or 5000)
 
   __updateSettings__: (options) ->
     await @yieldLoop()
-    parser.overwrite options, options, @
+    parser.overwrite options, options, @storeOptions
+    @instance._drainAll()
     true
 
   __running__: ->
@@ -40,20 +40,21 @@ class LocalDatastore
     (@_nextRequest + @timeout) < time
 
   conditionsCheck: (weight) ->
-    ((not @maxConcurrent? or @_running+weight <= @maxConcurrent) and
-    (not @reservoir? or @reservoir-weight >= 0))
+    ((not @storeOptions.maxConcurrent? or @_running + weight <= @storeOptions.maxConcurrent) and
+    (not @storeOptions.reservoir? or @storeOptions.reservoir - weight >= 0))
 
   __incrementReservoir__: (incr) ->
     await @yieldLoop()
-    @reservoir += incr
+    @storeOptions.reservoir += incr
+    @instance._drainAll()
 
   __currentReservoir__: ->
     await @yieldLoop()
-    @reservoir
+    @storeOptions.reservoir
 
   isBlocked: (now) -> @_unblockTime >= now
 
-  check: (weight, now) -> @conditionsCheck(weight) and (@_nextRequest-now) <= 0
+  check: (weight, now) -> @conditionsCheck(weight) and (@_nextRequest - now) <= 0
 
   __check__: (weight) ->
     await @yieldLoop()
@@ -65,30 +66,31 @@ class LocalDatastore
     now = Date.now()
     if @conditionsCheck weight
       @_running += weight
-      if @reservoir? then @reservoir -= weight
-      wait = Math.max @_nextRequest-now, 0
-      @_nextRequest = now + wait + @minTime
-      { success: true, wait, @reservoir }
+      if @storeOptions.reservoir? then @storeOptions.reservoir -= weight
+      wait = Math.max @_nextRequest - now, 0
+      @_nextRequest = now + wait + @storeOptions.minTime
+      { success: true, wait, reservoir: @storeOptions.reservoir }
     else { success: false }
 
-  strategyIsBlock: -> @strategy == 3
+  strategyIsBlock: -> @storeOptions.strategy == 3
 
   __submit__: (queueLength, weight) ->
     await @yieldLoop()
-    if @maxConcurrent? and weight > @maxConcurrent
-      throw new BottleneckError("Impossible to add a job having a weight of #{weight} to a limiter having a maxConcurrent setting of #{@maxConcurrent}")
+    if @storeOptions.maxConcurrent? and weight > @storeOptions.maxConcurrent
+      throw new BottleneckError("Impossible to add a job having a weight of #{weight} to a limiter having a maxConcurrent setting of #{@storeOptions.maxConcurrent}")
     now = Date.now()
-    reachedHWM = @highWater? and queueLength == @highWater and not @check(weight, now)
+    reachedHWM = @storeOptions.highWater? and queueLength == @storeOptions.highWater and not @check(weight, now)
     blocked = @strategyIsBlock() and (reachedHWM or @isBlocked now)
     if blocked
       @_unblockTime = now + @computePenalty()
-      @_nextRequest = @_unblockTime + @minTime
-    { reachedHWM, blocked, strategy: @strategy }
+      @_nextRequest = @_unblockTime + @storeOptions.minTime
+    { reachedHWM, blocked, strategy: @storeOptions.strategy }
 
   __free__: (index, weight) ->
     await @yieldLoop()
     @_running -= weight
     @_done += weight
+    @instance._drainAll()
     { running: @_running }
 
 module.exports = LocalDatastore

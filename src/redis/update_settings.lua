@@ -10,7 +10,11 @@ end
 
 redis.call(unpack(args))
 
-local groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))
+local settings = redis.call('hmget', settings_key, 'id', 'groupTimeout')
+local id = settings[1]
+local groupTimeout = tonumber(settings[2])
+
+redis.call('publish', 'b_'..id, 'freed:')
 refresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)
 
 return {}

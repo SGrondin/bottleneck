@@ -45,15 +45,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   Bottleneck = function () {
     class Bottleneck {
       constructor(options = {}, ...invalid) {
-        var sDefaults;
+        var storeOptions;
         this._drainOne = this._drainOne.bind(this);
         this.submit = this.submit.bind(this);
         this.schedule = this.schedule.bind(this);
         this.updateSettings = this.updateSettings.bind(this);
         this.incrementReservoir = this.incrementReservoir.bind(this);
-        if (!(options != null && typeof options === "object" && invalid.length === 0)) {
-          throw new Bottleneck.prototype.BottleneckError("Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1.");
-        }
+        this._validateOptions(options, invalid);
         parser.load(options, this.instanceDefaults, this);
         this._queues = this._makeQueues();
         this._scheduled = {};
@@ -62,16 +60,22 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         this.Events = new Events(this);
         this._submitLock = new Sync("submit", this);
         this._registerLock = new Sync("register", this);
-        sDefaults = parser.load(options, this.storeDefaults, {});
+        storeOptions = parser.load(options, this.storeDefaults, {});
         this._store = function () {
           if (this.datastore === "local") {
-            return new LocalDatastore(this, parser.load(options, this.storeInstanceDefaults, sDefaults));
+            return new LocalDatastore(this, storeOptions, parser.load(options, this.localStoreDefaults, {}));
           } else if (this.datastore === "redis" || this.datastore === "ioredis") {
-            return new RedisDatastore(this, sDefaults, parser.load(options, this.storeInstanceDefaults, {}));
+            return new RedisDatastore(this, storeOptions, parser.load(options, this.redisStoreDefaults, {}));
           } else {
             throw new Bottleneck.prototype.BottleneckError(`Invalid datastore type: ${this.datastore}`);
           }
         }.call(this);
+      }
+
+      _validateOptions(options, invalid) {
+        if (!(options != null && typeof options === "object" && invalid.length === 0)) {
+          throw new Bottleneck.prototype.BottleneckError("Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1.");
+        }
       }
 
       ready() {
@@ -216,9 +220,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
                   args: next.args,
                   options: next.options
                 }]);
-                _this._drainAll().catch(function (e) {
-                  return _this.Events.trigger("error", [e]);
-                });
                 if (running === 0 && _this.empty()) {
                   _this.Events.trigger("idle", []);
                 }
@@ -255,7 +256,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         };
       }
 
-      _drainOne(freed) {
+      _drainOne() {
         return this._registerLock.schedule(() => {
           var args, index, options, queue;
           if (this.queued() === 0) {
@@ -268,9 +269,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           options = _queue$first.options;
           args = _queue$first.args;
 
-          if (freed != null && options.weight > freed) {
-            return this.Promise.resolve(false);
-          }
           this.Events.trigger("debug", [`Draining ${options.id}`, { args, options }]);
           index = this._randomIndex();
           return this._store.__register__(index, options.weight, options.expiration).then(({ success, wait, reservoir }) => {
@@ -292,8 +290,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         });
       }
 
-      _drainAll(freed) {
-        return this._drainOne(freed).then(success => {
+      _drainAll() {
+        return this._drainOne().then(success => {
           if (success) {
             return this._drainAll();
           } else {
@@ -341,7 +339,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         done = options.dropWaitingJobs ? (this._run = next => {
           return this._drop(next, options.dropErrorMessage);
         }, this._drainOne = () => {
-          return Promise.resolve(false);
+          return this.Promise.resolve(false);
         }, this._registerLock.schedule(() => {
           return this._submitLock.schedule(() => {
             var k, ref, v;
@@ -476,13 +474,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
           options = parser.load(options, this.jobDefaults);
         }
-        wrapped = function wrapped(...args) {
+        wrapped = (...args) => {
           var _ref11, _ref12, _splice$call7, _splice$call8;
 
           var cb, ref, returned;
           ref = args, (_ref11 = ref, _ref12 = _toArray(_ref11), args = _ref12.slice(0), _ref11), (_splice$call7 = splice.call(args, -1), _splice$call8 = _slicedToArray(_splice$call7, 1), cb = _splice$call8[0], _splice$call7);
           returned = task.apply({}, args);
-          return (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function") ? Promise.resolve(returned) : returned).then(function (...args) {
+          return (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function") ? this.Promise.resolve(returned) : returned).then(function (...args) {
             return cb.apply({}, Array.prototype.concat(null, args));
           }).catch(function (...args) {
             return cb.apply({}, args);
@@ -514,9 +512,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return _asyncToGenerator(function* () {
           yield _this3._store.__updateSettings__(parser.overwrite(options, _this3.storeDefaults));
           parser.overwrite(options, _this3.instanceDefaults, _this3);
-          _this3._drainAll().catch(function (e) {
-            return _this3.Events.trigger("error", [e]);
-          });
           return _this3;
         })();
       }
@@ -530,9 +525,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
         return _asyncToGenerator(function* () {
           yield _this4._store.__incrementReservoir__(incr);
-          _this4._drainAll().catch(function (e) {
-            return _this4.Events.trigger("error", [e]);
-          });
           return _this4;
         })();
       }
@@ -570,12 +562,17 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       reservoir: null
     };
 
-    Bottleneck.prototype.storeInstanceDefaults = {
+    Bottleneck.prototype.localStoreDefaults = {
+      Promise: Promise,
+      timeout: null
+    };
+
+    Bottleneck.prototype.redisStoreDefaults = {
+      Promise: Promise,
+      timeout: null,
       clientOptions: {},
       clusterNodes: null,
       clearDatastore: false,
-      Promise: Promise,
-      timeout: null,
       _groupConnection: null
     };
 
@@ -773,11 +770,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   Group = function () {
     class Group {
       constructor(limiterOptions = {}) {
-        this.key = this.key.bind(this);
         this.deleteKey = this.deleteKey.bind(this);
-        this.limiters = this.limiters.bind(this);
-        this.keys = this.keys.bind(this);
-        this._startAutoCleanup = this._startAutoCleanup.bind(this);
         this.updateSettings = this.updateSettings.bind(this);
         this.limiterOptions = limiterOptions;
         parser.load(this.limiterOptions, this.defaults, this);
@@ -999,18 +992,17 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
 // Generated by CoffeeScript 2.3.1
 (function () {
-  var BottleneckError, DLList, LocalDatastore, parser;
+  var BottleneckError, LocalDatastore, parser;
 
   parser = require("./parser");
-
-  DLList = require("./DLList");
 
   BottleneckError = require("./BottleneckError");
 
   LocalDatastore = class LocalDatastore {
-    constructor(instance, options) {
+    constructor(instance, storeOptions, storeInstanceOptions) {
       this.instance = instance;
-      parser.load(options, options, this);
+      this.storeOptions = storeOptions;
+      parser.load(storeInstanceOptions, storeInstanceOptions, this);
       this._nextRequest = Date.now();
       this._running = 0;
       this._done = 0;
@@ -1040,7 +1032,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
     computePenalty() {
       var ref;
-      return (ref = this.penalty) != null ? ref : 15 * this.minTime || 5000;
+      return (ref = this.storeOptions.penalty) != null ? ref : 15 * this.storeOptions.minTime || 5000;
     }
 
     __updateSettings__(options) {
@@ -1048,7 +1040,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
       return _asyncToGenerator(function* () {
         yield _this2.yieldLoop();
-        parser.overwrite(options, options, _this2);
+        parser.overwrite(options, options, _this2.storeOptions);
+        _this2.instance._drainAll();
         return true;
       })();
     }
@@ -1081,7 +1074,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     conditionsCheck(weight) {
-      return (this.maxConcurrent == null || this._running + weight <= this.maxConcurrent) && (this.reservoir == null || this.reservoir - weight >= 0);
+      return (this.storeOptions.maxConcurrent == null || this._running + weight <= this.storeOptions.maxConcurrent) && (this.storeOptions.reservoir == null || this.storeOptions.reservoir - weight >= 0);
     }
 
     __incrementReservoir__(incr) {
@@ -1089,7 +1082,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
       return _asyncToGenerator(function* () {
         yield _this6.yieldLoop();
-        return _this6.reservoir += incr;
+        _this6.storeOptions.reservoir += incr;
+        return _this6.instance._drainAll();
       })();
     }
 
@@ -1098,7 +1092,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
       return _asyncToGenerator(function* () {
         yield _this7.yieldLoop();
-        return _this7.reservoir;
+        return _this7.storeOptions.reservoir;
       })();
     }
 
@@ -1130,15 +1124,15 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         now = Date.now();
         if (_this9.conditionsCheck(weight)) {
           _this9._running += weight;
-          if (_this9.reservoir != null) {
-            _this9.reservoir -= weight;
+          if (_this9.storeOptions.reservoir != null) {
+            _this9.storeOptions.reservoir -= weight;
           }
           wait = Math.max(_this9._nextRequest - now, 0);
-          _this9._nextRequest = now + wait + _this9.minTime;
+          _this9._nextRequest = now + wait + _this9.storeOptions.minTime;
           return {
             success: true,
             wait,
-            reservoir: _this9.reservoir
+            reservoir: _this9.storeOptions.reservoir
           };
         } else {
           return {
@@ -1149,7 +1143,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     strategyIsBlock() {
-      return this.strategy === 3;
+      return this.storeOptions.strategy === 3;
     }
 
     __submit__(queueLength, weight) {
@@ -1158,20 +1152,20 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       return _asyncToGenerator(function* () {
         var blocked, now, reachedHWM;
         yield _this10.yieldLoop();
-        if (_this10.maxConcurrent != null && weight > _this10.maxConcurrent) {
-          throw new BottleneckError(`Impossible to add a job having a weight of ${weight} to a limiter having a maxConcurrent setting of ${_this10.maxConcurrent}`);
+        if (_this10.storeOptions.maxConcurrent != null && weight > _this10.storeOptions.maxConcurrent) {
+          throw new BottleneckError(`Impossible to add a job having a weight of ${weight} to a limiter having a maxConcurrent setting of ${_this10.storeOptions.maxConcurrent}`);
         }
         now = Date.now();
-        reachedHWM = _this10.highWater != null && queueLength === _this10.highWater && !_this10.check(weight, now);
+        reachedHWM = _this10.storeOptions.highWater != null && queueLength === _this10.storeOptions.highWater && !_this10.check(weight, now);
         blocked = _this10.strategyIsBlock() && (reachedHWM || _this10.isBlocked(now));
         if (blocked) {
           _this10._unblockTime = now + _this10.computePenalty();
-          _this10._nextRequest = _this10._unblockTime + _this10.minTime;
+          _this10._nextRequest = _this10._unblockTime + _this10.storeOptions.minTime;
         }
         return {
           reachedHWM,
           blocked,
-          strategy: _this10.strategy
+          strategy: _this10.storeOptions.strategy
         };
       })();
     }
@@ -1183,6 +1177,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         yield _this11.yieldLoop();
         _this11._running -= weight;
         _this11._done += weight;
+        _this11.instance._drainAll();
         return {
           running: _this11._running
         };
@@ -1193,7 +1188,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = LocalDatastore;
 }).call(undefined);
-},{"./BottleneckError":2,"./DLList":3,"./parser":15}],8:[function(require,module,exports){
+},{"./BottleneckError":2,"./parser":15}],8:[function(require,module,exports){
 "use strict";
 
 // Generated by CoffeeScript 2.3.1
@@ -1332,11 +1327,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   IORedisConnection = require("./IORedisConnection");
 
   RedisDatastore = class RedisDatastore {
-    constructor(instance, initSettings, options) {
+    constructor(instance, storeOptions, storeInstanceOptions) {
       this.instance = instance;
-      this.initSettings = initSettings;
+      this.storeOptions = storeOptions;
       this.originalId = this.instance.id;
-      parser.load(options, options, this);
+      parser.load(storeInstanceOptions, storeInstanceOptions, this);
       this.clients = {};
       this.connection = this._groupConnection ? this._groupConnection : this.instance.datastore === "redis" ? new RedisConnection({
         clientOptions: this.clientOptions,
@@ -1362,7 +1357,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           data = _ref[1];
 
           if (type === "freed") {
-            return this.instance._drainAll(~~data);
+            return this.instance._drainAll();
           } else if (type === "message") {
             return this.instance.Events.trigger("message", [data]);
           }
@@ -1447,7 +1442,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
     prepareInitSettings(clear) {
       var args;
-      args = this.prepareObject(Object.assign({}, this.initSettings, {
+      args = this.prepareObject(Object.assign({}, this.storeOptions, {
         id: this.originalId,
         nextRequest: Date.now(),
         running: 0,
@@ -1465,7 +1460,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __updateSettings__(options) {
-      return this.runScript("update_settings", false, this.prepareObject(options));
+      var _this3 = this;
+
+      return _asyncToGenerator(function* () {
+        yield _this3.runScript("update_settings", false, _this3.prepareObject(options));
+        return parser.overwrite(options, options, _this3.storeOptions);
+      })();
     }
 
     __running__() {
@@ -1477,10 +1477,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __groupCheck__() {
-      var _this3 = this;
+      var _this4 = this;
 
       return _asyncToGenerator(function* () {
-        return _this3.convertBool((yield _this3.runScript("group_check", false, [])));
+        return _this4.convertBool((yield _this4.runScript("group_check", false, [])));
       })();
     }
 
@@ -1493,20 +1493,20 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __check__(weight) {
-      var _this4 = this;
+      var _this5 = this;
 
       return _asyncToGenerator(function* () {
-        return _this4.convertBool((yield _this4.runScript("check", true, _this4.prepareArray([weight, 0]))));
+        return _this5.convertBool((yield _this5.runScript("check", true, _this5.prepareArray([weight, 0]))));
       })();
     }
 
     __register__(index, weight, expiration) {
-      var _this5 = this;
+      var _this6 = this;
 
       return _asyncToGenerator(function* () {
         var reservoir, success, wait;
 
-        var _ref3 = yield _this5.runScript("register", true, _this5.prepareArray([index, weight, expiration, 0]));
+        var _ref3 = yield _this6.runScript("register", true, _this6.prepareArray([index, weight, expiration, 0]));
 
         var _ref4 = _slicedToArray(_ref3, 3);
 
@@ -1515,7 +1515,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         reservoir = _ref4[2];
 
         return {
-          success: _this5.convertBool(success),
+          success: _this6.convertBool(success),
           wait,
           reservoir
         };
@@ -1523,12 +1523,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __submit__(queueLength, weight) {
-      var _this6 = this;
+      var _this7 = this;
 
       return _asyncToGenerator(function* () {
         var blocked, e, maxConcurrent, overweight, reachedHWM, strategy;
         try {
-          var _ref5 = yield _this6.runScript("submit", true, _this6.prepareArray([queueLength, weight, 0]));
+          var _ref5 = yield _this7.runScript("submit", true, _this7.prepareArray([queueLength, weight, 0]));
 
           var _ref6 = _slicedToArray(_ref5, 3);
 
@@ -1537,8 +1537,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           strategy = _ref6[2];
 
           return {
-            reachedHWM: _this6.convertBool(reachedHWM),
-            blocked: _this6.convertBool(blocked),
+            reachedHWM: _this7.convertBool(reachedHWM),
+            blocked: _this7.convertBool(blocked),
             strategy
           };
         } catch (error) {
@@ -1561,11 +1561,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     __free__(index, weight) {
-      var _this7 = this;
+      var _this8 = this;
 
       return _asyncToGenerator(function* () {
         var result;
-        result = yield _this7.runScript("free", true, _this7.prepareArray([index, 0]));
+        result = yield _this8.runScript("free", true, _this8.prepareArray([index, 0]));
         return {
           running: result
         };
@@ -1666,9 +1666,9 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     },
     increment_reservoir: {
       keys: function keys(id) {
-        return [`b_${id}_settings`];
+        return [`b_${id}_settings`, `b_${id}_running`, `b_${id}_executing`];
       },
-      libs: ["validate_keys"],
+      libs: ["validate_keys", "refresh_expiration"],
       code: lua["increment_reservoir.lua"]
     }
   };
@@ -1859,14 +1859,14 @@ module.exports={
   "free.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal index = ARGV[1]\nlocal now = ARGV[2]\n\nredis.call('zadd', executing_key, 0, index)\n\nreturn refresh_running(executing_key, running_key, settings_key, now)\n",
   "get_time.lua": "redis.replicate_commands()\n\nlocal get_time = function ()\n  local time = redis.call('time')\n\n  return tonumber(time[1]..string.sub(time[2], 1, 3))\nend\n",
   "group_check.lua": "local settings_key = KEYS[1]\n\nreturn not (redis.call('exists', settings_key) == 1)\n",
-  "increment_reservoir.lua": "local settings_key = KEYS[1]\nlocal incr = ARGV[1]\n\nreturn redis.call('hincrby', settings_key, 'reservoir', incr)\n",
+  "increment_reservoir.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal incr = tonumber(ARGV[1])\n\nlocal settings = redis.call('hmget', settings_key, 'id', 'groupTimeout')\nlocal id = settings[1]\nlocal groupTimeout = tonumber(settings[2])\n\nredis.call('hincrby', settings_key, 'reservoir', incr)\nredis.call('publish', 'b_'..id, 'freed:')\n\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
   "init.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal clear = tonumber(ARGV[1])\nlocal now = tonumber(ARGV[2])\n\nif clear == 1 then\n  redis.call('del', settings_key, running_key, executing_key)\nend\n\nif redis.call('exists', settings_key) == 0 then\n  local args = {'hmset', settings_key}\n\n  for i = 3, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\nelse\n  refresh_running(executing_key, running_key, settings_key, now)\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
   "refresh_expiration.lua": "local refresh_expiration = function (executing_key, running_key, settings_key, now, nextRequest, groupTimeout)\n\n  if groupTimeout ~= nil then\n    local ttl = (nextRequest + groupTimeout) - now\n\n    redis.call('pexpire', executing_key, ttl)\n    redis.call('pexpire', running_key, ttl)\n    redis.call('pexpire', settings_key, ttl)\n  end\n\nend\n",
-  "refresh_running.lua": "local refresh_running = function (executing_key, running_key, settings_key, now)\n\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired == 0 then\n    return tonumber(redis.call('hget', settings_key, 'running'))\n  else\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local make_batch = function ()\n      return {'hmget', running_key}\n    end\n\n    local flush_batch = function (batch)\n      local weights = redis.call(unpack(batch))\n      batch[1] = 'hdel'\n      local deleted = redis.call(unpack(batch))\n\n      local sum = 0\n      for i = 1, #weights do\n        sum = sum + (tonumber(weights[i]) or 0)\n      end\n      return sum\n    end\n\n    local total = 0\n    local batch_size = 1000\n\n    for i = 1, #expired, batch_size do\n      local batch = make_batch()\n      for j = i, math.min(i + batch_size - 1, #expired) do\n        table.insert(batch, expired[j])\n      end\n      total = total + flush_batch(batch)\n    end\n\n    local incr = -total\n    if total == 0 then\n      incr = 0\n    else\n      local id = redis.call('hget', settings_key, 'id')\n      redis.call('hincrby', settings_key, 'done', total)\n      redis.call('publish', 'b_'..id, 'freed:'..total)\n    end\n\n    return tonumber(redis.call('hincrby', settings_key, 'running', incr))\n  end\n\nend\n",
+  "refresh_running.lua": "local refresh_running = function (executing_key, running_key, settings_key, now)\n\n  local id = redis.call('hget', settings_key, 'id')\n  redis.call('publish', 'b_'..id, 'freed:')\n\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired == 0 then\n    return tonumber(redis.call('hget', settings_key, 'running'))\n  else\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local make_batch = function ()\n      return {'hmget', running_key}\n    end\n\n    local flush_batch = function (batch)\n      local weights = redis.call(unpack(batch))\n      batch[1] = 'hdel'\n      local deleted = redis.call(unpack(batch))\n\n      local sum = 0\n      for i = 1, #weights do\n        sum = sum + (tonumber(weights[i]) or 0)\n      end\n      return sum\n    end\n\n    local total = 0\n    local batch_size = 1000\n\n    for i = 1, #expired, batch_size do\n      local batch = make_batch()\n      for j = i, math.min(i + batch_size - 1, #expired) do\n        table.insert(batch, expired[j])\n      end\n      total = total + flush_batch(batch)\n    end\n\n    local incr = -total\n    if total == 0 then\n      incr = 0\n    else\n      redis.call('hincrby', settings_key, 'done', total)\n    end\n\n    return tonumber(redis.call('hincrby', settings_key, 'running', incr))\n  end\n\nend\n",
   "register.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal index = ARGV[1]\nlocal weight = tonumber(ARGV[2])\nlocal expiration = tonumber(ARGV[3])\nlocal now = tonumber(ARGV[4])\n\nlocal running = refresh_running(executing_key, running_key, settings_key, now)\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'reservoir',\n  'nextRequest',\n  'minTime',\n  'groupTimeout'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal reservoir = tonumber(settings[2])\nlocal nextRequest = tonumber(settings[3])\nlocal minTime = tonumber(settings[4])\nlocal groupTimeout = tonumber(settings[5])\n\nif conditions_check(weight, maxConcurrent, running, reservoir) then\n\n  if expiration ~= nil then\n    redis.call('zadd', executing_key, now + expiration, index)\n  end\n  redis.call('hset', running_key, index, weight)\n  redis.call('hincrby', settings_key, 'running', weight)\n\n  local wait = math.max(nextRequest - now, 0)\n  local newNextRequest = now + wait + minTime\n\n  if reservoir == nil then\n    redis.call('hset', settings_key,\n    'nextRequest', newNextRequest\n    )\n  else\n    reservoir = reservoir - weight\n    redis.call('hmset', settings_key,\n      'reservoir', reservoir,\n      'nextRequest', newNextRequest\n    )\n  end\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\n\n  return {true, wait, reservoir}\n\nelse\n  return {false}\nend\n",
   "running.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\nlocal now = ARGV[1]\n\nreturn refresh_running(executing_key, running_key, settings_key, now)\n",
   "submit.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal queueLength = tonumber(ARGV[1])\nlocal weight = tonumber(ARGV[2])\nlocal now = tonumber(ARGV[3])\n\nlocal running = refresh_running(executing_key, running_key, settings_key, now)\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'highWater',\n  'reservoir',\n  'nextRequest',\n  'strategy',\n  'unblockTime',\n  'penalty',\n  'minTime',\n  'groupTimeout'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal highWater = tonumber(settings[2])\nlocal reservoir = tonumber(settings[3])\nlocal nextRequest = tonumber(settings[4])\nlocal strategy = tonumber(settings[5])\nlocal unblockTime = tonumber(settings[6])\nlocal penalty = tonumber(settings[7])\nlocal minTime = tonumber(settings[8])\nlocal groupTimeout = tonumber(settings[9])\n\nif maxConcurrent ~= nil and weight > maxConcurrent then\n  return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)\nend\n\nlocal reachedHWM = (highWater ~= nil and queueLength == highWater\n  and not (\n    conditions_check(weight, maxConcurrent, running, reservoir)\n    and nextRequest - now <= 0\n  )\n)\n\nlocal blocked = strategy == 3 and (reachedHWM or unblockTime >= now)\n\nif blocked then\n  local computedPenalty = penalty\n  if computedPenalty == nil then\n    if minTime == 0 then\n      computedPenalty = 5000\n    else\n      computedPenalty = 15 * minTime\n    end\n  end\n\n  local newNextRequest = now + computedPenalty + minTime\n\n  redis.call('hmset', settings_key,\n    'unblockTime', now + computedPenalty,\n    'nextRequest', newNextRequest\n  )\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\nend\n\nreturn {reachedHWM, blocked, strategy}\n",
-  "update_settings.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal args = {'hmset', settings_key}\n\nfor i = 1, #ARGV do\n  table.insert(args, ARGV[i])\nend\n\nredis.call(unpack(args))\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
+  "update_settings.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal args = {'hmset', settings_key}\n\nfor i = 1, #ARGV do\n  table.insert(args, ARGV[i])\nend\n\nredis.call(unpack(args))\n\nlocal settings = redis.call('hmget', settings_key, 'id', 'groupTimeout')\nlocal id = settings[1]\nlocal groupTimeout = tonumber(settings[2])\n\nredis.call('publish', 'b_'..id, 'freed:')\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
   "validate_keys.lua": "local settings_key = KEYS[1]\n\nif not (redis.call('exists', settings_key) == 1) then\n  return redis.error_reply('SETTINGS_KEY_NOT_FOUND')\nend\n"
 }
 

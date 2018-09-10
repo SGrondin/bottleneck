@@ -17,10 +17,10 @@ class Group
     else if @limiterOptions.datastore == "ioredis"
       @_connection = new IORedisConnection Object.assign {}, @limiterOptions, { @Events }
 
-  key: (key="") => @instances[key] ? do =>
+  key: (key="") -> @instances[key] ? do =>
     limiter = @instances[key] = new @Bottleneck Object.assign @limiterOptions, {
       id: "group-key-#{key}",
-      timeout: @timeout,
+      @timeout,
       _groupConnection: @_connection
     }
     @Events.trigger "created", [limiter, key]
@@ -31,12 +31,11 @@ class Group
     delete @instances[key]
     instance?.disconnect()
 
-  limiters: =>
-    for k, v of @instances then { key: k, limiter: v }
+  limiters: -> { key: k, limiter: v } for k, v of @instances
 
-  keys: => Object.keys @instances
+  keys: -> Object.keys @instances
 
-  _startAutoCleanup: =>
+  _startAutoCleanup: ->
     clearInterval @interval
     (@interval = setInterval =>
       time = Date.now()

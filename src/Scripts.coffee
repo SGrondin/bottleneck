@@ -49,8 +49,8 @@ templates =
     libs: ["validate_keys"]
     code: lua["current_reservoir.lua"]
   increment_reservoir:
-    keys: (id) -> ["b_#{id}_settings"]
-    libs: ["validate_keys"]
+    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: ["validate_keys", "refresh_expiration"]
     code: lua["increment_reservoir.lua"]
 
 exports.names = Object.keys templates

@@ -17,29 +17,32 @@ class Bottleneck
   Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
   Bottleneck.Group = Bottleneck::Group = require "./Group"
   jobDefaults:
-    priority: DEFAULT_PRIORITY,
-    weight: 1,
-    expiration: null,
+    priority: DEFAULT_PRIORITY
+    weight: 1
+    expiration: null
     id: "<no-id>"
   storeDefaults:
-    maxConcurrent: null,
-    minTime: 0,
-    highWater: null,
-    strategy: Bottleneck::strategy.LEAK,
-    penalty: null,
-    reservoir: null,
-  storeInstanceDefaults:
-    clientOptions: {},
-    clusterNodes: null,
-    clearDatastore: false,
-    Promise: Promise,
-    timeout: null,
+    maxConcurrent: null
+    minTime: 0
+    highWater: null
+    strategy: Bottleneck::strategy.LEAK
+    penalty: null
+    reservoir: null
+  localStoreDefaults:
+    Promise: Promise
+    timeout: null
+  redisStoreDefaults:
+    Promise: Promise
+    timeout: null
+    clientOptions: {}
+    clusterNodes: null
+    clearDatastore: false
     _groupConnection: null
   instanceDefaults:
-    datastore: "local",
-    id: "<no-id>",
-    rejectOnDrop: true,
-    trackDoneStatus: false,
+    datastore: "local"
+    id: "<no-id>"
+    rejectOnDrop: true
+    trackDoneStatus: false
     Promise: Promise
   stopDefaults:
     enqueueErrorMessage: "This limiter has been stopped and cannot accept new jobs."
@@ -47,8 +50,7 @@ class Bottleneck
     dropErrorMessage: "This limiter has been stopped."
 
   constructor: (options={}, invalid...) ->
-    unless options? and typeof options == "object" and invalid.length == 0
-      throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1."
+    @_validateOptions options, invalid
     parser.load options, @instanceDefaults, @
     @_queues = @_makeQueues()
     @_scheduled = {}
@@ -57,10 +59,18 @@ class Bottleneck
     @Events = new Events @
     @_submitLock = new Sync "submit", @
     @_registerLock = new Sync "register", @
-    sDefaults = parser.load options, @storeDefaults, {}
-    @_store = if @datastore == "local" then new LocalDatastore @, parser.load options, @storeInstanceDefaults, sDefaults
-    else if @datastore == "redis" || @datastore == "ioredis" then new RedisDatastore @, sDefaults, parser.load options, @storeInstanceDefaults, {}
-    else throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
+    storeOptions = parser.load options, @storeDefaults, {}
+
+    @_store = if @datastore == "local"
+      new LocalDatastore @, storeOptions, parser.load options, @localStoreDefaults, {}
+    else if @datastore == "redis" or @datastore == "ioredis"
+      new RedisDatastore @, storeOptions, parser.load options, @redisStoreDefaults, {}
+    else
+      throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
+
+  _validateOptions: (options, invalid) ->
+    unless options? and typeof options == "object" and invalid.length == 0
+      throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1."
 
   ready: -> @_store.ready
 
@@ -116,7 +126,6 @@ class Bottleneck
           @Events.trigger "done", ["Completed #{next.options.id}", { args: next.args, options: next.options }]
           { running } = await @_store.__free__ index, next.options.weight
           @Events.trigger "debug", ["Freed #{next.options.id}", { args: next.args, options: next.options }]
-          @_drainAll().catch (e) => @Events.trigger "error", [e]
           if running == 0 and @empty() then @Events.trigger "idle", []
           next.cb?.apply {}, args
         catch e
@@ -134,12 +143,11 @@ class Bottleneck
       , wait + next.options.expiration
       job: next
 
-  _drainOne: (freed) =>
+  _drainOne: =>
     @_registerLock.schedule =>
       if @queued() == 0 then return @Promise.resolve false
       queue = @_getFirst @_queues
       { options, args } = queue.first()
-      if freed? and options.weight > freed then return @Promise.resolve false
       @Events.trigger "debug", ["Draining #{options.id}", { args, options }]
       index = @_randomIndex()
       @_store.__register__ index, options.weight, options.expiration
@@ -153,8 +161,8 @@ class Bottleneck
           @_run next, wait, index
         @Promise.resolve success
 
-  _drainAll: (freed) ->
-    @_drainOne(freed)
+  _drainAll: ->
+    @_drainOne()
     .then (success) =>
       if success then @_drainAll()
       else @Promise.resolve success
@@ -180,7 +188,7 @@ class Bottleneck
               resolve()
     done = if options.dropWaitingJobs
       @_run = (next) => @_drop next, options.dropErrorMessage
-      @_drainOne = => Promise.resolve false
+      @_drainOne = => @Promise.resolve false
       @_registerLock.schedule => @_submitLock.schedule =>
         for k, v of @_scheduled
           if @jobStatus(v.job.options.id) == "RUNNING"
@@ -190,7 +198,7 @@ class Bottleneck
         @_queues.forEach (queue) => queue.forEachShift (job) => @_drop job, options.dropErrorMessage
         waitForExecuting(0)
     else
-      @schedule { priority: NUM_PRIORITIES-1, weight: 0 }, => waitForExecuting(1)
+      @schedule { priority: NUM_PRIORITIES - 1, weight: 0 }, => waitForExecuting(1)
     @submit = (args..., cb) => cb?.apply {}, [new Bottleneck::BottleneckError options.enqueueErrorMessage]
     @stop = => @Promise.reject new Bottleneck::BottleneckError "stop() has already been called"
     done
@@ -248,9 +256,9 @@ class Bottleneck
     else
       [options, task, args...] = args
       options = parser.load options, @jobDefaults
-    wrapped = (args..., cb) ->
+    wrapped = (args..., cb) =>
       returned = task.apply {}, args
-      (unless returned?.then? && typeof returned.then == "function" then Promise.resolve(returned) else returned)
+      (unless returned?.then? and typeof returned.then == "function" then @Promise.resolve(returned) else returned)
       .then (args...) -> cb.apply {}, Array::concat null, args
       .catch (args...) -> cb.apply {}, args
     new @Promise (resolve, reject) =>
@@ -266,14 +274,12 @@ class Bottleneck
   updateSettings: (options={}) =>
     await @_store.__updateSettings__ parser.overwrite options, @storeDefaults
     parser.overwrite options, @instanceDefaults, @
-    @_drainAll().catch (e) => @Events.trigger "error", [e]
     @
 
   currentReservoir: -> @_store.__currentReservoir__()
 
   incrementReservoir: (incr=0) =>
     await @_store.__incrementReservoir__ incr
-    @_drainAll().catch (e) => @Events.trigger "error", [e]
     @
 
 module.exports = Bottleneck

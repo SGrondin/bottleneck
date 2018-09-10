@@ -4,9 +4,9 @@ RedisConnection = require "./RedisConnection"
 IORedisConnection = require "./IORedisConnection"
 
 class RedisDatastore
-  constructor: (@instance, @initSettings, options) ->
+  constructor: (@instance, @storeOptions, storeInstanceOptions) ->
     @originalId = @instance.id
-    parser.load options, options, @
+    parser.load storeInstanceOptions, storeInstanceOptions, @
     @clients = {}
 
     @connection = if @_groupConnection then @_groupConnection
@@ -20,7 +20,7 @@ class RedisDatastore
       @connection.addLimiter @instance, (message) =>
         pos = message.indexOf(":")
         [type, data] = [message.slice(0, pos), message.slice(pos+1)]
-        if type == "freed" then @instance._drainAll ~~data
+        if type == "freed" then @instance._drainAll()
         else if type == "message" then @instance.Events.trigger "message", [data]
     .then => @clients
 
@@ -56,7 +56,7 @@ class RedisDatastore
     arr
 
   prepareInitSettings: (clear) ->
-    args = @prepareObject Object.assign({}, @initSettings, {
+    args = @prepareObject Object.assign({}, @storeOptions, {
       id: @originalId,
       nextRequest: Date.now(),
       running: 0,
@@ -70,7 +70,9 @@ class RedisDatastore
 
   convertBool: (b) -> !!b
 
-  __updateSettings__: (options) -> @runScript "update_settings", false, @prepareObject options
+  __updateSettings__: (options) ->
+    await @runScript "update_settings", false, @prepareObject options
+    parser.overwrite options, options, @storeOptions
 
   __running__: -> @runScript "running", true, [0]
 
