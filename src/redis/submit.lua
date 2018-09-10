@@ -6,11 +6,11 @@ local queueLength = tonumber(ARGV[1])
 local weight = tonumber(ARGV[2])
 local now = tonumber(ARGV[3])
 
-local running = refresh_running(executing_key, running_key, settings_key, now)
+local capacity = refresh_capacity(executing_key, running_key, settings_key, now, false)[1]
+
 local settings = redis.call('hmget', settings_key,
   'maxConcurrent',
   'highWater',
-  'reservoir',
   'nextRequest',
   'strategy',
   'unblockTime',
@@ -20,13 +20,12 @@ local settings = redis.call('hmget', settings_key,
 )
 local maxConcurrent = tonumber(settings[1])
 local highWater = tonumber(settings[2])
-local reservoir = tonumber(settings[3])
-local nextRequest = tonumber(settings[4])
-local strategy = tonumber(settings[5])
-local unblockTime = tonumber(settings[6])
-local penalty = tonumber(settings[7])
-local minTime = tonumber(settings[8])
-local groupTimeout = tonumber(settings[9])
+local nextRequest = tonumber(settings[3])
+local strategy = tonumber(settings[4])
+local unblockTime = tonumber(settings[5])
+local penalty = tonumber(settings[6])
+local minTime = tonumber(settings[7])
+local groupTimeout = tonumber(settings[8])
 
 if maxConcurrent ~= nil and weight > maxConcurrent then
   return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)
@@ -34,7 +33,7 @@ end
 
 local reachedHWM = (highWater ~= nil and queueLength == highWater
   and not (
-    conditions_check(weight, maxConcurrent, running, reservoir)
+    conditions_check(capacity, weight)
     and nextRequest - now <= 0
   )
 )

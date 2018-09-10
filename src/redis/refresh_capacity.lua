@@ -1,14 +1,33 @@
-local refresh_running = function (executing_key, running_key, settings_key, now)
+local refresh_capacity = function (executing_key, running_key, settings_key, now, always_publish)
+
+  local compute_capacity = function (maxConcurrent, running, reservoir)
+    if maxConcurrent ~= nil and reservoir ~= nil then
+      return math.min((maxConcurrent - running), reservoir)
+    elseif maxConcurrent ~= nil then
+      return maxConcurrent - running
+    elseif reservoir ~= nil then
+      return reservoir
+    else
+      return nil
+    end
+  end
 
   local settings = redis.call('hmget', settings_key,
     'id',
+    'maxConcurrent',
     'running',
-    'maxConcurrent'
+    'reservoir'
   )
   local id = settings[1]
-  local running = tonumber(settings[2])
-  local maxConcurrent = tonumber(settings[3])
+  local maxConcurrent = tonumber(settings[2])
+  local running = tonumber(settings[3])
+  local reservoir = tonumber(settings[4])
 
+  local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)
+
+  --
+  -- Compute 'running' changes
+  --
   local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)
 
   if #expired > 0 then
@@ -44,9 +63,17 @@ local refresh_running = function (executing_key, running_key, settings_key, now)
     if total > 0 then
       redis.call('hincrby', settings_key, 'done', total)
       running = tonumber(redis.call('hincrby', settings_key, 'running', -total))
-      redis.call('publish', 'b_'..id, 'freed:'..(maxConcurrent and (maxConcurrent - running) or '0'))
     end
   end
 
-  return running
+  --
+  -- Broadcast capacity changes
+  --
+  local final_capacity = compute_capacity(maxConcurrent, running, reservoir)
+
+  if always_publish or final_capacity ~= initial_capacity then
+    redis.call('publish', 'b_'..id, 'capacity:'..final_capacity)
+  end
+
+  return {final_capacity, running, reservoir}
 end

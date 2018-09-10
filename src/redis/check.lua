@@ -5,18 +5,7 @@ local executing_key = KEYS[3]
 local weight = tonumber(ARGV[1])
 local now = tonumber(ARGV[2])
 
-local running = refresh_running(executing_key, running_key, settings_key, now)
-local settings = redis.call('hmget', settings_key,
-  'maxConcurrent',
-  'reservoir',
-  'nextRequest'
-)
-local maxConcurrent = tonumber(settings[1])
-local reservoir = tonumber(settings[2])
-local nextRequest = tonumber(settings[3])
+local capacity = refresh_capacity(executing_key, running_key, settings_key, now, false)[1]
+local nextRequest = tonumber(redis.call('hget', settings_key, 'nextRequest'))
 
-local conditionsCheck = conditions_check(weight, maxConcurrent, running, reservoir)
-
-local result = conditionsCheck and nextRequest - now <= 0
-
-return result
+return conditions_check(capacity, weight) and nextRequest - now <= 0

@@ -11,6 +11,7 @@ if clear == 1 then
 end
 
 if redis.call('exists', settings_key) == 0 then
+  -- Create
   local args = {'hmset', settings_key}
 
   for i = 4, #ARGV do
@@ -19,24 +20,25 @@ if redis.call('exists', settings_key) == 0 then
 
   redis.call(unpack(args))
 else
-  refresh_running(executing_key, running_key, settings_key, now)
-end
 
-local current_version = redis.call('hget', settings_key, 'version')
-
-if current_version ~= limiter_version then
   -- Apply migrations
-  local version_digits = {}
-  for k, v in string.gmatch(current_version, "([^.]+)") do
-    table.insert(version_digits, tonumber(k))
+  local current_version = redis.call('hget', settings_key, 'version')
+  if current_version ~= limiter_version then
+    local version_digits = {}
+    for k, v in string.gmatch(current_version, "([^.]+)") do
+      table.insert(version_digits, tonumber(k))
+    end
+
+    -- 2.10.0
+    if version_digits[2] <= 9 then
+      redis.call('hsetnx', settings_key, 'reservoirRefreshInterval', '')
+      redis.call('hsetnx', settings_key, 'reservoirRefreshAmount', '')
+      redis.call('hsetnx', settings_key, 'done', 0)
+      redis.call('hmset', settings_key, 'version', '2.10.0')
+    end
   end
 
-  -- <= 2.9.0
-  if version_digits[2] <= 9 then
-    redis.call('hset', settings_key, 'done', 0)
-  end
-
-  redis.call('hset', settings_key, 'version', limiter_version)
+  refresh_capacity(executing_key, running_key, settings_key, now, false)
 end
 
 local groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))

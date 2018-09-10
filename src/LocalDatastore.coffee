@@ -24,7 +24,7 @@ class LocalDatastore
   __updateSettings__: (options) ->
     await @yieldLoop()
     parser.overwrite options, options, @storeOptions
-    @instance._drainAll()
+    @instance._drainAll @computeCapacity()
     true
 
   __running__: ->
@@ -39,14 +39,21 @@ class LocalDatastore
     await @yieldLoop()
     (@_nextRequest + @timeout) < time
 
+  computeCapacity: ->
+    { maxConcurrent, reservoir } = @storeOptions
+    if maxConcurrent? and reservoir? then Math.min((maxConcurrent - @_running), reservoir)
+    else if maxConcurrent? then maxConcurrent - @_running
+    else if reservoir? then reservoir
+    else null
+
   conditionsCheck: (weight) ->
-    ((not @storeOptions.maxConcurrent? or @_running + weight <= @storeOptions.maxConcurrent) and
-    (not @storeOptions.reservoir? or @storeOptions.reservoir - weight >= 0))
+    capacity = @computeCapacity()
+    not capacity? or weight <= capacity
 
   __incrementReservoir__: (incr) ->
     await @yieldLoop()
     @storeOptions.reservoir += incr
-    @instance._drainAll()
+    @instance._drainAll @computeCapacity()
 
   __currentReservoir__: ->
     await @yieldLoop()
@@ -90,8 +97,7 @@ class LocalDatastore
     await @yieldLoop()
     @_running -= weight
     @_done += weight
-    capacity = if @storeOptions.maxConcurrent then @storeOptions.maxConcurrent - @_running else 0
-    @instance._drainAll capacity
+    @instance._drainAll @computeCapacity()
     { running: @_running }
 
 module.exports = LocalDatastore

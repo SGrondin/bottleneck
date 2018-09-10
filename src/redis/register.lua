@@ -7,21 +7,20 @@ local weight = tonumber(ARGV[2])
 local expiration = tonumber(ARGV[3])
 local now = tonumber(ARGV[4])
 
-local running = refresh_running(executing_key, running_key, settings_key, now)
+local state = refresh_capacity(executing_key, running_key, settings_key, now, false)
+local capacity = state[1]
+local reservoir = state[3]
+
 local settings = redis.call('hmget', settings_key,
-  'maxConcurrent',
-  'reservoir',
   'nextRequest',
   'minTime',
   'groupTimeout'
 )
-local maxConcurrent = tonumber(settings[1])
-local reservoir = tonumber(settings[2])
-local nextRequest = tonumber(settings[3])
-local minTime = tonumber(settings[4])
-local groupTimeout = tonumber(settings[5])
+local nextRequest = tonumber(settings[1])
+local minTime = tonumber(settings[2])
+local groupTimeout = tonumber(settings[3])
 
-if conditions_check(weight, maxConcurrent, running, reservoir) then
+if conditions_check(capacity, weight) then
 
   if expiration ~= nil then
     redis.call('zadd', executing_key, now + expiration, index)

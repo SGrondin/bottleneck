@@ -103,7 +103,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return runCommand(c.limiter, 'hmget', [settings_key, 'version', 'done'])
       })
       .then(function (values) {
-        c.mustEqual(values, [c.limiter.version, '0'])
+        c.mustEqual(values, ['2.10.0', '0'])
       })
       .then(function () {
         return limiter2.disconnect(false)

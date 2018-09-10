@@ -20,7 +20,7 @@ class RedisDatastore
       @connection.addLimiter @instance, (message) =>
         pos = message.indexOf(":")
         [type, data] = [message.slice(0, pos), message.slice(pos+1)]
-        if type == "freed"
+        if type == "capacity"
           @instance._drainAll(if data.length > 0 then ~~data)
         else if type == "message"
           @instance.Events.trigger "message", [data]
@@ -82,7 +82,7 @@ class RedisDatastore
 
   __groupCheck__: -> @convertBool await @runScript "group_check", false, []
 
-  __incrementReservoir__: (incr) -> @runScript "increment_reservoir", false, [incr]
+  __incrementReservoir__: (incr) -> @runScript "increment_reservoir", true, [incr, 0]
 
   __currentReservoir__: -> @runScript "current_reservoir", false, []
 

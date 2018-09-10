@@ -3,17 +3,13 @@ local running_key = KEYS[2]
 local executing_key = KEYS[3]
 
 local incr = tonumber(ARGV[1])
+local now = tonumber(ARGV[2])
 
 redis.call('hincrby', settings_key, 'reservoir', incr)
 
-local settings = redis.call('hmget', settings_key,
-  'id',
-  'groupTimeout'
-)
-local id = settings[1]
-local groupTimeout = tonumber(settings[2])
+refresh_capacity(executing_key, running_key, settings_key, now, true)
 
-redis.call('publish', 'b_'..id, 'freed:')
+local groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))
 refresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)
 
 return {}

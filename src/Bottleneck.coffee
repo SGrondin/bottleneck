@@ -28,6 +28,8 @@ class Bottleneck
     strategy: Bottleneck::strategy.LEAK
     penalty: null
     reservoir: null
+    reservoirRefreshInterval: null
+    reservoirRefreshAmount: null
   localStoreDefaults:
     Promise: Promise
     timeout: null
