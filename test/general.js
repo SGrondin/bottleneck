@@ -539,4 +539,41 @@ describe('General', function () {
     })
   })
 
+  describe('Refresh', function () {
+    it('Should auto-refresh the reservoir', function () {
+      c = makeTest({
+        reservoir: 8,
+        reservoirRefreshInterval: 150,
+        reservoirRefreshAmount: 5,
+        heartbeatInterval: 75 // not for production use
+      })
+      var calledDepleted = 0
+
+      c.limiter.on('depleted', function () {
+        calledDepleted++
+      })
+
+      return Promise.all([
+        c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.promise, null, 1), 1),
+        c.pNoErrVal(c.limiter.schedule({ weight: 2 }, c.promise, null, 2), 2),
+        c.pNoErrVal(c.limiter.schedule({ weight: 3 }, c.promise, null, 3), 3),
+        c.pNoErrVal(c.limiter.schedule({ weight: 4 }, c.promise, null, 4), 4),
+        c.pNoErrVal(c.limiter.schedule({ weight: 5 }, c.promise, null, 5), 5)
+      ])
+      .then(function () {
+        return c.limiter.currentReservoir()
+      })
+      .then(function (reservoir) {
+        c.mustEqual(reservoir, 0)
+        return c.last({ weight: 0, priority: 9 })
+      })
+      .then(function (results) {
+        console.log(results)
+        c.checkResultsOrder([[1], [2], [3], [4], [5]])
+        c.mustEqual(calledDepleted, 2)
+      })
+    })
+
+  })
+
 })

@@ -34,6 +34,7 @@ else
     if version_digits[2] <= 9 then
       redis.call('hsetnx', settings_key, 'reservoirRefreshInterval', '')
       redis.call('hsetnx', settings_key, 'reservoirRefreshAmount', '')
+      redis.call('hsetnx', settings_key, 'lastReservoirRefresh', '')
       redis.call('hsetnx', settings_key, 'done', 0)
       redis.call('hmset', settings_key, 'version', '2.10.0')
     end

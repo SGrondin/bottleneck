@@ -16,12 +16,18 @@ local refresh_capacity = function (executing_key, running_key, settings_key, now
     'id',
     'maxConcurrent',
     'running',
-    'reservoir'
+    'reservoir',
+    'reservoirRefreshInterval',
+    'reservoirRefreshAmount',
+    'lastReservoirRefresh'
   )
   local id = settings[1]
   local maxConcurrent = tonumber(settings[2])
   local running = tonumber(settings[3])
   local reservoir = tonumber(settings[4])
+  local reservoirRefreshInterval = tonumber(settings[5])
+  local reservoirRefreshAmount = tonumber(settings[6])
+  local lastReservoirRefresh = tonumber(settings[7])
 
   local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)
 
@@ -64,6 +70,18 @@ local refresh_capacity = function (executing_key, running_key, settings_key, now
       redis.call('hincrby', settings_key, 'done', total)
       running = tonumber(redis.call('hincrby', settings_key, 'running', -total))
     end
+  end
+
+  --
+  -- Compute 'reservoir' changes
+  --
+  local reservoirRefreshActive = reservoirRefreshInterval ~= nil and reservoirRefreshAmount ~= nil
+  if reservoirRefreshActive and (lastReservoirRefresh == nil or now >= lastReservoirRefresh + reservoirRefreshInterval) then
+    reservoir = reservoirRefreshAmount
+    redis.call('hmset', settings_key,
+      'reservoir', reservoir,
+      'lastReservoirRefresh', now
+    )
   end
 
   --

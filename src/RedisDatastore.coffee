@@ -18,10 +18,10 @@ class RedisDatastore
     .then => @runScript "init", @prepareInitSettings @clearDatastore
     .then => @connection.addLimiter @instance
     .then =>
-      @heartbeat = setInterval =>
+      (@heartbeat = setInterval =>
         @runScript "heartbeat", []
         .catch (e) => @instance.Events.trigger "error", [e]
-      , @heartbeatInterval
+      , @heartbeatInterval).unref?()
       @clients
 
   __publish__: (message) ->

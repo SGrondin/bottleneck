@@ -5,17 +5,28 @@ class LocalDatastore
   constructor: (@instance, @storeOptions, storeInstanceOptions) ->
     parser.load storeInstanceOptions, storeInstanceOptions, @
     @_nextRequest = Date.now()
+    @_lastReservoirRefresh = null
     @_running = 0
     @_done = 0
     @_unblockTime = 0
     @ready = @yieldLoop()
     @clients = {}
+    (@heartbeat = setInterval =>
+      now = Date.now()
+      reservoirRefreshActive = @storeOptions.reservoirRefreshInterval? and @storeOptions.reservoirRefreshAmount?
+      if reservoirRefreshActive and (not @_lastReservoirRefresh? or now >= @_lastReservoirRefresh + @storeOptions.reservoirRefreshInterval)
+        @storeOptions.reservoir = @storeOptions.reservoirRefreshAmount
+        @_lastReservoirRefresh = now
+        @instance._drainAll @computeCapacity()
+    , @heartbeatInterval).unref?()
 
   __publish__: (message) ->
     await @yieldLoop()
     @instance.Events.trigger "message", [message.toString()]
 
-  __disconnect__: (flush) -> @Promise.resolve()
+  __disconnect__: (flush) ->
+    clearInterval @heartbeat
+    @Promise.resolve()
 
   yieldLoop: (t=0) -> new @Promise (resolve, reject) -> setTimeout resolve, t
 
