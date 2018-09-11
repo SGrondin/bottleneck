@@ -445,7 +445,8 @@ describe('General', function () {
         c.mustEqual(calledDepleted, 1)
         return c.limiter.incrementReservoir(1)
       })
-      .then(function () {
+      .then(function (reservoir) {
+        c.mustEqual(reservoir, 1)
         return c.last({ priority: 1, weight: 0 })
       })
       .then(function (results) {

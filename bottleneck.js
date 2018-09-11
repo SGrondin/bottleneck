@@ -523,12 +523,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       incrementReservoir(incr = 0) {
-        var _this4 = this;
-
-        return _asyncToGenerator(function* () {
-          yield _this4._store.__incrementReservoir__(incr);
-          return _this4;
-        })();
+        return this._store.__incrementReservoir__(incr);
       }
 
     };
@@ -1105,9 +1100,11 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       var _this6 = this;
 
       return _asyncToGenerator(function* () {
+        var reservoir;
         yield _this6.yieldLoop();
-        _this6.storeOptions.reservoir += incr;
-        return _this6.instance._drainAll(_this6.computeCapacity());
+        reservoir = _this6.storeOptions.reservoir += incr;
+        _this6.instance._drainAll(_this6.computeCapacity());
+        return reservoir;
       })();
     }
 
@@ -1895,7 +1892,7 @@ module.exports={
   "get_time.lua": "redis.replicate_commands()\n\nlocal get_time = function ()\n  local time = redis.call('time')\n\n  return tonumber(time[1]..string.sub(time[2], 1, 3))\nend\n",
   "group_check.lua": "local settings_key = KEYS[1]\n\nlocal now = tonumber(ARGV[1])\n\nreturn not (redis.call('exists', settings_key) == 1)\n",
   "heartbeat.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\n\nrefresh_capacity(executing_key, running_key, settings_key, now, false)\n",
-  "increment_reservoir.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal incr = tonumber(ARGV[2])\n\nredis.call('hincrby', settings_key, 'reservoir', incr)\n\nrefresh_capacity(executing_key, running_key, settings_key, now, true)\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
+  "increment_reservoir.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal incr = tonumber(ARGV[2])\n\nredis.call('hincrby', settings_key, 'reservoir', incr)\n\nlocal reservoir = refresh_capacity(executing_key, running_key, settings_key, now, true)[3]\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn reservoir\n",
   "init.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal clear = tonumber(ARGV[2])\nlocal limiter_version = ARGV[3]\n\nif clear == 1 then\n  redis.call('del', settings_key, running_key, executing_key)\nend\n\nif redis.call('exists', settings_key) == 0 then\n  -- Create\n  local args = {'hmset', settings_key}\n\n  for i = 4, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\n  redis.call('hset', settings_key, 'nextRequest', now)\nelse\n\n  -- Apply migrations\n  local current_version = redis.call('hget', settings_key, 'version')\n  if current_version ~= limiter_version then\n    local version_digits = {}\n    for k, v in string.gmatch(current_version, \"([^.]+)\") do\n      table.insert(version_digits, tonumber(k))\n    end\n\n    -- 2.10.0\n    if version_digits[2] <= 9 then\n      redis.call('hsetnx', settings_key, 'reservoirRefreshInterval', '')\n      redis.call('hsetnx', settings_key, 'reservoirRefreshAmount', '')\n      redis.call('hsetnx', settings_key, 'done', 0)\n      redis.call('hmset', settings_key, 'version', '2.10.0')\n    end\n  end\n\n  refresh_capacity(executing_key, running_key, settings_key, now, false)\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
   "refresh_capacity.lua": "local refresh_capacity = function (executing_key, running_key, settings_key, now, always_publish)\n\n  local compute_capacity = function (maxConcurrent, running, reservoir)\n    if maxConcurrent ~= nil and reservoir ~= nil then\n      return math.min((maxConcurrent - running), reservoir)\n    elseif maxConcurrent ~= nil then\n      return maxConcurrent - running\n    elseif reservoir ~= nil then\n      return reservoir\n    else\n      return nil\n    end\n  end\n\n  local settings = redis.call('hmget', settings_key,\n    'id',\n    'maxConcurrent',\n    'running',\n    'reservoir'\n  )\n  local id = settings[1]\n  local maxConcurrent = tonumber(settings[2])\n  local running = tonumber(settings[3])\n  local reservoir = tonumber(settings[4])\n\n  local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)\n\n  --\n  -- Compute 'running' changes\n  --\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired > 0 then\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local make_batch = function ()\n      return {'hmget', running_key}\n    end\n\n    local flush_batch = function (batch)\n      local weights = redis.call(unpack(batch))\n      batch[1] = 'hdel'\n      local deleted = redis.call(unpack(batch))\n\n      local sum = 0\n      for i = 1, #weights do\n        sum = sum + (tonumber(weights[i]) or 0)\n      end\n      return sum\n    end\n\n    local total = 0\n    local batch_size = 1000\n\n    for i = 1, #expired, batch_size do\n      local batch = make_batch()\n      for j = i, math.min(i + batch_size - 1, #expired) do\n        table.insert(batch, expired[j])\n      end\n      total = total + flush_batch(batch)\n    end\n\n    if total > 0 then\n      redis.call('hincrby', settings_key, 'done', total)\n      running = tonumber(redis.call('hincrby', settings_key, 'running', -total))\n    end\n  end\n\n  --\n  -- Broadcast capacity changes\n  --\n  local final_capacity = compute_capacity(maxConcurrent, running, reservoir)\n\n  if always_publish or final_capacity ~= initial_capacity then\n    redis.call('publish', 'b_'..id, 'capacity:'..final_capacity)\n  end\n\n  return {final_capacity, running, reservoir}\nend\n",
   "refresh_expiration.lua": "local refresh_expiration = function (executing_key, running_key, settings_key, now, nextRequest, groupTimeout)\n\n  if groupTimeout ~= nil then\n    local ttl = (nextRequest + groupTimeout) - now\n\n    redis.call('pexpire', executing_key, ttl)\n    redis.call('pexpire', running_key, ttl)\n    redis.call('pexpire', settings_key, ttl)\n  end\n\nend\n",

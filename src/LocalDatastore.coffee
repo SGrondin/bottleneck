@@ -52,8 +52,9 @@ class LocalDatastore
 
   __incrementReservoir__: (incr) ->
     await @yieldLoop()
-    @storeOptions.reservoir += incr
+    reservoir = @storeOptions.reservoir += incr
     @instance._drainAll @computeCapacity()
+    reservoir
 
   __currentReservoir__: ->
     await @yieldLoop()

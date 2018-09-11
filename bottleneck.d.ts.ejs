@@ -306,9 +306,9 @@ declare module "bottleneck" {
         updateSettings(options?: Bottleneck.ConstructorOptions): Bottleneck;
 
         /**
-         * Adds to the reservoir count.
+         * Adds to the reservoir count and returns the new value.
          */
-        incrementReservoir(incrementBy: number): Bottleneck;
+        incrementReservoir(incrementBy: number): Promise<number>;
 
         /**
          * The `stop()` method is used to safely shutdown a limiter. It prevents any new jobs from being added to the limiter and waits for all Executing jobs to complete.

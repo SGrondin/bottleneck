@@ -7,9 +7,9 @@ local incr = tonumber(ARGV[2])
 
 redis.call('hincrby', settings_key, 'reservoir', incr)
 
-refresh_capacity(executing_key, running_key, settings_key, now, true)
+local reservoir = refresh_capacity(executing_key, running_key, settings_key, now, true)[3]
 
 local groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))
 refresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)
 
-return {}
+return reservoir

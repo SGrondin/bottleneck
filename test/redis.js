@@ -177,7 +177,8 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       .then(function () {
         return c.limiter.incrementReservoir(1)
       })
-      .then(function () {
+      .then(function (reservoir) {
+        c.mustEqual(reservoir, 2)
         return p3
       })
       .then(function (result) {

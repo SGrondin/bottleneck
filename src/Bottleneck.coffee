@@ -282,8 +282,6 @@ class Bottleneck
 
   currentReservoir: -> @_store.__currentReservoir__()
 
-  incrementReservoir: (incr=0) =>
-    await @_store.__incrementReservoir__ incr
-    @
+  incrementReservoir: (incr=0) => @_store.__incrementReservoir__ incr
 
 module.exports = Bottleneck
