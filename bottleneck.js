@@ -577,7 +577,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       clientOptions: {},
       clusterNodes: null,
       clearDatastore: false,
-      _groupConnection: null
+      sharedConnection: null,
+      heartbeatInterval: 1000
     };
 
     Bottleneck.prototype.instanceDefaults = {
@@ -792,7 +793,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           limiter = this.instances[key] = new this.Bottleneck(Object.assign(this.limiterOptions, {
             id: `group-key-${key}`,
             timeout: this.timeout,
-            _groupConnection: this._connection
+            sharedConnection: this._connection
           }));
           this.Events.trigger("created", [limiter, key]);
           return limiter;
@@ -903,7 +904,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           this.client = new Redis(this.clientOptions);
           this.subClient = new Redis(this.clientOptions);
         }
-        this.pubsubs = {};
+        this.limiters = {};
         this.ready = new this.Promise((resolve, reject) => {
           var count, done, errorListener;
           count = 0;
@@ -923,8 +924,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           this.subClient.on("error", errorListener);
           this.subClient.once("ready", done);
           return this.subClient.on("message", (channel, message) => {
-            var base;
-            return typeof (base = this.pubsubs)[channel] === "function" ? base[channel](message) : void 0;
+            var ref;
+            return (ref = this.limiters[channel]) != null ? ref._store.onMessage(message) : void 0;
           });
         });
       }
@@ -937,17 +938,17 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         });
       }
 
-      addLimiter(instance, pubsub) {
+      addLimiter(instance) {
         return new instance.Promise((resolve, reject) => {
           return this.subClient.subscribe(instance._channel(), () => {
-            this.pubsubs[instance._channel()] = pubsub;
+            this.limiters[instance._channel()] = instance;
             return resolve();
           });
         });
       }
 
       removeLimiter(instance) {
-        return delete this.pubsubs[instance._channel()];
+        return delete this.limiters[instance._channel()];
       }
 
       scriptArgs(name, id, args, cb) {
@@ -961,6 +962,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       disconnect(flush) {
+        var i, k, len, ref;
+        ref = Object.keys(this.limiters);
+        for (i = 0, len = ref.length; i < len; i++) {
+          k = ref[i];
+          this.limiters[k]._store.__disconnect__(flush);
+        }
         if (flush) {
           return this.Promise.all([this.client.quit(), this.subClient.quit()]);
         } else {
@@ -1228,7 +1235,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         }
         this.client = Redis.createClient(this.clientOptions);
         this.subClient = Redis.createClient(this.clientOptions);
-        this.pubsubs = {};
+        this.limiters = {};
         this.shas = {};
         this.ready = new this.Promise((resolve, reject) => {
           var count, done, errorListener;
@@ -1249,8 +1256,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           this.subClient.on("error", errorListener);
           this.subClient.once("ready", done);
           return this.subClient.on("message", (channel, message) => {
-            var base;
-            return typeof (base = this.pubsubs)[channel] === "function" ? base[channel](message) : void 0;
+            var ref;
+            return (ref = this.limiters[channel]) != null ? ref._store.onMessage(message) : void 0;
           });
         });
       }
@@ -1275,13 +1282,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         }));
       }
 
-      addLimiter(instance, pubsub) {
+      addLimiter(instance) {
         return new instance.Promise((resolve, reject) => {
           var handler;
           handler = channel => {
             if (channel === instance._channel()) {
               this.subClient.removeListener("subscribe", handler);
-              this.pubsubs[channel] = pubsub;
+              this.limiters[channel] = instance;
               return resolve();
             }
           };
@@ -1291,7 +1298,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       removeLimiter(instance) {
-        return delete this.pubsubs[instance._channel()];
+        return delete this.limiters[instance._channel()];
       }
 
       scriptArgs(name, id, args, cb) {
@@ -1305,6 +1312,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       disconnect(flush) {
+        var i, k, len, ref;
+        ref = Object.keys(this.limiters);
+        for (i = 0, len = ref.length; i < len; i++) {
+          k = ref[i];
+          this.limiters[k]._store.__disconnect__(flush);
+        }
         this.client.end(flush);
         this.subClient.end(flush);
         return this.Promise.resolve();
@@ -1348,7 +1361,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.originalId = this.instance.id;
       parser.load(storeInstanceOptions, storeInstanceOptions, this);
       this.clients = {};
-      this.connection = this._groupConnection ? this._groupConnection : this.instance.datastore === "redis" ? new RedisConnection({
+      this.connection = this.sharedConnection ? this.sharedConnection : this.instance.datastore === "redis" ? new RedisConnection({
         clientOptions: this.clientOptions,
         Promise: this.Promise,
         Events: this.instance.Events
@@ -1364,20 +1377,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }).then(() => {
         return this.runScript("init", this.prepareInitSettings(this.clearDatastore));
       }).then(() => {
-        return this.connection.addLimiter(this.instance, message => {
-          var data, pos, type;
-          pos = message.indexOf(":");
-          var _ref = [message.slice(0, pos), message.slice(pos + 1)];
-          type = _ref[0];
-          data = _ref[1];
-
-          if (type === "capacity") {
-            return this.instance._drainAll(data.length > 0 ? ~~data : void 0);
-          } else if (type === "message") {
-            return this.instance.Events.trigger("message", [data]);
-          }
-        });
+        return this.connection.addLimiter(this.instance);
       }).then(() => {
+        this.heartbeat = setInterval(() => {
+          return this.runScript("heartbeat", []).catch(e => {
+            return this.instance.Events.trigger("error", [e]);
+          });
+        }, this.heartbeatInterval);
         return this.clients;
       });
     }
@@ -1388,17 +1394,32 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       return _asyncToGenerator(function* () {
         var client;
 
-        var _ref2 = yield _this.ready;
+        var _ref = yield _this.ready;
 
-        client = _ref2.client;
+        client = _ref.client;
 
         return client.publish(_this.instance._channel(), `message:${message.toString()}`);
       })();
     }
 
+    onMessage(message) {
+      var data, pos, type;
+      pos = message.indexOf(":");
+      var _ref2 = [message.slice(0, pos), message.slice(pos + 1)];
+      type = _ref2[0];
+      data = _ref2[1];
+
+      if (type === "capacity") {
+        return this.instance._drainAll(data.length > 0 ? ~~data : void 0);
+      } else if (type === "message") {
+        return this.instance.Events.trigger("message", [data]);
+      }
+    }
+
     __disconnect__(flush) {
+      clearInterval(this.heartbeat);
       this.connection.removeLimiter(this.instance);
-      if (this._groupConnection == null) {
+      if (this.sharedConnection == null) {
         return this.connection.disconnect(flush);
       }
     }
@@ -1407,7 +1428,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       var _this2 = this;
 
       return _asyncToGenerator(function* () {
-        if (name !== "init") {
+        if (!(name === "init" || name === "heartbeat")) {
           yield _this2.ready;
         }
         args.unshift(Date.now().toString());
@@ -1610,6 +1631,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       },
       libs: ["refresh_capacity", "refresh_expiration"],
       code: lua["init.lua"]
+    },
+    heartbeat: {
+      keys: function keys(id) {
+        return [`b_${id}_settings`, `b_${id}_running`, `b_${id}_executing`];
+      },
+      libs: ["validate_keys", "refresh_capacity"],
+      code: lua["heartbeat.lua"]
     },
     update_settings: {
       keys: function keys(id) {
@@ -1866,6 +1894,7 @@ module.exports={
   "free.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal index = ARGV[2]\n\nredis.call('zadd', executing_key, 0, index)\n\nreturn refresh_capacity(executing_key, running_key, settings_key, now, false)[2]\n",
   "get_time.lua": "redis.replicate_commands()\n\nlocal get_time = function ()\n  local time = redis.call('time')\n\n  return tonumber(time[1]..string.sub(time[2], 1, 3))\nend\n",
   "group_check.lua": "local settings_key = KEYS[1]\n\nlocal now = tonumber(ARGV[1])\n\nreturn not (redis.call('exists', settings_key) == 1)\n",
+  "heartbeat.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\n\nrefresh_capacity(executing_key, running_key, settings_key, now, false)\n",
   "increment_reservoir.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal incr = tonumber(ARGV[2])\n\nredis.call('hincrby', settings_key, 'reservoir', incr)\n\nrefresh_capacity(executing_key, running_key, settings_key, now, true)\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
   "init.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal clear = tonumber(ARGV[2])\nlocal limiter_version = ARGV[3]\n\nif clear == 1 then\n  redis.call('del', settings_key, running_key, executing_key)\nend\n\nif redis.call('exists', settings_key) == 0 then\n  -- Create\n  local args = {'hmset', settings_key}\n\n  for i = 4, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\n  redis.call('hset', settings_key, 'nextRequest', now)\nelse\n\n  -- Apply migrations\n  local current_version = redis.call('hget', settings_key, 'version')\n  if current_version ~= limiter_version then\n    local version_digits = {}\n    for k, v in string.gmatch(current_version, \"([^.]+)\") do\n      table.insert(version_digits, tonumber(k))\n    end\n\n    -- 2.10.0\n    if version_digits[2] <= 9 then\n      redis.call('hsetnx', settings_key, 'reservoirRefreshInterval', '')\n      redis.call('hsetnx', settings_key, 'reservoirRefreshAmount', '')\n      redis.call('hsetnx', settings_key, 'done', 0)\n      redis.call('hmset', settings_key, 'version', '2.10.0')\n    end\n  end\n\n  refresh_capacity(executing_key, running_key, settings_key, now, false)\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
   "refresh_capacity.lua": "local refresh_capacity = function (executing_key, running_key, settings_key, now, always_publish)\n\n  local compute_capacity = function (maxConcurrent, running, reservoir)\n    if maxConcurrent ~= nil and reservoir ~= nil then\n      return math.min((maxConcurrent - running), reservoir)\n    elseif maxConcurrent ~= nil then\n      return maxConcurrent - running\n    elseif reservoir ~= nil then\n      return reservoir\n    else\n      return nil\n    end\n  end\n\n  local settings = redis.call('hmget', settings_key,\n    'id',\n    'maxConcurrent',\n    'running',\n    'reservoir'\n  )\n  local id = settings[1]\n  local maxConcurrent = tonumber(settings[2])\n  local running = tonumber(settings[3])\n  local reservoir = tonumber(settings[4])\n\n  local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)\n\n  --\n  -- Compute 'running' changes\n  --\n  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)\n\n  if #expired > 0 then\n    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)\n\n    local make_batch = function ()\n      return {'hmget', running_key}\n    end\n\n    local flush_batch = function (batch)\n      local weights = redis.call(unpack(batch))\n      batch[1] = 'hdel'\n      local deleted = redis.call(unpack(batch))\n\n      local sum = 0\n      for i = 1, #weights do\n        sum = sum + (tonumber(weights[i]) or 0)\n      end\n      return sum\n    end\n\n    local total = 0\n    local batch_size = 1000\n\n    for i = 1, #expired, batch_size do\n      local batch = make_batch()\n      for j = i, math.min(i + batch_size - 1, #expired) do\n        table.insert(batch, expired[j])\n      end\n      total = total + flush_batch(batch)\n    end\n\n    if total > 0 then\n      redis.call('hincrby', settings_key, 'done', total)\n      running = tonumber(redis.call('hincrby', settings_key, 'running', -total))\n    end\n  end\n\n  --\n  -- Broadcast capacity changes\n  --\n  local final_capacity = compute_capacity(maxConcurrent, running, reservoir)\n\n  if always_publish or final_capacity ~= initial_capacity then\n    redis.call('publish', 'b_'..id, 'capacity:'..final_capacity)\n  end\n\n  return {final_capacity, running, reservoir}\nend\n",

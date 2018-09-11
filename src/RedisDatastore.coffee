@@ -9,34 +9,41 @@ class RedisDatastore
     parser.load storeInstanceOptions, storeInstanceOptions, @
     @clients = {}
 
-    @connection = if @_groupConnection then @_groupConnection
+    @connection = if @sharedConnection then @sharedConnection
     else if @instance.datastore == "redis" then new RedisConnection { @clientOptions, @Promise, Events: @instance.Events }
     else if @instance.datastore == "ioredis" then new IORedisConnection { @clientOptions, @clusterNodes, @Promise, Events: @instance.Events }
 
     @ready = @connection.ready
     .then (@clients) => @connection.loadScripts()
     .then => @runScript "init", @prepareInitSettings @clearDatastore
+    .then => @connection.addLimiter @instance
     .then =>
-      @connection.addLimiter @instance, (message) =>
-        pos = message.indexOf(":")
-        [type, data] = [message.slice(0, pos), message.slice(pos+1)]
-        if type == "capacity"
-          @instance._drainAll(if data.length > 0 then ~~data)
-        else if type == "message"
-          @instance.Events.trigger "message", [data]
-    .then => @clients
+      @heartbeat = setInterval =>
+        @runScript "heartbeat", []
+        .catch (e) => @instance.Events.trigger "error", [e]
+      , @heartbeatInterval
+      @clients
 
   __publish__: (message) ->
     { client } = await @ready
     client.publish(@instance._channel(), "message:#{message.toString()}")
 
+  onMessage: (message) ->
+    pos = message.indexOf(":")
+    [type, data] = [message.slice(0, pos), message.slice(pos+1)]
+    if type == "capacity"
+      @instance._drainAll(if data.length > 0 then ~~data)
+    else if type == "message"
+      @instance.Events.trigger "message", [data]
+
   __disconnect__: (flush) ->
+    clearInterval @heartbeat
     @connection.removeLimiter @instance
-    if !@_groupConnection?
+    if !@sharedConnection?
       @connection.disconnect flush
 
   runScript: (name, args) ->
-    await @ready unless name == "init"
+    await @ready unless name == "init" or name == "heartbeat"
     args.unshift Date.now().toString()
     new @Promise (resolve, reject) =>
       @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]

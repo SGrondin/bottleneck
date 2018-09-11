@@ -20,7 +20,7 @@ class IORedisConnection
     else
       @client = new Redis @clientOptions
       @subClient = new Redis @clientOptions
-    @pubsubs = {}
+    @limiters = {}
 
     @ready = new @Promise (resolve, reject) =>
       count = 0
@@ -30,18 +30,19 @@ class IORedisConnection
       @client.once "ready", done
       @subClient.on "error", errorListener
       @subClient.once "ready", done
-      @subClient.on "message", (channel, message) => @pubsubs[channel]?(message)
+      @subClient.on "message", (channel, message) =>
+        @limiters[channel]?._store.onMessage message
 
   loadScripts: -> Scripts.names.forEach (name) => @client.defineCommand name, { lua: Scripts.payload(name) }
 
-  addLimiter: (instance, pubsub) ->
+  addLimiter: (instance) ->
     new instance.Promise (resolve, reject) =>
       @subClient.subscribe instance._channel(), =>
-        @pubsubs[instance._channel()] = pubsub
+        @limiters[instance._channel()] = instance
         resolve()
 
   removeLimiter: (instance) ->
-    delete @pubsubs[instance._channel()]
+    delete @limiters[instance._channel()]
 
   scriptArgs: (name, id, args, cb) ->
     keys = Scripts.keys name, id
@@ -51,6 +52,7 @@ class IORedisConnection
     @client[name].bind(@client)
 
   disconnect: (flush) ->
+    @limiters[k]._store.__disconnect__(flush) for k in Object.keys @limiters
     if flush
       @Promise.all [@client.quit(), @subClient.quit()]
     else

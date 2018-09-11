@@ -15,7 +15,7 @@ class RedisConnection
 
     @client = Redis.createClient @clientOptions
     @subClient = Redis.createClient @clientOptions
-    @pubsubs = {}
+    @limiters = {}
     @shas = {}
 
     @ready = new @Promise (resolve, reject) =>
@@ -26,7 +26,8 @@ class RedisConnection
       @client.once "ready", done
       @subClient.on "error", errorListener
       @subClient.once "ready", done
-      @subClient.on "message", (channel, message) => @pubsubs[channel]?(message)
+      @subClient.on "message", (channel, message) =>
+        @limiters[channel]?._store.onMessage message
 
   _loadScript: (name) ->
     new @Promise (resolve, reject) =>
@@ -38,18 +39,18 @@ class RedisConnection
 
   loadScripts: -> @Promise.all(Scripts.names.map (k) => @_loadScript k)
 
-  addLimiter: (instance, pubsub) ->
+  addLimiter: (instance) ->
     new instance.Promise (resolve, reject) =>
       handler = (channel) =>
         if channel == instance._channel()
           @subClient.removeListener "subscribe", handler
-          @pubsubs[channel] = pubsub
+          @limiters[channel] = instance
           resolve()
       @subClient.on "subscribe", handler
       @subClient.subscribe instance._channel()
 
   removeLimiter: (instance) ->
-    delete @pubsubs[instance._channel()]
+    delete @limiters[instance._channel()]
 
   scriptArgs: (name, id, args, cb) ->
     keys = Scripts.keys name, id
@@ -59,6 +60,7 @@ class RedisConnection
     @client.evalsha.bind(@client)
 
   disconnect: (flush) ->
+    @limiters[k]._store.__disconnect__(flush) for k in Object.keys @limiters
     @client.end flush
     @subClient.end flush
     @Promise.resolve()

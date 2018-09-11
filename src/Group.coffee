@@ -21,7 +21,7 @@ class Group
     limiter = @instances[key] = new @Bottleneck Object.assign @limiterOptions, {
       id: "group-key-#{key}",
       @timeout,
-      _groupConnection: @_connection
+      sharedConnection: @_connection
     }
     @Events.trigger "created", [limiter, key]
     limiter

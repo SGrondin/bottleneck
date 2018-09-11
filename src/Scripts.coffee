@@ -12,6 +12,10 @@ templates =
     keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
     libs: ["refresh_capacity", "refresh_expiration"]
     code: lua["init.lua"]
+  heartbeat:
+    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: ["validate_keys", "refresh_capacity"]
+    code: lua["heartbeat.lua"]
   update_settings:
     keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
     libs: ["validate_keys", "refresh_capacity", "refresh_expiration"]

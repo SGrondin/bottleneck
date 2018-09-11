@@ -203,7 +203,11 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         errorEventsExpected: true
       })
       var limiter1 = new Bottleneck({ datastore: process.env.DATASTORE })
-      var limiter2
+      var limiter2 = new Bottleneck({
+          id: 'lost',
+          datastore: process.env.DATASTORE,
+          heartbeatInterval: 150
+        })
       var getData = function (limiter) {
         var [settings_key, running_key, executing_key] = limiterKeys(limiter)
         return Promise.all([
@@ -218,7 +222,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         }, 0)
       }
 
-      return Promise.all([c.limiter.ready(), limiter1.ready()])
+      return Promise.all([c.limiter.ready(), limiter1.ready(), limiter2.ready()])
       .then(function () {
         c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 150, null, 1), 1),
         c.limiter.schedule({ expiration: 50, weight: 2 }, c.slowPromise, 75, null, 2),
@@ -235,7 +239,6 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return c.limiter.disconnect(false)
       })
       .then(function () {
-        return c.wait(50)
       })
       .then(function () {
         return getData(c.limiter)
@@ -245,14 +248,10 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         c.mustEqual(sumRunning(running), 15)
         c.mustEqual(executing, 4)
 
-        limiter2 = new Bottleneck({
-          id: 'lost',
-          datastore: process.env.DATASTORE
-        })
-        return limiter2.ready()
+        return c.wait(150)
       })
       .then(function () {
-        return getData(limiter2)
+        return getData(c.limiter)
       })
       .then(function ([settings, running, executing]) {
         c.mustEqual(settings, ['1', '14'])
@@ -617,7 +616,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       .then(function (counts) {
         c.mustEqual(counts, [0, 0, 0])
         c.mustEqual(group.keys().length, 0)
-        c.mustEqual(Object.keys(group._connection.pubsubs).length, 0)
+        c.mustEqual(Object.keys(group._connection.limiters).length, 0)
         return group.disconnect(false)
       })
 

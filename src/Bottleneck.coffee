@@ -39,7 +39,8 @@ class Bottleneck
     clientOptions: {}
     clusterNodes: null
     clearDatastore: false
-    _groupConnection: null
+    sharedConnection: null
+    heartbeatInterval: 1000
   instanceDefaults:
     datastore: "local"
     id: "<no-id>"
