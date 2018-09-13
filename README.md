@@ -163,10 +163,12 @@ Basic options:
 |--------|---------|-------------|
 | `maxConcurrent` | `null` (unlimited) | How many jobs can be running at the same time. Consider setting a value instead of leaving it `null`, it can help your application's performance, especially if you think the limiter's queue might get very long. |
 | `minTime` | `0` (ms) | How long to wait after launching a job before launching another one. |
-| `highWater` | `null` | How long can the queue get? When the queue length exceeds that value, the selected `strategy` is executed to shed the load. |
+| `highWater` | `null` (unlimited) | How long can the queue get? When the queue length exceeds that value, the selected `strategy` is executed to shed the load. |
 | `strategy` | `Bottleneck.strategy.LEAK` | Which strategy to use if the queue gets longer than the high water mark. [Read about strategies](#strategies). |
 | `penalty` | `15 * minTime`, or `5000` when `minTime` is `null` | The `penalty` value used by the `Bottleneck.strategy.BLOCK` strategy. |
-| `reservoir` | `null` (unlimited) | How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no longer `0`. |
+| `reservoir` | `null` (unlimited) | How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no longer `0`. New jobs will still be queued up. |
+| `reservoirRefreshInterval` | `null` (disabled) | Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically reset to `reservoirRefreshAmount`. This feature has an accuracy of +/- 5 seconds. |
+| `reservoirRefreshAmount` | `null` (disabled) | The value to reset `reservoir` to when `reservoirRefreshInterval` is in use. |
 
 
 ### submit()
@@ -460,7 +462,7 @@ limiter.incrementReservoir(incrementBy);
 
 This is a way to update the `reservoir` value other than calling `updateSettings`.
 
-Returns a promise.
+Returns a promise that returns the new reservoir value.
 
 ### currentReservoir()
 

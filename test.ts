@@ -24,7 +24,9 @@ let limiter = new Bottleneck({
   maxConcurrent: 5,
   minTime: 1000,
   highWater: 20,
-  strategy: Bottleneck.strategy.LEAK
+  strategy: Bottleneck.strategy.LEAK,
+  reservoirRefreshInterval: 1000 * 60,
+  reservoirRefreshAmount: 10
 });
 
 limiter.ready().then(() => { console.log('Ready') });
@@ -32,6 +34,12 @@ limiter.clients().client;
 limiter.disconnect();
 
 limiter.currentReservoir().then(function (x) {
+  if (x != null) {
+    let i: number = x;
+  }
+});
+
+limiter.incrementReservoir(5).then(function (x) {
   if (x != null) {
     let i: number = x;
   }

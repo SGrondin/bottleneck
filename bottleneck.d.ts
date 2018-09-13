@@ -26,6 +26,14 @@ declare module "bottleneck" {
              */
             readonly reservoir?: number | null;
             /**
+             * Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically reset to `reservoirRefreshAmount`. This feature has an accuracy of +/- 5 seconds.
+             */
+            readonly reservoirRefreshInterval?: number | null;
+            /**
+             * The value to reset `reservoir` to when `reservoirRefreshInterval` is in use.
+             */
+            readonly reservoirRefreshAmount?: number | null;
+            /**
              * Optional identifier
              */
             readonly id?: string;
