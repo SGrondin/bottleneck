@@ -33,11 +33,11 @@ class Bottleneck
   localStoreDefaults:
     Promise: Promise
     timeout: null
-    heartbeatInterval: 1000
+    heartbeatInterval: 5000
   redisStoreDefaults:
     Promise: Promise
     timeout: null
-    heartbeatInterval: 1000
+    heartbeatInterval: 5000
     clientOptions: {}
     clusterNodes: null
     clearDatastore: false

@@ -568,7 +568,6 @@ describe('General', function () {
         return c.last({ weight: 0, priority: 9 })
       })
       .then(function (results) {
-        console.log(results)
         c.checkResultsOrder([[1], [2], [3], [4], [5]])
         c.mustEqual(calledDepleted, 2)
       })

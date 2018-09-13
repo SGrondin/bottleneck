@@ -89,7 +89,13 @@ local refresh_capacity = function (executing_key, running_key, settings_key, now
   --
   local final_capacity = compute_capacity(maxConcurrent, running, reservoir)
 
-  if always_publish or final_capacity ~= initial_capacity then
+  if always_publish or (
+    -- was not unlimited, now unlimited
+    initial_capacity ~= nil and final_capacity == nil
+  ) or (
+    -- capacity was increased
+    initial_capacity ~= nil and final_capacity ~= nil and final_capacity > initial_capacity
+  ) then
     redis.call('publish', 'b_'..id, 'capacity:'..final_capacity)
   end
 
