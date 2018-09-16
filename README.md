@@ -5,29 +5,17 @@
 [![License][npm-license]][license-url]
 
 
-Bottleneck is a lightweight and efficient Task Scheduler and Rate Limiter for Node.js and the browser. When dealing with services with limited resources, it's important to ensure that they don't become overloaded.
+Bottleneck is a lightweight and efficient Task Scheduler and Rate Limiter for Node.js and the browser.
 
-Bottleneck is an easy solution as it does not add much complexity to your code.
+Bottleneck is an easy solution as it adds very little complexity to your code. It is battle-hardened, reliable and production-ready and used on a large scale in private companies and open source software.
 
-It is battle-hardened, reliable and production-ready. [Hundreds of projects rely on it](https://github.com/SGrondin/bottleneck/network/dependents) and it is used on a large scale in private companies and open source software.
+It supports **Clustering**: it can rate limit jobs across multiple Node.js instances. It uses Redis and strictly atomic operations to stay reliable in the presence of unreliable clients and networks. It also supports *Redis Cluster* and *Redis Sentinel*.
 
-It also supports distributed applications through the new Clustering feature in v2.
+Bottleneck v2 targets **Node 6+** and modern browsers. [Use Babel](https://github.com/SGrondin/bottleneck/issues/81) in your project if you must support older platforms.
 
-__Bottleneck Version 2__
+Bottleneck v1 is compatible with any browser or Node version. It's still maintained, but it will not be receiving any new features. [Browse the v1 documentation](https://github.com/SGrondin/bottleneck/tree/version-1).
 
-This new version is almost 100% compatible with v1.
-
-Powerful new features in v2 include:
-- **True [Clustering](#clustering) support.** You can now rate limit jobs across multiple Node.js instances. It uses strictly atomic operations to stay reliable in the presence of unreliable clients. 100% of Bottleneck's features are supported. Requires a Redis server and supports both Redis Cluster and Redis Sentinel.
-- **Support for custom job _weights_.** Not all jobs are equally resource intensive.
-- **Support for job expirations.** Bottleneck can automatically cancel jobs if they exceed their execution time limit.
-- Many improvements to the interface, such as better method names and errors, improved debugging tools.
-
-**[Quickly upgrade your application code from v1 to v2 of Bottleneck](#upgrading-to-v2)**
-
-Bottleneck v2 targets Node v6.0 or newer, and modern browsers. [Use Babel](https://github.com/SGrondin/bottleneck/issues/81) in your project if you must support older platforms.
-
-Bottleneck v1 targets ES5, which makes it compatible with any browser or Node version. It's still maintained, but it will not be receiving any new features. [Browse the v1 documentation](https://github.com/SGrondin/bottleneck/tree/version-1).
+**[Upgrading from version 1?](#upgrading-to-v2)**
 
 ## Install
 
@@ -39,6 +27,8 @@ Not using npm? Import the `bottleneck.min.js` file.
 
 
 ### Quick Start
+
+#### Step 1 of 3
 
 Most APIs have a rate limit. For example, to execute 3 requests per second:
 
@@ -59,25 +49,21 @@ const limiter = new Bottleneck({
 });
 ```
 
-Instead of this:
+#### Step 2 of 3
 
+##### Using callbacks?
+
+Instead of this:
 ```js
 someAsyncCall(arg1, arg2, callback);
 ```
-
 Do this:
-
 ```js
 limiter.submit(someAsyncCall, arg1, arg2, callback);
 ```
+Now you can be assured that `someAsyncCall` will abide by your rate limits!
 
-And now you can be assured that `someAsyncCall` will abide by your rate guidelines!
-
-Read the [Gotchas](#gotchas) section and you're good to go!
-
-Learn about the [advanced features](#submit) offered by `limiter.submit()`.
-
-#### Promises examples
+##### Using promises?
 
 Instead of this:
 ```js
@@ -102,12 +88,9 @@ wrapped(arg1, arg2)
   /* handle result */
 });
 ```
+Now you can be assured that `myFunction` will abide by your rate limits!
 
-Read the [Gotchas](#gotchas) section and you're good to go!
-
-Learn about the [advanced features](#schedule) offered by `limiter.schedule()`.
-
-#### async/await examples
+##### Using async/await?
 
 Instead of this:
 ```js
@@ -123,28 +106,27 @@ const wrapped = limiter.wrap(myFunction);
 
 const result = await wrapped(arg1, arg2);
 ```
+Now you can be assured that `myFunction` will abide by your rate limits!
 
-Read the [Gotchas](#gotchas) section and you're good to go!
+#### Step 3 of 3
 
-Learn about the [advanced features](#schedule) offered by `limiter.schedule()`.
+Remember...
 
-#### Remember...
+Bottleneck builds a queue of jobs and executes them as soon as possible. All the jobs will be executed *in the order that they were received*.
 
-Bottleneck builds a queue of jobs and executes them as soon as possible. All the jobs will be executed *in the order that they were received*. Read about [priorities](#job-options) if you wish to alter this behavior.
-
-This is sufficient for the vast majority of applications. **Read the 'Gotchas' section** and you're good to go. Or keep reading to learn about all the fine tuning available for the more complex use cases.
+**Read the 'Gotchas' section** and you're good to go. Or keep reading to learn about all the fine tuning and advanced options available. If your rate limits need to be enforced across a cluster of computers, read the [Clustering](#Clustering) docs.
 
 ##### Gotchas
 
-* Make sure you're catching `error` events emitted by limiters! See [Debugging your application](#debugging-your-application)
+* Make sure you're catching `error` events emitted by your limiters! See [Debugging your application](#debugging-your-application).
 
 * Consider setting a `maxConcurrent` value instead of leaving it `null`. This can help your application's performance, especially if you think the limiter's queue might get very long.
 
-* **When using `submit`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work otherwise.
+* **When using `submit()`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work otherwise.
 
-* **When using `submit`**, make sure all the jobs will eventually complete by calling their callback (or have an [`expiration`](#job-options)). Again, even if you `submit`ted your job with a `null` callback , it still needs to call its callback. This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run. It's safe to call the callback more than once, subsequent calls are ignored.
+* **When using `submit()`**, make sure all the jobs will eventually complete by calling their callback (or have an [`expiration`](#job-options)). Even if you submitted your job with a `null` callback , it still needs to call its callback. This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those not completed jobs will be clogging up the limiter and no new jobs will be allowed to run. It's safe to call the callback more than once, subsequent calls are ignored.
 
-* **When using `schedule` or `wrap`**, make sure that all the jobs will eventually complete (resolving or rejecting) or have an [`expiration`](#job-options). This is very important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those uncompleted jobs will be clogging up the limiter and no new jobs will be able to run.
+* **When using `schedule()` or `wrap()`**, make sure that all the jobs will eventually complete or have an [`expiration`](#job-options). This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those not completed jobs will be clogging up the limiter and no new jobs will be allowed to run.
 
 * **Clustering** has its own share of gotchas. Read the [Clustering](#clustering) chapter carefully.
 
@@ -165,7 +147,7 @@ Basic options:
 | `minTime` | `0` (ms) | How long to wait after launching a job before launching another one. |
 | `highWater` | `null` (unlimited) | How long can the queue get? When the queue length exceeds that value, the selected `strategy` is executed to shed the load. |
 | `strategy` | `Bottleneck.strategy.LEAK` | Which strategy to use if the queue gets longer than the high water mark. [Read about strategies](#strategies). |
-| `penalty` | `15 * minTime`, or `5000` when `minTime` is `null` | The `penalty` value used by the `Bottleneck.strategy.BLOCK` strategy. |
+| `penalty` | `15 * minTime`, or `5000` when `minTime` is `0` | The `penalty` value used by the `BLOCK` strategy. |
 | `reservoir` | `null` (unlimited) | How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no longer `0`. New jobs will still be queued up. |
 | `reservoirRefreshInterval` | `null` (disabled) | Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically reset to `reservoirRefreshAmount`. This feature has an accuracy of +/- 5 seconds. |
 | `reservoirRefreshAmount` | `null` (disabled) | The value to reset `reservoir` to when `reservoirRefreshInterval` is in use. |
@@ -173,20 +155,20 @@ Basic options:
 
 ### submit()
 
-Adds a job to the queue. This is the callback version of `schedule`.
+Adds a job to the queue. This is the callback version of `schedule()`.
 
 ```js
 limiter.submit(someAsyncCall, arg1, arg2, callback);
 ```
 
-`submit` can also accept some advanced options. See [Job Options](#job-options).
+`submit()` can also accept some advanced options. See [Job Options](#job-options).
 
-It's safe to mix `submit` and `schedule` in the same limiter.
+It's safe to mix `submit()` and `schedule()` in the same limiter.
 
 
 ### schedule()
 
-Adds a job to the queue. This is the Promise and async/await version of `submit`.
+Adds a job to the queue. This is the Promise and async/await version of `submit()`.
 
 ```js
 const fn = function(arg1, arg2) {
@@ -199,11 +181,11 @@ limiter.schedule(fn, arg1, arg2)
 });
 ```
 
-Simply put, `schedule` takes a function Fn and a list of arguments. Fn must return a promise. `schedule` returns a promise that will be executed according to the rate limits.
+In other words, `schedule()` takes a function **fn** and a list of arguments. **fn** must return a promise. `schedule()` returns a promise that will be executed according to the rate limits.
 
-`schedule` can also accept some advanced options. See [Job Options](#job-options).
+`schedule()` can also accept some advanced options. See [Job Options](#job-options).
 
-It's safe to mix `submit` and `schedule` in the same limiter.
+It's safe to mix `submit()` and `schedule()` in the same limiter.
 
 Here's another example:
 
@@ -247,7 +229,7 @@ wrapped()
 
 ### Job Options
 
-`submit`, `schedule`, and `wrap` all accept advanced options.
+`submit()`, `schedule()`, and `wrap()` all accept advanced options.
 
 ```js
 // Submit
@@ -394,7 +376,7 @@ limiter.on("error", function (error) {
 });
 ```
 
-By far the most common case for errors is uncaught exceptions in your application code. If the jobs you add to Bottleneck (through `submit`, `schedule` or `wrap`) don't catch their own exceptions, the limiter will emit an `error` event.
+By far the most common case for errors is uncaught exceptions in your application code. If the jobs you add to Bottleneck (through `submit()`, `schedule()` or `wrap()`) don't catch their own exceptions, the limiter will emit an `error` event.
 
 If using Clustering, errors thrown by the Redis client will emit an `error` event.
 
@@ -511,6 +493,83 @@ limiterB.chain(limiterC);
 
 To unchain, call `limiter.chain(null);`.
 
+## Group
+
+The `Group` feature of Bottleneck manages many limiters automatically for you. It creates limiters dynamically and transparently.
+
+Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse and where incoming DNS requests need to be rate limited. Bottleneck is so tiny, it's acceptable to create one limiter for each origin IP, even if it means creating thousands of limiters. The `Group` feature is perfect for this use case. Create one Group and use the origin IP to rate limit each IP independently. Each call with the same key (IP) will be routed to the same underlying limiter. A Group is created like a limiter:
+
+
+```js
+const group = new Bottleneck.Group(options);
+```
+
+The `options` object will be used for every limiter created by the Group.
+
+The Group is then used with the `.key(str)` method:
+
+```js
+// In this example, the key is an IP
+group.key("77.66.54.32").submit(someAsyncCall, arg1, arg2, cb);
+```
+
+__key()__
+
+* `str` : The key to use. All jobs added with the same key will use the same underlying limiter. *Default: `""`*
+
+The return value of `.key(str)` is a limiter. If it doesn't already exist, it is generated for you. Calling `key()` is how limiters are created inside a Group.
+
+Limiters that have been idle for longer than 5 minutes are deleted to avoid memory leaks, this value can be changed by passing a different `timeout` option, in milliseconds.
+
+__on("created")__
+
+```js
+group.on("created", (limiter, key) => {
+  console.log("A new limiter was created for key: " + key)
+
+  // Prepare the limiter, for example we'll want to listen to its 'error' events!
+  limiter.on("error", (err) => {
+    // Handle errors here
+  })
+
+  //
+  // ...other operations to be executed when a new limiter is created...
+  //
+});
+```
+
+Listening for the `created` event is the recommended way to set up a new limiter. Your event handler is executed before `key()` returns the newly created limiter.
+
+__updateSettings()__
+
+```js
+const group = new Bottleneck.Group({ maxConcurrent: 2, minTime: 250 });
+group.updateSettings({ minTime: 500 });
+```
+
+After executing the above commands, new limiters will be created with `{ maxConcurrent: 2, minTime: 500 }`.
+
+
+__deleteKey()__
+
+* `str`: The key for the limiter to delete.
+
+Manually deletes the limiter at the specified key. This can be useful when the auto cleanup is turned off.
+
+
+__keys()__
+
+Returns an array containing all the keys in the Group.
+
+
+__limiters()__
+
+```js
+const limiters = group.limiters();
+
+console.log(limiters);
+// [ { key: "some key", limiter: <limiter> }, { key: "some other key", limiter: <some other limiter> } ]
+```
 
 ## Clustering
 
@@ -690,7 +749,7 @@ clusterLimiter.ready()
 
 ## Debugging your application
 
-Debugging complex scheduling logic can be difficult, especially when priorities, weights, and network latency all interact.
+Debugging complex scheduling logic can be difficult, especially when priorities, weights, and network latency all interact with one another.
 
 If your application is not behaving as expected, start by making sure you're catching `error` [events emitted](#events) by your limiters and your Groups. Those errors are most likely uncaught exceptions from your application code.
 
@@ -721,86 +780,6 @@ limiter.schedule(fn)
 });
 ```
 
-You can also set the constructor option `rejectOnDrop` to `false`, and Bottleneck will leave your failed jobs hanging instead of failing them.
-
-## Group
-
-The `Group` feature of Bottleneck manages many limiters automatically for you. It creates limiters dynamically and transparently.
-
-Let's take a DNS server as an example of how Bottleneck can be used. It's a service that sees a lot of abuse and where incoming DNS requests need to be rate limited. Bottleneck is so tiny, it's acceptable to create one limiter for each origin IP, even if it means creating thousands of limiters. The `Group` feature is perfect for this use case. Create one Group and use the origin IP to rate limit each IP independently. Each call with the same key (IP) will be routed to the same underlying limiter. A Group is created like a limiter:
-
-
-```js
-const group = new Bottleneck.Group(options);
-```
-
-The `options` object will be used for every limiter created by the Group.
-
-The Group is then used with the `.key(str)` method:
-
-```js
-// In this example, the key is an IP
-group.key("77.66.54.32").submit(someAsyncCall, arg1, arg2, cb);
-```
-
-__key()__
-
-* `str` : The key to use. All jobs added with the same key will use the same underlying limiter. *Default: `""`*
-
-The return value of `.key(str)` is a limiter. If it doesn't already exist, it is generated for you. Calling `key()` is how limiters are created inside a Group.
-
-Limiters that have been idle for longer than 5 minutes are deleted to avoid memory leaks, this value can be changed by passing a different `timeout` option, in milliseconds.
-
-__on("created")__
-
-```js
-group.on("created", (limiter, key) => {
-  console.log("A new limiter was created for key: " + key)
-
-  // Prepare the limiter, for example we'll want to listen to its 'error' events!
-  limiter.on("error", (err) => {
-    // Handle errors here
-  })
-
-  //
-  // ...other operations to be executed when a new limiter is created...
-  //
-});
-```
-
-Listening for the `created` event is the recommended way to set up a new limiter. Your event handler is executed before `key()` returns the newly created limiter.
-
-__updateSettings()__
-
-```js
-const group = new Bottleneck.Group({ maxConcurrent: 2, minTime: 250 });
-group.updateSettings({ minTime: 500 });
-```
-
-After executing the above commands, new limiters will be created with `{ maxConcurrent: 2, minTime: 500 }`.
-
-
-__deleteKey()__
-
-* `str`: The key for the limiter to delete.
-
-Manually deletes the limiter at the specified key. This can be useful when the auto cleanup is turned off.
-
-
-__keys()__
-
-Returns an array containing all the keys in the Group.
-
-
-__limiters()__
-
-```js
-const limiters = group.limiters();
-
-console.log(limiters);
-// [ { key: "some key", limiter: <limiter> }, { key: "some other key", limiter: <some other limiter> } ]
-```
-
 ## Upgrading to v2
 
 The internal algorithms essentially haven't changed from v1, but many small changes to the interface were made to introduce new features.
@@ -811,7 +790,7 @@ All the breaking changes:
 - Jobs take an optional options object. See [Job options](#job-options).
 - Removed `submitPriority()`, use `submit()` with an options object instead.
 - Removed `schedulePriority()`, use `schedule()` with an options object instead.
-- The `rejectOnDrop` option is now `true` by default.
+- The `rejectOnDrop` option is now `true` by default. It can be set to `false` if you wish to retain v1 behavior. However this option is left undocumented as enabling it is considered to be a poor practice.
 - Use `null` instead of `0` to indicate an unlimited `maxConcurrent` value.
 - Use `null` instead of `-1` to indicate an unlimited `highWater` value.
 - Renamed `changeSettings()` to `updateSettings()`, it now returns a promise to indicate completion. It takes the same options object as the constructor.
