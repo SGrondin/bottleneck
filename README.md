@@ -112,9 +112,9 @@ Now you can be assured that `myFunction` will abide by your rate limits!
 
 Remember...
 
-Bottleneck builds a queue of jobs and executes them as soon as possible. All the jobs will be executed *in the order that they were received*.
+Bottleneck builds a queue of jobs and executes them as soon as possible. By default, the jobs will be executed in the order that they were received.
 
-**Read the 'Gotchas' section** and you're good to go. Or keep reading to learn about all the fine tuning and advanced options available. If your rate limits need to be enforced across a cluster of computers, read the [Clustering](#Clustering) docs.
+**Read the 'Gotchas'** and you're good to go. Or keep reading to learn about all the fine tuning and advanced options available. If your rate limits need to be enforced across a cluster of computers, read the [Clustering](#Clustering) docs.
 
 ##### Gotchas
 
@@ -161,9 +161,9 @@ Adds a job to the queue. This is the callback version of `schedule()`.
 limiter.submit(someAsyncCall, arg1, arg2, callback);
 ```
 
-`submit()` can also accept some advanced options. See [Job Options](#job-options).
+You can pass `null` instead of an empty function if there is not callback, but `someAsyncCall` still needs to call **its** callback to let the limiter know it has completed its work.
 
-It's safe to mix `submit()` and `schedule()` in the same limiter.
+`submit()` can also accept some [advanced options](#job-options).
 
 
 ### schedule()
@@ -183,9 +183,7 @@ limiter.schedule(fn, arg1, arg2)
 
 In other words, `schedule()` takes a function **fn** and a list of arguments. **fn** must return a promise. `schedule()` returns a promise that will be executed according to the rate limits.
 
-`schedule()` can also accept some advanced options. See [Job Options](#job-options).
-
-It's safe to mix `submit()` and `schedule()` in the same limiter.
+`schedule()` can also accept some [advanced options](#job-options).
 
 Here's another example:
 
