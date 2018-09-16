@@ -3,31 +3,34 @@ Events = require "./Events"
 Scripts = require "./Scripts"
 
 class RedisConnection
+  datastore: "redis"
   defaults:
     clientOptions: {}
+    client: null
     Promise: Promise
     Events: null
 
-  constructor: (options) ->
+  constructor: (options={}) ->
     Redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
     parser.load options, @defaults, @
     @Events ?= new Events @
 
-    @client = Redis.createClient @clientOptions
-    @subClient = Redis.createClient @clientOptions
+    @client ?= Redis.createClient @clientOptions
+    @subscriber = @client.duplicate()
     @limiters = {}
     @shas = {}
 
-    @ready = new @Promise (resolve, reject) =>
-      count = 0
-      errorListener = (e) => @Events.trigger "error", [e]
-      done = => if ++count == 2 then resolve { client: @client, subscriber: @subClient }
-      @client.on "error", errorListener
-      @client.once "ready", done
-      @subClient.on "error", errorListener
-      @subClient.once "ready", done
-      @subClient.on "message", (channel, message) =>
-        @limiters[channel]?._store.onMessage message
+    @ready = Promise.all [@_setup(@client, false), @_setup(@subscriber, true)]
+    .then => { @client, @subscriber }
+
+  _setup: (client, subscriber) ->
+    new @Promise (resolve, reject) =>
+      client.on "error", (e) => @Events.trigger "error", [e]
+      if subscriber
+        client.on "message", (channel, message) =>
+          @limiters[channel]?._store.onMessage message
+      if client.ready then resolve()
+      else client.once "ready", resolve
 
   _loadScript: (name) ->
     new @Promise (resolve, reject) =>
@@ -40,14 +43,14 @@ class RedisConnection
   loadScripts: -> @Promise.all(Scripts.names.map (k) => @_loadScript k)
 
   addLimiter: (instance) ->
-    new instance.Promise (resolve, reject) =>
+    new @Promise (resolve, reject) =>
       handler = (channel) =>
         if channel == instance._channel()
-          @subClient.removeListener "subscribe", handler
+          @subscriber.removeListener "subscribe", handler
           @limiters[channel] = instance
           resolve()
-      @subClient.on "subscribe", handler
-      @subClient.subscribe instance._channel()
+      @subscriber.on "subscribe", handler
+      @subscriber.subscribe instance._channel()
 
   removeLimiter: (instance) ->
     delete @limiters[instance._channel()]
@@ -62,7 +65,7 @@ class RedisConnection
   disconnect: (flush) ->
     @limiters[k]._store.__disconnect__(flush) for k in Object.keys @limiters
     @client.end flush
-    @subClient.end flush
+    @subscriber.end flush
     @Promise.resolve()
 
 module.exports = RedisConnection

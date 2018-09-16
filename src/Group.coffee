@@ -4,7 +4,9 @@ RedisConnection = require "./RedisConnection"
 IORedisConnection = require "./IORedisConnection"
 
 class Group
-  defaults: { timeout: 1000 * 60 * 5 }
+  defaults:
+    timeout: 1000 * 60 * 5
+    connection: null
 
   constructor: (@limiterOptions={}) ->
     parser.load @limiterOptions, @defaults, @
@@ -12,16 +14,17 @@ class Group
     @instances = {}
     @Bottleneck = require "./Bottleneck"
     @_startAutoCleanup()
-    if @limiterOptions.datastore == "redis"
-      @_connection = new RedisConnection Object.assign {}, @limiterOptions, { @Events }
-    else if @limiterOptions.datastore == "ioredis"
-      @_connection = new IORedisConnection Object.assign {}, @limiterOptions, { @Events }
+    if !@connection?
+      if @limiterOptions.datastore == "redis"
+        @connection = new RedisConnection Object.assign {}, @limiterOptions, { @Events }
+      else if @limiterOptions.datastore == "ioredis"
+        @connection = new IORedisConnection Object.assign {}, @limiterOptions, { @Events }
 
   key: (key="") -> @instances[key] ? do =>
     limiter = @instances[key] = new @Bottleneck Object.assign @limiterOptions, {
       id: "group-key-#{key}",
       @timeout,
-      sharedConnection: @_connection
+      @connection
     }
     @Events.trigger "created", [limiter, key]
     limiter
@@ -49,7 +52,6 @@ class Group
     parser.overwrite options, options, @limiterOptions
     @_startAutoCleanup() if options.timeout?
 
-  disconnect: (flush) ->
-    @_connection?.disconnect(flush)
+  disconnect: (flush) -> @connection?.disconnect(flush)
 
 module.exports = Group

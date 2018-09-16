@@ -16,6 +16,8 @@ class Bottleneck
   Bottleneck.strategy = Bottleneck::strategy = { LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3 }
   Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
   Bottleneck.Group = Bottleneck::Group = require "./Group"
+  Bottleneck.RedisConnection = Bottleneck::RedisConnection = require "./RedisConnection"
+  Bottleneck.IORedisConnection = Bottleneck::IORedisConnection = require "./IORedisConnection"
   jobDefaults:
     priority: DEFAULT_PRIORITY
     weight: 1
@@ -41,9 +43,10 @@ class Bottleneck
     clientOptions: {}
     clusterNodes: null
     clearDatastore: false
-    sharedConnection: null
+    connection: null
   instanceDefaults:
     datastore: "local"
+    connection: null
     id: "<no-id>"
     rejectOnDrop: true
     trackDoneStatus: false
@@ -65,10 +68,12 @@ class Bottleneck
     @_registerLock = new Sync "register", @
     storeOptions = parser.load options, @storeDefaults, {}
 
-    @_store = if @datastore == "local"
-      new LocalDatastore @, storeOptions, parser.load options, @localStoreDefaults, {}
-    else if @datastore == "redis" or @datastore == "ioredis"
-      new RedisDatastore @, storeOptions, parser.load options, @redisStoreDefaults, {}
+    @_store = if @datastore == "redis" or @datastore == "ioredis" or @connection?
+      storeInstanceOptions = parser.load options, @redisStoreDefaults, {}
+      new RedisDatastore @, storeOptions, storeInstanceOptions
+    else if @datastore == "local"
+      storeInstanceOptions = parser.load options, @localStoreDefaults, {}
+      new LocalDatastore @, storeOptions, storeInstanceOptions
     else
       throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
 

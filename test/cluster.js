@@ -24,7 +24,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
     })
   }
 
-  describe('Redis-only', function () {
+  describe('Cluster-only', function () {
     var c
 
     afterEach(function () {
@@ -53,6 +53,149 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       return c.limiter.disconnect()
       .then(function () {
         // do nothing
+      })
+    })
+
+    it('Should allow passing a limiter\'s connection to a new limiter', function () {
+      c = makeTest()
+      c.limiter.connection.id = 'some-id'
+      var limiter = new Bottleneck({
+        minTime: 50,
+        connection: c.limiter.connection
+      })
+
+      return Promise.all([c.limiter.ready(), limiter.ready()])
+      .then(function () {
+        c.mustEqual(limiter.connection.id, 'some-id')
+        c.mustEqual(limiter.datastore, process.env.DATASTORE)
+
+        return Promise.all([
+          c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1),
+          c.pNoErrVal(limiter.schedule(c.promise, null, 2), 2)
+        ])
+      })
+      .then(c.last)
+      .then(function (results) {
+        c.checkResultsOrder([[1], [2]])
+        c.checkDuration(0)
+      })
+    })
+
+    it('Should allow passing a limiter\'s connection to a new Group', function () {
+      c = makeTest()
+      c.limiter.connection.id = 'some-id'
+      var group = new Bottleneck.Group({
+        minTime: 50,
+        connection: c.limiter.connection
+      })
+      var limiter1 = group.key('A')
+      var limiter2 = group.key('B')
+
+      return Promise.all([c.limiter.ready(), limiter1.ready(), limiter2.ready()])
+      .then(function () {
+        c.mustEqual(limiter1.connection.id, 'some-id')
+        c.mustEqual(limiter2.connection.id, 'some-id')
+        c.mustEqual(limiter1.datastore, process.env.DATASTORE)
+        c.mustEqual(limiter2.datastore, process.env.DATASTORE)
+
+        return Promise.all([
+          c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1),
+          c.pNoErrVal(limiter1.schedule(c.promise, null, 2), 2),
+          c.pNoErrVal(limiter2.schedule(c.promise, null, 3), 3)
+        ])
+      })
+      .then(c.last)
+      .then(function (results) {
+        c.checkResultsOrder([[1], [2], [3]])
+        c.checkDuration(0)
+      })
+    })
+
+    it('Should allow passing a Group\'s connection to a new limiter', function () {
+      c = makeTest()
+      var group = new Bottleneck.Group({
+        minTime: 50,
+        datastore: process.env.DATASTORE,
+        clearDatastore: true
+      })
+      group.connection.id = 'some-id'
+
+      var limiter1 = group.key('A')
+      var limiter2 = new Bottleneck({
+        minTime: 50,
+        connection: group.connection
+      })
+
+      return Promise.all([limiter1.ready(), limiter2.ready()])
+      .then(function () {
+        c.mustEqual(limiter1.connection.id, 'some-id')
+        c.mustEqual(limiter2.connection.id, 'some-id')
+        c.mustEqual(limiter1.datastore, process.env.DATASTORE)
+        c.mustEqual(limiter2.datastore, process.env.DATASTORE)
+
+        return Promise.all([
+          c.pNoErrVal(limiter1.schedule(c.promise, null, 1), 1),
+          c.pNoErrVal(limiter2.schedule(c.promise, null, 2), 2)
+        ])
+      })
+      .then(c.last)
+      .then(function (results) {
+        c.checkResultsOrder([[1], [2]])
+        c.checkDuration(0)
+        return group.disconnect()
+      })
+    })
+
+    it('Should allow passing a Group\'s connection to a new Group', function () {
+      c = makeTest()
+      var group1 = new Bottleneck.Group({
+        minTime: 50,
+        datastore: process.env.DATASTORE,
+        clearDatastore: true
+      })
+      group1.connection.id = 'some-id'
+
+      var group2 = new Bottleneck.Group({
+        minTime: 50,
+        connection: group1.connection,
+        clearDatastore: true
+      })
+
+      var limiter1 = group1.key('AAA')
+      var limiter2 = group1.key('BBB')
+      var limiter3 = group1.key('CCC')
+      var limiter4 = group1.key('DDD')
+
+      return Promise.all([
+        limiter1.ready(),
+        limiter2.ready(),
+        limiter3.ready(),
+        limiter4.ready()
+      ])
+      .then(function () {
+        c.mustEqual(group1.connection.id, 'some-id')
+        c.mustEqual(group2.connection.id, 'some-id')
+        c.mustEqual(limiter1.connection.id, 'some-id')
+        c.mustEqual(limiter2.connection.id, 'some-id')
+        c.mustEqual(limiter3.connection.id, 'some-id')
+        c.mustEqual(limiter4.connection.id, 'some-id')
+        c.mustEqual(limiter1.datastore, process.env.DATASTORE)
+        c.mustEqual(limiter2.datastore, process.env.DATASTORE)
+        c.mustEqual(limiter3.datastore, process.env.DATASTORE)
+        c.mustEqual(limiter4.datastore, process.env.DATASTORE)
+
+        return Promise.all([
+          c.pNoErrVal(limiter1.schedule(c.promise, null, 1), 1),
+          c.pNoErrVal(limiter2.schedule(c.promise, null, 2), 2),
+          c.pNoErrVal(limiter3.schedule(c.promise, null, 3), 3),
+          c.pNoErrVal(limiter4.schedule(c.promise, null, 4), 4)
+        ])
+      })
+      .then(c.last)
+      .then(function (results) {
+        c.checkResultsOrder([[1], [2], [3], [4]])
+        c.checkDuration(0)
+        return group1.disconnect()
       })
     })
 
@@ -624,7 +767,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       .then(function (counts) {
         c.mustEqual(counts, [0, 0, 0])
         c.mustEqual(group.keys().length, 0)
-        c.mustEqual(Object.keys(group._connection.limiters).length, 0)
+        c.mustEqual(Object.keys(group.connection.limiters).length, 0)
         return group.disconnect(false)
       })
 

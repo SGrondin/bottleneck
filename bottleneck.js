@@ -44,7 +44,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   Bottleneck = function () {
     class Bottleneck {
       constructor(options = {}, ...invalid) {
-        var storeOptions;
+        var storeInstanceOptions, storeOptions;
         this._drainOne = this._drainOne.bind(this);
         this.submit = this.submit.bind(this);
         this.schedule = this.schedule.bind(this);
@@ -61,10 +61,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         this._registerLock = new Sync("register", this);
         storeOptions = parser.load(options, this.storeDefaults, {});
         this._store = function () {
-          if (this.datastore === "local") {
-            return new LocalDatastore(this, storeOptions, parser.load(options, this.localStoreDefaults, {}));
-          } else if (this.datastore === "redis" || this.datastore === "ioredis") {
-            return new RedisDatastore(this, storeOptions, parser.load(options, this.redisStoreDefaults, {}));
+          if (this.datastore === "redis" || this.datastore === "ioredis" || this.connection != null) {
+            storeInstanceOptions = parser.load(options, this.redisStoreDefaults, {});
+            return new RedisDatastore(this, storeOptions, storeInstanceOptions);
+          } else if (this.datastore === "local") {
+            storeInstanceOptions = parser.load(options, this.localStoreDefaults, {});
+            return new LocalDatastore(this, storeOptions, storeInstanceOptions);
           } else {
             throw new Bottleneck.prototype.BottleneckError(`Invalid datastore type: ${this.datastore}`);
           }
@@ -543,6 +545,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
     Bottleneck.Group = Bottleneck.prototype.Group = require("./Group");
 
+    Bottleneck.RedisConnection = Bottleneck.prototype.RedisConnection = require("./RedisConnection");
+
+    Bottleneck.IORedisConnection = Bottleneck.prototype.IORedisConnection = require("./IORedisConnection");
+
     Bottleneck.prototype.jobDefaults = {
       priority: DEFAULT_PRIORITY,
       weight: 1,
@@ -574,11 +580,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       clientOptions: {},
       clusterNodes: null,
       clearDatastore: false,
-      sharedConnection: null
+      connection: null
     };
 
     Bottleneck.prototype.instanceDefaults = {
       datastore: "local",
+      connection: null,
       id: "<no-id>",
       rejectOnDrop: true,
       trackDoneStatus: false,
@@ -596,7 +603,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Bottleneck;
 }).call(undefined);
-},{"../package.json":16,"./BottleneckError":2,"./DLList":3,"./Events":4,"./Group":5,"./LocalDatastore":7,"./RedisDatastore":9,"./States":11,"./Sync":12,"./parser":15}],2:[function(require,module,exports){
+},{"../package.json":16,"./BottleneckError":2,"./DLList":3,"./Events":4,"./Group":5,"./IORedisConnection":6,"./LocalDatastore":7,"./RedisConnection":8,"./RedisDatastore":9,"./States":11,"./Sync":12,"./parser":15}],2:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -775,10 +782,12 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         this.instances = {};
         this.Bottleneck = require("./Bottleneck");
         this._startAutoCleanup();
-        if (this.limiterOptions.datastore === "redis") {
-          this._connection = new RedisConnection(Object.assign({}, this.limiterOptions, { Events: this.Events }));
-        } else if (this.limiterOptions.datastore === "ioredis") {
-          this._connection = new IORedisConnection(Object.assign({}, this.limiterOptions, { Events: this.Events }));
+        if (this.connection == null) {
+          if (this.limiterOptions.datastore === "redis") {
+            this.connection = new RedisConnection(Object.assign({}, this.limiterOptions, { Events: this.Events }));
+          } else if (this.limiterOptions.datastore === "ioredis") {
+            this.connection = new IORedisConnection(Object.assign({}, this.limiterOptions, { Events: this.Events }));
+          }
         }
       }
 
@@ -789,7 +798,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           limiter = this.instances[key] = new this.Bottleneck(Object.assign(this.limiterOptions, {
             id: `group-key-${key}`,
             timeout: this.timeout,
-            sharedConnection: this._connection
+            connection: this.connection
           }));
           this.Events.trigger("created", [limiter, key]);
           return limiter;
@@ -858,13 +867,14 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
       disconnect(flush) {
         var ref;
-        return (ref = this._connection) != null ? ref.disconnect(flush) : void 0;
+        return (ref = this.connection) != null ? ref.disconnect(flush) : void 0;
       }
 
     };
 
     Group.prototype.defaults = {
-      timeout: 1000 * 60 * 5
+      timeout: 1000 * 60 * 5,
+      connection: null
     };
 
     return Group;
@@ -886,7 +896,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   IORedisConnection = function () {
     class IORedisConnection {
-      constructor(options) {
+      constructor(options = {}) {
         var Redis;
         Redis = eval("require")("ioredis"); // Obfuscated or else Webpack/Angular will try to inline the optional ioredis module
         parser.load(options, this.defaults, this);
@@ -895,34 +905,35 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         }
         if (this.clusterNodes != null) {
           this.client = new Redis.Cluster(this.clusterNodes, this.clientOptions);
-          this.subClient = new Redis.Cluster(this.clusterNodes, this.clientOptions);
+          this.subscriber = new Redis.Cluster(this.clusterNodes, this.clientOptions);
         } else {
-          this.client = new Redis(this.clientOptions);
-          this.subClient = new Redis(this.clientOptions);
+          if (this.client == null) {
+            this.client = new Redis(this.clientOptions);
+          }
+          this.subscriber = this.client.duplicate();
         }
         this.limiters = {};
-        this.ready = new this.Promise((resolve, reject) => {
-          var count, done, errorListener;
-          count = 0;
-          errorListener = e => {
+        this.ready = Promise.all([this._setup(this.client, false), this._setup(this.subscriber, true)]).then(() => {
+          return { client: this.client, subscriber: this.subscriber };
+        });
+      }
+
+      _setup(client, subscriber) {
+        return new this.Promise((resolve, reject) => {
+          client.on("error", e => {
             return this.Events.trigger("error", [e]);
-          };
-          done = () => {
-            if (++count === 2) {
-              return resolve({
-                client: this.client,
-                subscriber: this.subClient
-              });
-            }
-          };
-          this.client.on("error", errorListener);
-          this.client.once("ready", done);
-          this.subClient.on("error", errorListener);
-          this.subClient.once("ready", done);
-          return this.subClient.on("message", (channel, message) => {
-            var ref;
-            return (ref = this.limiters[channel]) != null ? ref._store.onMessage(message) : void 0;
           });
+          if (subscriber) {
+            client.on("message", (channel, message) => {
+              var ref;
+              return (ref = this.limiters[channel]) != null ? ref._store.onMessage(message) : void 0;
+            });
+          }
+          if (client.status === "ready") {
+            return resolve();
+          } else {
+            return client.once("ready", resolve);
+          }
         });
       }
 
@@ -935,8 +946,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       addLimiter(instance) {
-        return new instance.Promise((resolve, reject) => {
-          return this.subClient.subscribe(instance._channel(), () => {
+        return new this.Promise((resolve, reject) => {
+          return this.subscriber.subscribe(instance._channel(), () => {
             this.limiters[instance._channel()] = instance;
             return resolve();
           });
@@ -965,19 +976,22 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           this.limiters[k]._store.__disconnect__(flush);
         }
         if (flush) {
-          return this.Promise.all([this.client.quit(), this.subClient.quit()]);
+          return this.Promise.all([this.client.quit(), this.subscriber.quit()]);
         } else {
           this.client.disconnect();
-          this.subClient.disconnect();
+          this.subscriber.disconnect();
           return this.Promise.resolve();
         }
       }
 
     };
 
+    IORedisConnection.prototype.datastore = "ioredis";
+
     IORedisConnection.prototype.defaults = {
       clientOptions: {},
       clusterNodes: null,
+      client: null,
       Promise: Promise,
       Events: null
     };
@@ -1239,39 +1253,40 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   RedisConnection = function () {
     class RedisConnection {
-      constructor(options) {
+      constructor(options = {}) {
         var Redis;
         Redis = eval("require")("redis"); // Obfuscated or else Webpack/Angular will try to inline the optional redis module
         parser.load(options, this.defaults, this);
         if (this.Events == null) {
           this.Events = new Events(this);
         }
-        this.client = Redis.createClient(this.clientOptions);
-        this.subClient = Redis.createClient(this.clientOptions);
+        if (this.client == null) {
+          this.client = Redis.createClient(this.clientOptions);
+        }
+        this.subscriber = this.client.duplicate();
         this.limiters = {};
         this.shas = {};
-        this.ready = new this.Promise((resolve, reject) => {
-          var count, done, errorListener;
-          count = 0;
-          errorListener = e => {
+        this.ready = Promise.all([this._setup(this.client, false), this._setup(this.subscriber, true)]).then(() => {
+          return { client: this.client, subscriber: this.subscriber };
+        });
+      }
+
+      _setup(client, subscriber) {
+        return new this.Promise((resolve, reject) => {
+          client.on("error", e => {
             return this.Events.trigger("error", [e]);
-          };
-          done = () => {
-            if (++count === 2) {
-              return resolve({
-                client: this.client,
-                subscriber: this.subClient
-              });
-            }
-          };
-          this.client.on("error", errorListener);
-          this.client.once("ready", done);
-          this.subClient.on("error", errorListener);
-          this.subClient.once("ready", done);
-          return this.subClient.on("message", (channel, message) => {
-            var ref;
-            return (ref = this.limiters[channel]) != null ? ref._store.onMessage(message) : void 0;
           });
+          if (subscriber) {
+            client.on("message", (channel, message) => {
+              var ref;
+              return (ref = this.limiters[channel]) != null ? ref._store.onMessage(message) : void 0;
+            });
+          }
+          if (client.ready) {
+            return resolve();
+          } else {
+            return client.once("ready", resolve);
+          }
         });
       }
 
@@ -1296,17 +1311,17 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       addLimiter(instance) {
-        return new instance.Promise((resolve, reject) => {
+        return new this.Promise((resolve, reject) => {
           var handler;
           handler = channel => {
             if (channel === instance._channel()) {
-              this.subClient.removeListener("subscribe", handler);
+              this.subscriber.removeListener("subscribe", handler);
               this.limiters[channel] = instance;
               return resolve();
             }
           };
-          this.subClient.on("subscribe", handler);
-          return this.subClient.subscribe(instance._channel());
+          this.subscriber.on("subscribe", handler);
+          return this.subscriber.subscribe(instance._channel());
         });
       }
 
@@ -1332,14 +1347,17 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           this.limiters[k]._store.__disconnect__(flush);
         }
         this.client.end(flush);
-        this.subClient.end(flush);
+        this.subscriber.end(flush);
         return this.Promise.resolve();
       }
 
     };
 
+    RedisConnection.prototype.datastore = "redis";
+
     RedisConnection.prototype.defaults = {
       clientOptions: {},
+      client: null,
       Promise: Promise,
       Events: null
     };
@@ -1374,16 +1392,21 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.originalId = this.instance.id;
       parser.load(storeInstanceOptions, storeInstanceOptions, this);
       this.clients = {};
-      this.connection = this.sharedConnection ? this.sharedConnection : this.instance.datastore === "redis" ? new RedisConnection({
-        clientOptions: this.clientOptions,
-        Promise: this.Promise,
-        Events: this.instance.Events
-      }) : this.instance.datastore === "ioredis" ? new IORedisConnection({
-        clientOptions: this.clientOptions,
-        clusterNodes: this.clusterNodes,
-        Promise: this.Promise,
-        Events: this.instance.Events
-      }) : void 0;
+      this.sharedConnection = this.connection != null;
+      if (this.connection == null) {
+        this.connection = this.instance.datastore === "redis" ? new RedisConnection({
+          clientOptions: this.clientOptions,
+          Promise: this.Promise,
+          Events: this.instance.Events
+        }) : this.instance.datastore === "ioredis" ? new IORedisConnection({
+          clientOptions: this.clientOptions,
+          clusterNodes: this.clusterNodes,
+          Promise: this.Promise,
+          Events: this.instance.Events
+        }) : void 0;
+      }
+      this.instance.connection = this.connection;
+      this.instance.datastore = this.connection.datastore;
       this.ready = this.connection.ready.then(clients => {
         this.clients = clients;
         return this.connection.loadScripts();
@@ -1435,7 +1458,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     __disconnect__(flush) {
       clearInterval(this.heartbeat);
       this.connection.removeLimiter(this.instance);
-      if (this.sharedConnection == null) {
+      if (!this.sharedConnection) {
         return this.connection.disconnect(flush);
       }
     }

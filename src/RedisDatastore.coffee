@@ -9,9 +9,11 @@ class RedisDatastore
     parser.load storeInstanceOptions, storeInstanceOptions, @
     @clients = {}
 
-    @connection = if @sharedConnection then @sharedConnection
-    else if @instance.datastore == "redis" then new RedisConnection { @clientOptions, @Promise, Events: @instance.Events }
+    @sharedConnection = @connection?
+    @connection ?= if @instance.datastore == "redis" then new RedisConnection { @clientOptions, @Promise, Events: @instance.Events }
     else if @instance.datastore == "ioredis" then new IORedisConnection { @clientOptions, @clusterNodes, @Promise, Events: @instance.Events }
+    @instance.connection = @connection
+    @instance.datastore = @connection.datastore
 
     @ready = @connection.ready
     .then (@clients) => @connection.loadScripts()
@@ -39,7 +41,7 @@ class RedisDatastore
   __disconnect__: (flush) ->
     clearInterval @heartbeat
     @connection.removeLimiter @instance
-    if !@sharedConnection?
+    if !@sharedConnection
       @connection.disconnect flush
 
   runScript: (name, args) ->
