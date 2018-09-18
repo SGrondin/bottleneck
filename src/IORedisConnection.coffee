@@ -25,7 +25,9 @@ class IORedisConnection
     @limiters = {}
 
     @ready = Promise.all [@_setup(@client, false), @_setup(@subscriber, true)]
-    .then => { @client, @subscriber }
+    .then =>
+      @_loadScripts()
+      { @client, @subscriber }
 
   _setup: (client, subscriber) ->
     new @Promise (resolve, reject) =>
@@ -36,7 +38,7 @@ class IORedisConnection
       if client.status == "ready" then resolve()
       else client.once "ready", resolve
 
-  loadScripts: -> Scripts.names.forEach (name) => @client.defineCommand name, { lua: Scripts.payload(name) }
+  _loadScripts: -> Scripts.names.forEach (name) => @client.defineCommand name, { lua: Scripts.payload(name) }
 
   addLimiter: (instance) ->
     new @Promise (resolve, reject) =>

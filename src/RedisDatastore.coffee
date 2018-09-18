@@ -16,8 +16,7 @@ class RedisDatastore
     @instance.datastore = @connection.datastore
 
     @ready = @connection.ready
-    .then (@clients) => @connection.loadScripts()
-    .then => @runScript "init", @prepareInitSettings @clearDatastore
+    .then (@clients) => @runScript "init", @prepareInitSettings @clearDatastore
     .then => @connection.addLimiter @instance
     .then =>
       (@heartbeat = setInterval =>

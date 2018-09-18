@@ -21,6 +21,7 @@ class RedisConnection
     @shas = {}
 
     @ready = Promise.all [@_setup(@client, false), @_setup(@subscriber, true)]
+    .then => @_loadScripts()
     .then => { @client, @subscriber }
 
   _setup: (client, subscriber) ->
@@ -40,7 +41,7 @@ class RedisConnection
         @shas[name] = replies[0]
         resolve replies[0]
 
-  loadScripts: -> @Promise.all(Scripts.names.map (k) => @_loadScript k)
+  _loadScripts: -> @Promise.all(Scripts.names.map (k) => @_loadScript k)
 
   addLimiter: (instance) ->
     new @Promise (resolve, reject) =>

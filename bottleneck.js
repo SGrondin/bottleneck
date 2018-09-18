@@ -914,6 +914,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         }
         this.limiters = {};
         this.ready = Promise.all([this._setup(this.client, false), this._setup(this.subscriber, true)]).then(() => {
+          this._loadScripts();
           return { client: this.client, subscriber: this.subscriber };
         });
       }
@@ -937,7 +938,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         });
       }
 
-      loadScripts() {
+      _loadScripts() {
         return Scripts.names.forEach(name => {
           return this.client.defineCommand(name, {
             lua: Scripts.payload(name)
@@ -1267,6 +1268,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         this.limiters = {};
         this.shas = {};
         this.ready = Promise.all([this._setup(this.client, false), this._setup(this.subscriber, true)]).then(() => {
+          return this._loadScripts();
+        }).then(() => {
           return { client: this.client, subscriber: this.subscriber };
         });
       }
@@ -1304,7 +1307,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         });
       }
 
-      loadScripts() {
+      _loadScripts() {
         return this.Promise.all(Scripts.names.map(k => {
           return this._loadScript(k);
         }));
@@ -1409,8 +1412,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       this.instance.datastore = this.connection.datastore;
       this.ready = this.connection.ready.then(clients => {
         this.clients = clients;
-        return this.connection.loadScripts();
-      }).then(() => {
         return this.runScript("init", this.prepareInitSettings(this.clearDatastore));
       }).then(() => {
         return this.connection.addLimiter(this.instance);
