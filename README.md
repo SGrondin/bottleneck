@@ -618,6 +618,49 @@ When using Groups, the `timeout` option is set to `300000` milliseconds by defau
 
 The `ready()`, `publish()` and `clients()` methods also exist when using the `local` datastore, for code compatibility reasons: code written for `redis`/`ioredis` won't break with `local`.
 
+### Important considerations when Clustering
+
+The first limiter connecting to Redis will store its constructor options ([Constructor](#constructor)) on Redis and all subsequent limiters will be using those settings. You can alter the constructor options used by all the connected limiters by calling `updateSettings`. The `clearDatastore` option instructs a new limiter to wipe any previous Bottleneck data, including previously stored settings.
+
+Queued jobs are **NOT** stored on Redis. They are local to each limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run a job across a different Node.js process than the one it originated on. Bottleneck doesn't keep track of the queue contents of the limiters on a cluster for performance and reliability reasons.
+
+Due to the above, functionality relying on the queue length happens purely locally:
+- Priorities are local. A higher priority job will run before a lower priority job **on the same limiter**. Another limiter on the cluster might run a lower priority before our higher priority one.
+- (Assuming default priority levels) Bottleneck guarantees that jobs will be run in the order they were queued **on the same limiter**. Another limiter on the cluster might run a job queued later before ours runs.
+- `highWater` and load shedding ([strategies](#strategies)) are per limiter. However, one limiter entering Blocked mode will put the entire cluster in Blocked mode until `penalty` milliseconds have passed. See [Strategies](#strategies).
+- The `empty` event is triggered when the (local) queue is empty.
+- The `idle` event is triggered when the (local) queue is empty *and* no jobs are currently running anywhere in the cluster.
+
+You must work around these limitations in your application code if they are an issue to you.
+
+The current design guarantees reliability and lets clients (limiters) come and go. Your application can scale up or down, and clients can be disconnected without issues.
+
+It is **strongly recommended** that you give an `id` to every limiter and Group since it is used to build the name of your limiter's Redis keys! Limiters with the same `id` inside the same Redis db will be sharing the same datastore!
+
+It is **strongly recommended** that you set an `expiration` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using expirations, those lost jobs are automatically cleared after the specified time has passed. Using expirations is essential to keeping a cluster reliable in the face of unpredictable application bugs, network hiccups, and so on.
+
+Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience. Keeping the clients' server time consistent will also help.
+
+It is **strongly recommended** to [set up an `error` listener](#events) on all your limiters and on your Groups.
+
+Bottleneck does not guarantee that the concurrency will be spread evenly across limiters. With `{ maxConcurrent: 5 }`, it's absolutely possible for a single limiter to end up running 5 jobs simultaneously while the other limiters in the cluster sit idle. To spread the load, use the `.chain()` method:
+
+```js
+const clusterLimiter = new Bottleneck({ maxConcurrent: 5, datastore: 'redis' });
+const limiter = new Bottleneck({ maxConcurrent: 1 });
+
+limiter.chain(clusterLimiter);
+
+clusterLimiter.ready()
+.then(() => {
+  // Any Node process can only run one job at a time.
+  // Across the whole cluster, up to 5 jobs can run simultaneously.
+
+  limiter.schedule( /* ... */ )
+})
+.catch((error) => { /* ... */ });
+```
+
 #### ready()
 
 This method returns a promise that resolves once the limiter is connected to Redis.
@@ -665,117 +708,10 @@ limiter.publish(JSON.stringify({ hello: "world" }));
 #### clients()
 
 If you need direct access to the redis clients, use `.clients()`:
-
 ```js
 console.log(limiter.clients());
 // { client: <Redis Client>, subscriber: <Redis Client> }
 ```
-
-### Important considerations when Clustering
-
-The first limiter connecting to Redis will store its constructor options ([Constructor](#constructor)) on Redis and all subsequent limiters will be using those settings. You can alter the constructor options used by all the connected limiters by calling `updateSettings`. The `clearDatastore` option instructs a new limiter to wipe any previous Bottleneck data, including previously stored settings.
-
-Queued jobs are **NOT** stored on Redis. They are local to each limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run a job across a different Node.js process than the one it originated on. Bottleneck doesn't keep track of the queue contents of the limiters on a cluster for performance and reliability reasons.
-
-Due to the above, functionality relying on the queue length happens purely locally:
-- Priorities are local. A higher priority job will run before a lower priority job **on the same limiter**. Another limiter on the cluster might run a lower priority before our higher priority one.
-- (Assuming default priority levels) Bottleneck guarantees that jobs will be run in the order they were queued **on the same limiter**. Another limiter on the cluster might run a job queued later before ours runs.
-- `highWater` and load shedding ([strategies](#strategies)) are per limiter. However, one limiter entering Blocked mode will put the entire cluster in Blocked mode until `penalty` milliseconds have passed. See [Strategies](#strategies).
-- The `empty` event is triggered when the (local) queue is empty.
-- The `idle` event is triggered when the (local) queue is empty *and* no jobs are currently running anywhere in the cluster.
-
-You must work around these limitations in your application code if they are an issue to you.
-
-The current design guarantees reliability and lets clients (limiters) come and go. Your application can scale up or down, and clients can be disconnected without issues.
-
-It is **strongly recommended** that you give an `id` to every limiter and Group since it is used to build the name of your limiter's Redis keys! Limiters with the same `id` inside the same Redis db will be sharing the same datastore!
-
-It is **strongly recommended** that you set an `expiration` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using expirations, those lost jobs are automatically cleared after the specified time has passed. Using expirations is essential to keeping a cluster reliable in the face of unpredictable application bugs, network hiccups, and so on.
-
-Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience. Keeping the clients' server time consistent will also help.
-
-It is **strongly recommended** to [set up an `error` listener](#events) on all your limiters and on your Groups.
-
-Bottleneck does not guarantee that the concurrency will be spread evenly across limiters. With `{ maxConcurrent: 5 }`, it's absolutely possible for a single limiter to end up running 5 jobs simultaneously while the other limiters in the cluster sit idle. To spread the load, use the `.chain()` method:
-
-```js
-const clusterLimiter = new Bottleneck({ maxConcurrent: 5, datastore: 'redis' });
-const limiter = new Bottleneck({ maxConcurrent: 1 });
-
-limiter.chain(clusterLimiter);
-
-clusterLimiter.ready()
-.then(() => {
-  // Any Node process can only run one job at a time.
-  // Across the whole cluster, up to 5 jobs can run simultaneously.
-
-  limiter.schedule( /* ... */ )
-})
-.catch((error) => { /* ... */ });
-```
-
-### Managing Redis Connections
-
-Bottleneck needs to create 2 Redis Clients to function, one for normal operations and one for pubsub subscriptions. These 2 clients are kept in a `Bottleneck.RedisConnection` or a `Bottleneck.IORedisConnection` object, referred to as the Connection object.
-
-By default, every Group and every standalone limiter (a limiter not created by a Group) will create their own Connection object, but it is possible to manually control this behavior.
-
-In this example, every Group and limiter is sharing the same Connection object and therefore the same 2 clients:
-```js
-// Use `new Bottleneck.IORedisConnection({ options })` for ioredis
-
-const myConnection = new Bottleneck.RedisConnection({
-  clientOptions: {
-    port: 5555
-  }
-
-  // IORedisConnection also accepts `clusterNodes` here
-});
-
-myConnection.on("error", (err) => { /* handle connectivity errors here */ });
-
-const limiter = new Bottleneck({
-  maxConcurrent: 1,
-  connection: myConnection
-});
-
-const group = new Bottleneck.Group({
-  maxConcurrent: 1,
-  connection: myConnection
-});
-```
-You can also access and reuse the Connection object of any Group or limiter:
-```js
-const group = new Bottleneck.Group({
-  connection: limiter.connection
-});
-```
-If you already have a NodeRedis or an ioredis client, you can ask Bottleneck to reuse it (currently the Connection still needs to create a second client for pubsub operations):
-```js
-import Redis from "redis";
-
-const myClient = new Redis.createClient({ options });
-
-const myConnection = new Bottleneck.RedisConnection({
-  // `clientOptions` and `clusterNodes` will be ignored here
-  client: myClient
-});
-
-myConnection.on("error", (err) => { /* handle connectivity errors here */ });
-
-const limiter = new Bottleneck({ connection: myConnection });
-const group = new Bottleneck.Group({ connection: myConnection });
-```
-Creating more clients can improve performance since a client can only serve one limiter at a time, this is a limitation of the Redis network protocol itself.
-
-When a Connection object is created automatically by a Group or limiter, the `"error"` events are sent to that Group or limiter instead of the Connection object itself.
-
-Use the `disconnect(flush)` method to close the Redis clients.
-```js
-limiter.disconnect();
-group.disconnect();
-```
-If you created the Connection object yourself, you need to call `connection.disconnect()` instead, for safety reasons.
 
 ### Additional Clustering information
 
@@ -783,6 +719,53 @@ If you created the Connection object yourself, you need to call `connection.disc
 - Bottleneck's data is stored in Redis keys starting with `b_`. It also uses pub/sub channels starting with `b_` It will not interfere with any other data stored on the server.
 - Bottleneck loads a few Lua scripts on the Redis server using the `SCRIPT LOAD` command. These scripts only take up a few Kb of memory. Running the `SCRIPT FLUSH` command will cause any connected limiters to experience critical errors until a new limiter connects to Redis and loads the scripts again.
 - The Lua scripts are highly optimized and designed to use as few resources (CPU, especially) as possible.
+
+### Managing Redis Connections
+
+Bottleneck needs to create 2 Redis Clients to function, one for normal operations and one for pubsub subscriptions. These 2 clients are kept in a `Bottleneck.RedisConnection` (NodeRedis) or a `Bottleneck.IORedisConnection` (ioredis) object, referred to as the Connection object.
+
+By default, every Group and every standalone limiter (a limiter not created by a Group) will create their own Connection object, but it is possible to manually control this behavior. In this example, every Group and limiter is sharing the same Connection object and therefore the same 2 clients:
+```js
+const connection = new Bottleneck.RedisConnection({
+  clientOptions: {
+    port: 5555
+  }
+  // ioredis also accepts `clusterNodes` here
+});
+
+
+const limiter = new Bottleneck({ connection: connection });
+const group = new Bottleneck.Group({ connection: connection });
+```
+You can access and reuse the Connection object of any Group or limiter:
+```js
+const group = new Bottleneck.Group({ connection: limiter.connection });
+```
+When a Connection object is created manually, the connectivity `"error"` events are emitted on the Connection itself.
+```js
+connection.on("error", (err) => { /* handle connectivity errors here */ });
+```
+If you already have a NodeRedis/ioredis client, you can ask Bottleneck to reuse it (currently the Connection still needs to create a second client for pubsub operations):
+```js
+import Redis from "redis";
+const client = new Redis.createClient({ options });
+
+const connection = new Bottleneck.RedisConnection({
+  // here `clientOptions` and `clusterNodes` will be ignored
+  client: client
+});
+
+const limiter = new Bottleneck({ connection: connection });
+const group = new Bottleneck.Group({ connection: connection });
+```
+Depending on your application, creating more clients can improve performance.
+
+Use the `disconnect(flush)` method to close the Redis clients.
+```js
+limiter.disconnect();
+group.disconnect();
+```
+If you created the Connection object yourself, you need to call `connection.disconnect()` instead, for safety reasons.
 
 ## Debugging your application
 
