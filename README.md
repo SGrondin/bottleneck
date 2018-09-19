@@ -573,7 +573,7 @@ console.log(limiters);
 
 Clustering lets many limiters access the same shared state, stored in a Redis server or Redis cluster. Changes to the state are Atomic, Consistent and Isolated (and fully [ACID](https://en.wikipedia.org/wiki/ACID) with the right redis [Durability](https://redis.io/topics/persistence) configuration), to eliminate any chances of race conditions or state corruption. Your settings, such as `maxConcurrent`, `minTime`, etc., are shared across the whole cluster, which means—for example—that `{ maxConcurrent: 5 }` guarantees no more than 5 jobs can ever run at a time in the entire cluster of limiters. 100% of Bottleneck's features are supported in Clustering mode. Enabling Clustering is as simple as changing a few settings. It's also a convenient way to store or export state for later use.
 
-##### Enabling Clustering
+### Enabling Clustering
 
 __IMPORTANT:__ Add `redis` or `ioredis` to your application's dependencies.
 ```bash
@@ -618,7 +618,7 @@ When using Groups, the `timeout` option is set to `300000` milliseconds by defau
 
 The `ready()`, `publish()` and `clients()` methods also exist when using the `local` datastore, for code compatibility reasons: code written for `redis`/`ioredis` won't break with `local`.
 
-###### `.ready()`
+#### ready()
 
 This method returns a promise that resolves once the limiter is connected to Redis.
 
@@ -637,7 +637,7 @@ limiter.ready()
 });
 ```
 
-###### `.publish(message)`
+#### publish(message)
 
 This method broadcasts the `message` string to every limiter in the Cluster. It returns a promise.
 
@@ -662,7 +662,7 @@ limiter.publish(JSON.stringify({ hello: "world" }));
 ```
 
 
-###### `.clients()`
+#### clients()
 
 If you need direct access to the redis clients, use `.clients()`:
 
@@ -671,7 +671,7 @@ console.log(limiter.clients());
 // { client: <Redis Client>, subscriber: <Redis Client> }
 ```
 
-##### Important considerations when Clustering
+### Important considerations when Clustering
 
 The first limiter connecting to Redis will store its constructor options ([Constructor](#constructor)) on Redis and all subsequent limiters will be using those settings. You can alter the constructor options used by all the connected limiters by calling `updateSettings`. The `clearDatastore` option instructs a new limiter to wipe any previous Bottleneck data, including previously stored settings.
 
@@ -714,7 +714,7 @@ clusterLimiter.ready()
 .catch((error) => { /* ... */ });
 ```
 
-##### Managing Redis Connections
+### Managing Redis Connections
 
 Bottleneck needs to create 2 Redis Clients to function, one for normal operations and one for pubsub subscriptions. These 2 clients are kept in a `Bottleneck.RedisConnection` or a `Bottleneck.IORedisConnection` object, referred to as the Connection object.
 
@@ -777,7 +777,7 @@ group.disconnect();
 ```
 If you created the Connection object yourself, you need to call `connection.disconnect()` instead, for safety reasons.
 
-##### Additional Clustering information
+### Additional Clustering information
 
 - Bottleneck is compatible with [Redis Clusters](https://redis.io/topics/cluster-tutorial) and Redis Sentinel, but you must use the `ioredis` datastore and pass the `clusterNodes` option.
 - Bottleneck's data is stored in Redis keys starting with `b_`. It also uses pub/sub channels starting with `b_` It will not interfere with any other data stored on the server.
