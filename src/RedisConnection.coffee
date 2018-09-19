@@ -14,13 +14,14 @@ class RedisConnection
     Redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
     parser.load options, @defaults, @
     @Events ?= new Events @
+    @terminated = false
 
     @client ?= Redis.createClient @clientOptions
     @subscriber = @client.duplicate()
     @limiters = {}
     @shas = {}
 
-    @ready = Promise.all [@_setup(@client, false), @_setup(@subscriber, true)]
+    @ready = @Promise.all [@_setup(@client, false), @_setup(@subscriber, true)]
     .then => @_loadScripts()
     .then => { @client, @subscriber }
 
@@ -43,28 +44,38 @@ class RedisConnection
 
   _loadScripts: -> @Promise.all(Scripts.names.map (k) => @_loadScript k)
 
-  addLimiter: (instance) ->
+  __addLimiter__: (instance) ->
+    channel = instance.channel()
     new @Promise (resolve, reject) =>
-      handler = (channel) =>
-        if channel == instance._channel()
+      handler = (chan) =>
+        if chan == channel
           @subscriber.removeListener "subscribe", handler
           @limiters[channel] = instance
           resolve()
       @subscriber.on "subscribe", handler
-      @subscriber.subscribe instance._channel()
+      @subscriber.subscribe channel
 
-  removeLimiter: (instance) ->
-    delete @limiters[instance._channel()]
+  __removeLimiter__: (instance) ->
+    channel = instance.channel()
+    unless @terminated
+      await new @Promise (resolve, reject) =>
+        @subscriber.unsubscribe channel, (err, chan) ->
+          if err? then return reject err
+          if chan == channel then return resolve()
+    delete @limiters[channel]
 
-  scriptArgs: (name, id, args, cb) ->
+  __scriptArgs__: (name, id, args, cb) ->
     keys = Scripts.keys name, id
     [@shas[name], keys.length].concat keys, args, cb
 
-  scriptFn: (name) ->
+  __scriptFn__: (name) ->
     @client.evalsha.bind(@client)
 
-  disconnect: (flush) ->
-    @limiters[k]._store.__disconnect__(flush) for k in Object.keys @limiters
+  disconnect: (flush=true) ->
+    clearInterval(@limiters[k]._store.heartbeat) for k in Object.keys @limiters
+    @limiters = {}
+    @terminated = true
+
     @client.end flush
     @subscriber.end flush
     @Promise.resolve()

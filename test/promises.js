@@ -6,7 +6,7 @@ describe('Promises', function () {
   var c
 
   afterEach(function () {
-    c.limiter.disconnect(false)
+    return c.limiter.disconnect(false)
   })
 
   it('Should support promises', function () {

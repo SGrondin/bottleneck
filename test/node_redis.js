@@ -8,7 +8,7 @@ if (process.env.DATASTORE === 'redis') {
     var c
 
     afterEach(function () {
-      c.limiter.disconnect(false)
+      return c.limiter.disconnect(false)
     })
 
     it('Should accept existing connections', function () {

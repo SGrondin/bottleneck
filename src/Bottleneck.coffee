@@ -85,7 +85,7 @@ class Bottleneck
 
   clients: -> @_store.clients
 
-  _channel: -> "b_#{@id}"
+  channel: -> "b_#{@id}"
 
   publish: (message) -> @_store.__publish__ message
 

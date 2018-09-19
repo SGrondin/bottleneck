@@ -6,7 +6,7 @@ describe('General', function () {
   var c
 
   afterEach(function () {
-    c.limiter.disconnect(false)
+    return c.limiter.disconnect(false)
   })
 
   it('Should prompt to upgrade', function () {

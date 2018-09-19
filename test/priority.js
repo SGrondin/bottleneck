@@ -6,7 +6,7 @@ describe('Priority', function () {
   var c
 
   afterEach(function () {
-    c.limiter.disconnect(false)
+    return c.limiter.disconnect(false)
   })
 
   it('Should do basic ordering', function () {

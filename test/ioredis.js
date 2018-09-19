@@ -8,7 +8,7 @@ if (process.env.DATASTORE === 'ioredis') {
     var c
 
     afterEach(function () {
-      c.limiter.disconnect(false)
+      return c.limiter.disconnect(false)
     })
 
     it('Should connect in Redis Cluster mode', function () {

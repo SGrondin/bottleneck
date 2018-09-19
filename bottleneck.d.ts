@@ -62,6 +62,11 @@ declare module "bottleneck" {
              */
             readonly clusterNodes?: any;
             /**
+             * An existing Bottleneck.RedisConnection or Bottleneck.IORedisConnection object to use.
+             * If using, `datastore`, `clientOptions` and `clusterNodes` will be ignored.
+             */
+            readonly connection?: Bottleneck.RedisConnection | Bottleneck.IORedisConnection;
+            /**
              * When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db.
              */
             readonly clearDatastore?: boolean;
@@ -124,8 +129,58 @@ declare module "bottleneck" {
             DONE?: number
         }
 
+        type RedisConnectionOptions = {
+            /**
+             * This object is passed directly to NodeRedis' createClient() method.
+             */
+            readonly clientOptions?: any;
+            /**
+             * An existing NodeRedis client to use. If using, `clientOptions` will be ignored.
+             */
+            readonly client?: any;
+        };
+
+        type IORedisConnectionOptions = {
+            /**
+             * This object is passed directly to ioredis' constructor method.
+             */
+            readonly clientOptions?: any;
+            /**
+             * When `clusterNodes` is not null, the client will be instantiated by calling `new Redis.Cluster(clusterNodes, clientOptions)`.
+             */
+            readonly clusterNodes?: any;
+            /**
+             * An existing ioredis client to use. If using, `clientOptions` and `clusterNodes` will be ignored.
+             */
+            readonly client?: any;
+        };
+
+        class RedisConnection {
+            constructor(options?: Bottleneck.RedisConnectionOptions);
+
+            /**
+             * Close the redis clients.
+             * @param flush - Write transient data before closing.
+             */
+            disconnect(flush?: boolean): Promise<void>;
+        }
+
+        class IORedisConnection {
+            constructor(options?: Bottleneck.IORedisConnectionOptions);
+
+            /**
+             * Close the redis clients.
+             * @param flush - Write transient data before closing.
+             */
+            disconnect(flush?: boolean): Promise<void>;
+        }
+
         class Group {
             constructor(options?: Bottleneck.ConstructorOptions);
+
+            id: string;
+            datastore: string;
+            connection?: Bottleneck.RedisConnection | Bottleneck.IORedisConnection;
 
             /**
              * Returns the limiter for the specified key.
@@ -170,7 +225,7 @@ declare module "bottleneck" {
             deleteKey(str: string): Promise<void>;
 
             /**
-             * Disconnects all redis clients.
+             * Disconnects the underlying redis clients, unless the Group was created with the `connection` option.
              * @param flush - Write transient data before closing.
              */
             disconnect(flush?: boolean): Promise<void>;
@@ -209,6 +264,10 @@ declare module "bottleneck" {
 
         constructor(options?: Bottleneck.ConstructorOptions);
 
+        id: string;
+        datastore: string;
+        connection?: Bottleneck.RedisConnection | Bottleneck.IORedisConnection;
+
         /**
          * Returns a promise which will be resolved once the limiter is ready to accept jobs
          * or rejected if it fails to start up.
@@ -221,7 +280,12 @@ declare module "bottleneck" {
         clients(): Bottleneck.ClientsList;
 
         /**
-         * Disconnects all redis clients.
+         * Returns the name of the Redis pubsub channel used for this limiter
+         */
+        channel(): string;
+
+        /**
+         * Disconnects the underlying redis clients, unless the limiter was created with the `connection` option.
          * @param flush - Write transient data before closing.
          */
         disconnect(flush?: boolean): Promise<void>;

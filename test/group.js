@@ -6,7 +6,7 @@ describe('Group', function () {
   var c
 
   afterEach(function () {
-    c.limiter.disconnect(false)
+    return c.limiter.disconnect(false)
   })
 
   it('Should create limiters', function (done) {
@@ -44,7 +44,7 @@ describe('Group', function () {
     }, null)
   })
 
-  it('Should set up the limiter IDs', function () {
+  it('Should set up the limiter IDs (default)', function () {
     c = makeTest()
     var group = new Bottleneck.Group({
       maxConcurrent: 1, minTime: 100
@@ -60,6 +60,25 @@ describe('Group', function () {
       return limiter.id
     })
     c.mustEqual(ids.sort(), ['group-key-A', 'group-key-B', 'group-key-XYZ'])
+  })
+
+  it('Should set up the limiter IDs (custom)', function () {
+    c = makeTest()
+    var group = new Bottleneck.Group({
+      maxConcurrent: 1, minTime: 100,
+      id: 'custom-id'
+    })
+
+    c.mustEqual(group.key('A').id, 'custom-id-A')
+    c.mustEqual(group.key('B').id, 'custom-id-B')
+    c.mustEqual(group.key('XYZ').id, 'custom-id-XYZ')
+
+    var ids = group.keys().map(function (key) {
+      var limiter = group.key(key)
+      c.mustEqual(limiter._store.timeout, group.timeout)
+      return limiter.id
+    })
+    c.mustEqual(ids.sort(), ['custom-id-A', 'custom-id-B', 'custom-id-XYZ'])
   })
 
   it('Should pass new limiter to \'created\' event', function () {
@@ -93,6 +112,7 @@ describe('Group', function () {
     return Promise.all(promises)
     .then(function () {
       c.mustEqual(keys, ids)
+      return c.limiter.ready()
     })
 
   })

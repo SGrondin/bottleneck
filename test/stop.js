@@ -6,7 +6,7 @@ describe('Stop', function () {
   var c
 
   afterEach(function () {
-    c.limiter.disconnect(false)
+    return c.limiter.disconnect(false)
   })
 
   it('Should stop and drop the queue', function (done) {

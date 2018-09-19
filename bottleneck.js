@@ -87,7 +87,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return this._store.clients;
       }
 
-      _channel() {
+      channel() {
         return `b_${this.id}`;
       }
 
@@ -782,6 +782,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         this.instances = {};
         this.Bottleneck = require("./Bottleneck");
         this._startAutoCleanup();
+        this.sharedConnection = this.connection != null;
         if (this.connection == null) {
           if (this.limiterOptions.datastore === "redis") {
             this.connection = new RedisConnection(Object.assign({}, this.limiterOptions, { Events: this.Events }));
@@ -796,7 +797,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return (ref = this.instances[key]) != null ? ref : (() => {
           var limiter;
           limiter = this.instances[key] = new this.Bottleneck(Object.assign(this.limiterOptions, {
-            id: `group-key-${key}`,
+            id: `${this.id}-${key}`,
             timeout: this.timeout,
             connection: this.connection
           }));
@@ -865,16 +866,19 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         }
       }
 
-      disconnect(flush) {
+      disconnect(flush = true) {
         var ref;
-        return (ref = this.connection) != null ? ref.disconnect(flush) : void 0;
+        if (!this.sharedConnection) {
+          return (ref = this.connection) != null ? ref.disconnect(flush) : void 0;
+        }
       }
 
     };
 
     Group.prototype.defaults = {
       timeout: 1000 * 60 * 5,
-      connection: null
+      connection: null,
+      id: "group-key"
     };
 
     return Group;
@@ -884,6 +888,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 }).call(undefined);
 },{"./Bottleneck":1,"./Events":4,"./IORedisConnection":6,"./RedisConnection":8,"./parser":15}],6:[function(require,module,exports){
 "use strict";
+
+function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
 
 (function () {
   var Events, IORedisConnection, Scripts, parser;
@@ -903,6 +909,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         if (this.Events == null) {
           this.Events = new Events(this);
         }
+        this.terminated = false;
         if (this.clusterNodes != null) {
           this.client = new Redis.Cluster(this.clusterNodes, this.clientOptions);
           this.subscriber = new Redis.Cluster(this.clusterNodes, this.clientOptions);
@@ -913,7 +920,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           this.subscriber = this.client.duplicate();
         }
         this.limiters = {};
-        this.ready = Promise.all([this._setup(this.client, false), this._setup(this.subscriber, true)]).then(() => {
+        this.ready = this.Promise.all([this._setup(this.client, false), this._setup(this.subscriber, true)]).then(() => {
           this._loadScripts();
           return { client: this.client, subscriber: this.subscriber };
         });
@@ -946,36 +953,49 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         });
       }
 
-      addLimiter(instance) {
+      __addLimiter__(instance) {
+        var channel;
+        channel = instance.channel();
         return new this.Promise((resolve, reject) => {
-          return this.subscriber.subscribe(instance._channel(), () => {
-            this.limiters[instance._channel()] = instance;
+          return this.subscriber.subscribe(channel, () => {
+            this.limiters[channel] = instance;
             return resolve();
           });
         });
       }
 
-      removeLimiter(instance) {
-        return delete this.limiters[instance._channel()];
+      __removeLimiter__(instance) {
+        var _this = this;
+
+        return _asyncToGenerator(function* () {
+          var channel;
+          channel = instance.channel();
+          if (!_this.terminated) {
+            yield _this.subscriber.unsubscribe(channel);
+          }
+          return delete _this.limiters[channel];
+        })();
       }
 
-      scriptArgs(name, id, args, cb) {
+      __scriptArgs__(name, id, args, cb) {
         var keys;
         keys = Scripts.keys(name, id);
         return [keys.length].concat(keys, args, cb);
       }
 
-      scriptFn(name) {
+      __scriptFn__(name) {
         return this.client[name].bind(this.client);
       }
 
-      disconnect(flush) {
+      disconnect(flush = true) {
         var i, k, len, ref;
         ref = Object.keys(this.limiters);
         for (i = 0, len = ref.length; i < len; i++) {
           k = ref[i];
-          this.limiters[k]._store.__disconnect__(flush);
+          clearInterval(this.limiters[k]._store.heartbeat);
         }
+        this.limiters = {};
+        this.terminated = true;
         if (flush) {
           return this.Promise.all([this.client.quit(), this.subscriber.quit()]);
         } else {
@@ -1243,6 +1263,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 },{"./BottleneckError":2,"./parser":15}],8:[function(require,module,exports){
 "use strict";
 
+function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
+
 (function () {
   var Events, RedisConnection, Scripts, parser;
 
@@ -1261,13 +1283,14 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         if (this.Events == null) {
           this.Events = new Events(this);
         }
+        this.terminated = false;
         if (this.client == null) {
           this.client = Redis.createClient(this.clientOptions);
         }
         this.subscriber = this.client.duplicate();
         this.limiters = {};
         this.shas = {};
-        this.ready = Promise.all([this._setup(this.client, false), this._setup(this.subscriber, true)]).then(() => {
+        this.ready = this.Promise.all([this._setup(this.client, false), this._setup(this.subscriber, true)]).then(() => {
           return this._loadScripts();
         }).then(() => {
           return { client: this.client, subscriber: this.subscriber };
@@ -1313,42 +1336,64 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         }));
       }
 
-      addLimiter(instance) {
+      __addLimiter__(instance) {
+        var channel;
+        channel = instance.channel();
         return new this.Promise((resolve, reject) => {
           var handler;
-          handler = channel => {
-            if (channel === instance._channel()) {
+          handler = chan => {
+            if (chan === channel) {
               this.subscriber.removeListener("subscribe", handler);
               this.limiters[channel] = instance;
               return resolve();
             }
           };
           this.subscriber.on("subscribe", handler);
-          return this.subscriber.subscribe(instance._channel());
+          return this.subscriber.subscribe(channel);
         });
       }
 
-      removeLimiter(instance) {
-        return delete this.limiters[instance._channel()];
+      __removeLimiter__(instance) {
+        var _this = this;
+
+        return _asyncToGenerator(function* () {
+          var channel;
+          channel = instance.channel();
+          if (!_this.terminated) {
+            yield new _this.Promise(function (resolve, reject) {
+              return _this.subscriber.unsubscribe(channel, function (err, chan) {
+                if (err != null) {
+                  return reject(err);
+                }
+                if (chan === channel) {
+                  return resolve();
+                }
+              });
+            });
+          }
+          return delete _this.limiters[channel];
+        })();
       }
 
-      scriptArgs(name, id, args, cb) {
+      __scriptArgs__(name, id, args, cb) {
         var keys;
         keys = Scripts.keys(name, id);
         return [this.shas[name], keys.length].concat(keys, args, cb);
       }
 
-      scriptFn(name) {
+      __scriptFn__(name) {
         return this.client.evalsha.bind(this.client);
       }
 
-      disconnect(flush) {
+      disconnect(flush = true) {
         var i, k, len, ref;
         ref = Object.keys(this.limiters);
         for (i = 0, len = ref.length; i < len; i++) {
           k = ref[i];
-          this.limiters[k]._store.__disconnect__(flush);
+          clearInterval(this.limiters[k]._store.heartbeat);
         }
+        this.limiters = {};
+        this.terminated = true;
         this.client.end(flush);
         this.subscriber.end(flush);
         return this.Promise.resolve();
@@ -1414,7 +1459,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         this.clients = clients;
         return this.runScript("init", this.prepareInitSettings(this.clearDatastore));
       }).then(() => {
-        return this.connection.addLimiter(this.instance);
+        return this.connection.__addLimiter__(this.instance);
       }).then(() => {
         var base;
         if (typeof (base = this.heartbeat = setInterval(() => {
@@ -1438,7 +1483,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
         client = _ref.client;
 
-        return client.publish(_this.instance._channel(), `message:${message.toString()}`);
+        return client.publish(_this.instance.channel(), `message:${message.toString()}`);
       })();
     }
 
@@ -1458,8 +1503,9 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
     __disconnect__(flush) {
       clearInterval(this.heartbeat);
-      this.connection.removeLimiter(this.instance);
-      if (!this.sharedConnection) {
+      if (this.sharedConnection) {
+        return this.connection.__removeLimiter__(this.instance);
+      } else {
         return this.connection.disconnect(flush);
       }
     }
@@ -1475,13 +1521,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return new _this2.Promise(function (resolve, reject) {
           var arr;
           _this2.instance.Events.trigger("debug", [`Calling Redis script: ${name}.lua`, args]);
-          arr = _this2.connection.scriptArgs(name, _this2.originalId, args, function (err, replies) {
+          arr = _this2.connection.__scriptArgs__(name, _this2.originalId, args, function (err, replies) {
             if (err != null) {
               return reject(err);
             }
             return resolve(replies);
           });
-          return _this2.connection.scriptFn(name).apply({}, arr);
+          return _this2.connection.__scriptFn__(name).apply({}, arr);
         }).catch(function (e) {
           if (e.message === "SETTINGS_KEY_NOT_FOUND") {
             return _this2.runScript("init", _this2.prepareInitSettings(false)).then(function () {

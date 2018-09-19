@@ -8,16 +8,17 @@ class RedisDatastore
     @originalId = @instance.id
     parser.load storeInstanceOptions, storeInstanceOptions, @
     @clients = {}
-
     @sharedConnection = @connection?
+
     @connection ?= if @instance.datastore == "redis" then new RedisConnection { @clientOptions, @Promise, Events: @instance.Events }
     else if @instance.datastore == "ioredis" then new IORedisConnection { @clientOptions, @clusterNodes, @Promise, Events: @instance.Events }
+
     @instance.connection = @connection
     @instance.datastore = @connection.datastore
 
     @ready = @connection.ready
     .then (@clients) => @runScript "init", @prepareInitSettings @clearDatastore
-    .then => @connection.addLimiter @instance
+    .then => @connection.__addLimiter__ @instance
     .then =>
       (@heartbeat = setInterval =>
         @runScript "heartbeat", []
@@ -27,7 +28,7 @@ class RedisDatastore
 
   __publish__: (message) ->
     { client } = await @ready
-    client.publish(@instance._channel(), "message:#{message.toString()}")
+    client.publish(@instance.channel(), "message:#{message.toString()}")
 
   onMessage: (message) ->
     pos = message.indexOf(":")
@@ -39,8 +40,9 @@ class RedisDatastore
 
   __disconnect__: (flush) ->
     clearInterval @heartbeat
-    @connection.removeLimiter @instance
-    if !@sharedConnection
+    if @sharedConnection
+      @connection.__removeLimiter__ @instance
+    else
       @connection.disconnect flush
 
   runScript: (name, args) ->
@@ -48,10 +50,10 @@ class RedisDatastore
     args.unshift Date.now().toString()
     new @Promise (resolve, reject) =>
       @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
-      arr = @connection.scriptArgs name, @originalId, args, (err, replies) ->
+      arr = @connection.__scriptArgs__ name, @originalId, args, (err, replies) ->
         if err? then return reject err
         return resolve replies
-      @connection.scriptFn(name).apply {}, arr
+      @connection.__scriptFn__(name).apply {}, arr
     .catch (e) =>
       if e.message == "SETTINGS_KEY_NOT_FOUND"
         @runScript("init", @prepareInitSettings(false))

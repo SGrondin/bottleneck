@@ -160,3 +160,34 @@ limiter.stop({
 wrapped(4, 5).catch((e) => {
   assert(e.message === "Denied!")
 })
+
+const id: string = limiter.id;
+const datastore: string = limiter.datastore;
+const channel: string = limiter.channel();
+
+const redisConnection = new Bottleneck.RedisConnection({
+  client: "NodeRedis client object",
+  clientOptions: {}
+})
+
+const limiterWithConn = new Bottleneck({
+  connection: redisConnection
+})
+
+const ioredisConnection = new Bottleneck.IORedisConnection({
+  client: "ioredis client object",
+  clientOptions: {},
+  clusterNodes: []
+})
+
+const groupWithConn = new Bottleneck.Group({
+  connection: ioredisConnection
+})
+
+const limiterWithConnFromGroup = new Bottleneck({
+  connection: groupWithConn.connection
+})
+
+const groupWithConnFromLimiter = new Bottleneck.Group({
+  connection: limiterWithConn.connection
+})
