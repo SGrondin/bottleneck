@@ -13,14 +13,13 @@ It supports **Clustering**: it can rate limit jobs across multiple Node.js insta
 
 Bottleneck v2 targets **Node 6+** and modern browsers. [Use Babel](https://github.com/SGrondin/bottleneck/issues/81) in your project if you must support older platforms.
 
-Bottleneck v1 is compatible with any browser or Node version. It's still maintained, but it will not be receiving any new features. [Browse the v1 documentation](https://github.com/SGrondin/bottleneck/tree/version-1). **[Upgrading from version 1?](#upgrading-to-v2)**
+Bottleneck v1 is compatible with any browser or Node version. It's still maintained, but it will not be receiving any new features. The v1 documentation is [here](https://github.com/SGrondin/bottleneck/tree/version-1). **[Upgrading from version 1?](#upgrading-to-v2)**
 
 ## Install
 
 ```
 npm install --save bottleneck
 ```
-
 Not using npm? Import the `bottleneck.min.js` file.
 
 
@@ -49,7 +48,7 @@ const limiter = new Bottleneck({
 
 ### Step 2 of 3
 
-#### Using callbacks?
+#### ➤ Using callbacks?
 
 Instead of this:
 ```js
@@ -60,7 +59,7 @@ Do this:
 limiter.submit(someAsyncCall, arg1, arg2, callback);
 ```
 
-#### Using promises?
+#### ➤ Using promises?
 
 Instead of this:
 ```js
@@ -86,7 +85,7 @@ wrapped(arg1, arg2)
 });
 ```
 
-#### Using async/await?
+#### ➤ Using async/await?
 
 Instead of this:
 ```js
@@ -109,62 +108,60 @@ Remember...
 
 Bottleneck builds a queue of jobs and executes them as soon as possible. By default, the jobs will be executed in the order that they were received.
 
-**Read the 'Gotchas'** and you're good to go. Or keep reading to learn about all the fine tuning and advanced options available. If your rate limits need to be enforced across a cluster of computers, read the [Clustering](#Clustering) docs.
+**Read the 'Gotchas' and you're good to go**. Or keep reading to learn about all the fine tuning and advanced options available. If your rate limits need to be enforced across a cluster of computers, read the [Clustering](#Clustering) docs.
+
+[Need help debugging your application?](#debugging-your-application).
 
 ##### Gotchas
 
-* Make sure you're catching `error` events emitted by your limiters! See [Debugging your application](#debugging-your-application).
+* Make sure you're catching `error` events emitted by your limiters!
 
 * Consider setting a `maxConcurrent` value instead of leaving it `null`. This can help your application's performance, especially if you think the limiter's queue might get very long.
 
-* **When using `submit()`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work otherwise.
+* **When calling `limiter.submit()`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work otherwise.
 
-* **When using `submit()`**, make sure all the jobs will eventually complete by calling their callback (or have an [`expiration`](#job-options)). Even if you submitted your job with a `null` callback , it still needs to call its callback. This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those not completed jobs will be clogging up the limiter and no new jobs will be allowed to run. It's safe to call the callback more than once, subsequent calls are ignored.
+* **When using `submit()`**, make sure all the jobs will eventually complete by calling their callback, or set an [`expiration`](#job-options). Even if you submitted your job with a `null` callback , it still needs to call its callback. This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those not completed jobs will be clogging up the limiter and no new jobs will be allowed to run. It's safe to call the callback more than once, subsequent calls are ignored.
 
 * **When using `schedule()` or `wrap()`**, make sure that all the jobs will eventually complete or have an [`expiration`](#job-options). This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those not completed jobs will be clogging up the limiter and no new jobs will be allowed to run.
 
 * **Clustering** has its own share of gotchas. Read the [Clustering](#clustering) chapter carefully.
-
 
 ## Docs
 
 ### Constructor
 
 ```js
-const limiter = new Bottleneck({ /* options */ });
+const limiter = new Bottleneck({/* options */});
 ```
 
 Basic options:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `maxConcurrent` | `null` (unlimited) | How many jobs can be running at the same time. Consider setting a value instead of leaving it `null`, it can help your application's performance, especially if you think the limiter's queue might get very long. |
-| `minTime` | `0` (ms) | How long to wait after launching a job before launching another one. |
-| `highWater` | `null` (unlimited) | How long can the queue get? When the queue length exceeds that value, the selected `strategy` is executed to shed the load. |
-| `strategy` | `Bottleneck.strategy.LEAK` | Which strategy to use if the queue gets longer than the high water mark. [Read about strategies](#strategies). |
+| `maxConcurrent` | `null` (unlimited) | How many jobs can be executing at the same time. Consider setting a value instead of leaving it `null`, it can help your application's performance, especially if you think the limiter's queue might get very long. |
+| `minTime` | `0` ms | How long to wait after launching a job before launching another one. |
+| `highWater` | `null` (unlimited) | How long can the queue be? When the queue length exceeds that value, the selected `strategy` is executed to shed the load. |
+| `strategy` | `Bottleneck.strategy.LEAK` | Which strategy to use when the queue gets longer than the high water mark. [Read about strategies](#strategies). Strategies are never executed if `highWater` is `null`. |
 | `penalty` | `15 * minTime`, or `5000` when `minTime` is `0` | The `penalty` value used by the `BLOCK` strategy. |
 | `reservoir` | `null` (unlimited) | How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no longer `0`. New jobs will still be queued up. |
-| `reservoirRefreshInterval` | `null` (disabled) | Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically reset to `reservoirRefreshAmount`. This feature has an accuracy of +/- 5 seconds. |
+| `reservoirRefreshInterval` | `null` (disabled) | Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically reset to `reservoirRefreshAmount`. The `reservoirRefreshInterval` should be at least 5 seconds. |
 | `reservoirRefreshAmount` | `null` (disabled) | The value to reset `reservoir` to when `reservoirRefreshInterval` is in use. |
+| `Promise` | `Promise` (built-in) | This lets you override the Promise library used by Bottleneck. |
 
 
 ### submit()
 
 Adds a job to the queue. This is the callback version of `schedule()`.
-
 ```js
 limiter.submit(someAsyncCall, arg1, arg2, callback);
 ```
+You can pass `null` instead of an empty function if there is no callback, but `someAsyncCall` still needs to call **its** callback to let the limiter know it has completed its work.
 
-You can pass `null` instead of an empty function if there is not callback, but `someAsyncCall` still needs to call **its** callback to let the limiter know it has completed its work.
-
-`submit()` can also accept some [advanced options](#job-options).
-
+`submit()` can also accept [advanced options](#job-options).
 
 ### schedule()
 
 Adds a job to the queue. This is the Promise and async/await version of `submit()`.
-
 ```js
 const fn = function(arg1, arg2) {
   return httpGet(arg1, arg2); // Here httpGet() returns a promise
@@ -175,38 +172,23 @@ limiter.schedule(fn, arg1, arg2)
   /* ... */
 });
 ```
+In other words, `schedule()` takes a function **fn** and a list of arguments. `schedule()` returns a promise that will be executed according to the rate limits.
 
-In other words, `schedule()` takes a function **fn** and a list of arguments. **fn** must return a promise. `schedule()` returns a promise that will be executed according to the rate limits.
-
-`schedule()` can also accept some [advanced options](#job-options).
+`schedule()` can also accept [advanced options](#job-options).
 
 Here's another example:
-
 ```js
-// suppose that `http.get(url)` returns a promise
+// suppose that `client.get(url)` returns a promise
 
 const url = "https://wikipedia.org";
 
-limiter.schedule(() => http.get(url))
+limiter.schedule(() => client.get(url))
 .then(response => console.log(response.body));
-```
-
-It's also possible to replace the Promise library used by Bottleneck:
-
-```js
-const Bottleneck = require("bottleneck");
-const Promise = require("bluebird");
-
-const limiter = new Bottleneck({
-  /* other options... */
-  Promise: Promise
-});
 ```
 
 ### wrap()
 
 Takes a function that returns a promise. Returns a function identical to the original, but rate limited.
-
 ```js
 const wrapped = limiter.wrap(fn);
 
@@ -215,37 +197,36 @@ wrapped()
   /* ... */
 })
 .catch(function (error) {
-  // Bottleneck might need to fail the job even if the original function can never fail
+  // Bottleneck might need to fail the job even if the original function can never fail.
+  // For example, your job is taking longer than the `expiration` time you've set.
 });
 ```
-
 
 ### Job Options
 
 `submit()`, `schedule()`, and `wrap()` all accept advanced options.
-
 ```js
 // Submit
-limiter.submit({ /* options */ }, someAsyncCall, arg1, arg2, callback);
+limiter.submit({/* options */}, someAsyncCall, arg1, arg2, callback);
 
 // Schedule
-limiter.schedule({ /* options */ }, fn, arg1, arg2);
+limiter.schedule({/* options */}, fn, arg1, arg2);
 
 // Wrap
 const wrapped = limiter.wrap(fn);
-wrapped.withOptions({ /* options */ }, arg1, arg2);
+wrapped.withOptions({/* options */}, arg1, arg2);
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `priority` | `5` | A priority between `0` and `9`. A job with a priority of `4` will _always_ be executed before a job with a priority of `5`. Priorities work best with a low `maxConcurrent` value. |
-| `weight` | `1` | Must be an integer equal to or higher than `0`. The `weight` is what increases the number of running jobs (up to `maxConcurrent`, if using) and decreases the `reservoir` value (if using). |
-| `expiration` | `null` (unlimited) | The number of milliseconds a job has to finish. Jobs that take longer than `expiration` ms will be failed with a `BottleneckError`. |
-| `id` | `<no-id>` | You can give an ID to your jobs, for easier debugging. See [Debugging your application](#debugging-your-application). |
+| `priority` | `5` | A priority between `0` and `9`. A job with a priority of `4` will be queued ahead of a job with a priority of `5`. **Important:** You must set a low `maxConcurrent` value for priorities to work, otherwise there is nothing to queue because jobs will be be scheduled immediately! |
+| `weight` | `1` | Must be an integer equal to or higher than `0`. The `weight` is what increases the number of running jobs (up to `maxConcurrent`) and decreases the `reservoir` value. |
+| `expiration` | `null` (unlimited) | The number of milliseconds a job is given to complete. Jobs that execute for longer than `expiration` ms will be failed with a `BottleneckError`. |
+| `id` | `<no-id>` | You should give an ID to your jobs, it helps with [debugging](#debugging-your-application). |
 
 ### Strategies
 
-A strategy is a simple algorithm that is executed every time adding a job would cause the number of queued jobs to exceed `highWater`. See [Events](#events).
+A strategy is a simple algorithm that is executed every time adding a job would cause the number of queued jobs to exceed `highWater`. Strategies are never executed if `highWater` is `null`.
 
 #### Bottleneck.strategy.LEAK
 When adding a new job to a limiter, if the queue length reaches `highWater`, drop the oldest job with the lowest priority. This is useful when jobs that have been waiting for too long are not important anymore. If all the queued jobs are more important (based on their `priority` value) than the one being added, it will not be added.
@@ -257,16 +238,18 @@ Same as `LEAK`, except it will only drop jobs that are *less important* than the
 When adding a new job to a limiter, if the queue length reaches `highWater`, do not add the new job. This strategy totally ignores priority levels.
 
 #### Bottleneck.strategy.BLOCK
-When adding a new job to a limiter, if the queue length reaches `highWater`, the limiter falls into "blocked mode". All queued jobs are dropped and no new jobs will be accepted until the limiter unblocks. It will unblock after `penalty` milliseconds have passed without receiving a new job. `penalty` is equal to `15 * minTime` (or `5000` if `minTime` is `0`) by default and can be changed by calling `changePenalty()`. This strategy is ideal when bruteforce attacks are to be expected. This strategy totally ignores priority levels.
+When adding a new job to a limiter, if the queue length reaches `highWater`, the limiter falls into "blocked mode". All queued jobs are dropped and no new jobs will be accepted until the limiter unblocks. It will unblock after `penalty` milliseconds have passed without receiving a new job. `penalty` is equal to `15 * minTime` (or `5000` if `minTime` is `0`) by default. This strategy is ideal when bruteforce attacks are to be expected. This strategy totally ignores priority levels.
 
 
 ### Jobs lifecycle
 
-1. **Received**. You new job has been added to your limiter. Bottleneck needs to check whether it can be accepted into the queue, based on your `highWater` setting.
+1. **Received**. You new job has been added to your limiter. Bottleneck needs to check whether if can be accepted into the queue.
 2. **Queued**. Bottleneck has accepted your job, but it can not tell at what exact timestamp it will run yet, because it is dependent on previous jobs.
-3. **Running**. Your job is not in the queue anymore, it will be executed after a delay computed according to your `minTime` setting.
+3. **Running**. Your job is not in the queue anymore, it will be executed after a delay that was computed according to your `minTime` setting.
 4. **Executing**. Your job is executing its code.
 5. **Done**. Your job has completed.
+
+**Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable this feature by passing `trackDoneStatus: true` as an option when creating a limiter.
 
 #### counts()
 
@@ -287,8 +270,6 @@ console.log(counts);
 
 Returns an object with the current number of jobs per status in the limiter.
 
-**Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable that feature by passing `trackDoneStatus: true` as an option when creating a limiter.
-
 #### jobStatus()
 
 ```js
@@ -298,8 +279,6 @@ console.log(limiter.jobStatus("some-job-id"));
 
 Returns the status of the job with the provided job id **in the limiter**. Returns `null` if no job with that id exist.
 
-**Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable that feature by passing `trackDoneStatus: true` as an option when creating a limiter.
-
 #### jobs()
 
 ```js
@@ -308,8 +287,6 @@ console.log(limiter.jobs("RUNNING"));
 ```
 
 Returns an array of all the job ids with the specified status **in the limiter**. Not passing a status string returns all the known ids.
-
-**Note:** By default, Bottleneck does not keep track of DONE jobs, to save memory. You can enable that feature by passing `trackDoneStatus: true` as an option when creating a limiter.
 
 #### queued()
 
@@ -347,7 +324,7 @@ limiter.done()
 .then((count) => console.log(count));
 ```
 
-Returns a promise that returns the **total weight** of `DONE` jobs **in the Cluster**.
+Returns a promise that returns the **total weight** of `DONE` jobs **in the Cluster**. Does not require passing the `trackDoneStatus: true` option.
 
 #### check()
 
@@ -369,7 +346,7 @@ limiter.on("error", function (error) {
 });
 ```
 
-By far the most common case for errors is uncaught exceptions in your application code. If the jobs you add to Bottleneck (through `submit()`, `schedule()` or `wrap()`) don't catch their own exceptions, the limiter will emit an `error` event.
+By far the most common source of errors is uncaught exceptions in your application code. If the jobs you add to Bottleneck don't catch their own exceptions, the limiter will emit an `error` event.
 
 If using Clustering, errors thrown by the Redis client will emit an `error` event.
 
@@ -423,20 +400,13 @@ limiter.updateSettings(options);
 ```
 The options are the same as the [limiter constructor](#constructor).
 
-**Note:** This doesn't affect jobs already scheduled for execution.
-
-For example, imagine that three 60-second jobs are added to a limiter at time T with `maxConcurrent: null` and `minTime: 2000`. The jobs will be launched at T seconds, T+2 seconds and T+4 seconds, respectively. If right after adding the jobs to Bottleneck, you were to call `limiter.updateSettings({ maxConcurrent: 1 });`, it won't change the fact that there will be 3 jobs running at the same time for roughly 60 seconds. **`updateSettings()` only affects jobs that have not yet been added.**
-
-This is by design, as Bottleneck made a promise to execute those requests according to the settings valid at the time.
+**Note:** Changes don't affect `SCHEDULED` jobs.
 
 ### incrementReservoir()
 
 ```js
 limiter.incrementReservoir(incrementBy);
 ```
-
-This is a way to update the `reservoir` value other than calling `updateSettings`.
-
 Returns a promise that returns the new reservoir value.
 
 ### currentReservoir()
@@ -445,12 +415,11 @@ Returns a promise that returns the new reservoir value.
 limiter.currentReservoir()
 .then((reservoir) => console.log(reservoir));
 ```
-
 Returns a promise that returns the current reservoir value.
 
 ### stop()
 
-The `stop()` method is used to safely shutdown a limiter. It prevents any new jobs from being added to the limiter and waits for all Executing jobs to complete.
+The `stop()` method is used to safely shutdown a limiter. It prevents any new jobs from being added to the limiter and waits for all `EXECUTING` jobs to complete.
 
 ```js
 limiter.stop(options)
@@ -459,29 +428,28 @@ limiter.stop(options)
 });
 ```
 
-`stop()` returns a promise that resolves once all non-Executing (see [Jobs Lifecycle](#jobs-lifecycle)) jobs have been dropped (if using `dropWaitingJobs`) and once all the Executing jobs have completed.
+`stop()` returns a promise that resolves once all the `EXECUTING` jobs have completed and, if desired, once all non-`EXECUTING` jobs have been dropped.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `dropWaitingJobs` | `true` | When `true`, drop all the RECEIVED, QUEUED and RUNNING jobs. When `false`, allow those jobs to complete before resolving the Promise returned by this method. |
+| `dropWaitingJobs` | `true` | When `true`, drop all the `RECEIVED`, `QUEUED` and `RUNNING` jobs. When `false`, allow those jobs to complete before resolving the Promise returned by this method. |
 | `dropErrorMessage` | `This limiter has been stopped.` | The error message used to drop jobs when `dropWaitingJobs` is `true`. |
 | `enqueueErrorMessage` | `This limiter has been stopped and cannot accept new jobs.` | The error message used to reject a job added to the limiter after `stop()` has been called. |
 
 ### chain()
 
-* `limiter` : If another limiter is passed, tasks that are ready to be executed will be added to that other limiter. *Default: `null` (none)*
-
-Suppose you have 2 types of tasks, A and B. They both have their own limiter with their own settings, but both must also follow a global limiter C:
-
+Tasks that are ready to be executed will be added to that other limiter. Suppose you have 2 types of tasks, A and B. They both have their own limiter with their own settings, but both must also follow a global limiter G:
 ```js
-const limiterA = new Bottleneck( /* ...some settings... */ );
-const limiterB = new Bottleneck( /* ...some different settings... */ );
-const limiterC = new Bottleneck( /* ...some global settings... */ );
-limiterA.chain(limiterC);
-limiterB.chain(limiterC);
-// Requests added to limiterA must follow the A and C rate limits.
-// Requests added to limiterB must follow the B and C rate limits.
-// Requests added to limiterC must follow the C rate limits.
+const limiterA = new Bottleneck( /* some settings */ );
+const limiterB = new Bottleneck( /* some different settings */ );
+const limiterG = new Bottleneck( /* some global settings */ );
+
+limiterA.chain(limiterG);
+limiterB.chain(limiterG);
+
+// Requests added to limiterA must follow the A and G rate limits.
+// Requests added to limiterB must follow the B and G rate limits.
+// Requests added to limiterG must follow the G rate limits.
 ```
 
 To unchain, call `limiter.chain(null);`.
@@ -524,10 +492,6 @@ group.on("created", (limiter, key) => {
   limiter.on("error", (err) => {
     // Handle errors here
   })
-
-  //
-  // ...other operations to be executed when a new limiter is created...
-  //
 });
 ```
 
@@ -539,8 +503,7 @@ __updateSettings()__
 const group = new Bottleneck.Group({ maxConcurrent: 2, minTime: 250 });
 group.updateSettings({ minTime: 500 });
 ```
-
-After executing the above commands, new limiters will be created with `{ maxConcurrent: 2, minTime: 500 }`.
+After executing the above commands, **new limiters** will be created with `{ maxConcurrent: 2, minTime: 500 }`.
 
 
 __deleteKey()__
@@ -549,11 +512,9 @@ __deleteKey()__
 
 Manually deletes the limiter at the specified key. This can be useful when the auto cleanup is turned off.
 
-
 __keys()__
 
 Returns an array containing all the keys in the Group.
-
 
 __limiters()__
 
@@ -566,11 +527,11 @@ console.log(limiters);
 
 ## Clustering
 
-Clustering lets many limiters access the same shared state, stored in a Redis server or Redis cluster. Changes to the state are Atomic, Consistent and Isolated (and fully [ACID](https://en.wikipedia.org/wiki/ACID) with the right Redis [Durability](https://redis.io/topics/persistence) configuration), to eliminate any chances of race conditions or state corruption. Your settings, such as `maxConcurrent`, `minTime`, etc., are shared across the whole cluster, which means—for example—that `{ maxConcurrent: 5 }` guarantees no more than 5 jobs can ever run at a time in the entire cluster of limiters. 100% of Bottleneck's features are supported in Clustering mode. Enabling Clustering is as simple as changing a few settings. It's also a convenient way to store or export state for later use.
+Clustering lets many limiters access the same shared state, stored in Redis. Changes to the state are Atomic, Consistent and Isolated (and fully [ACID](https://en.wikipedia.org/wiki/ACID) with the right [Durability](https://redis.io/topics/persistence) configuration), to eliminate any chances of race conditions or state corruption. Your settings, such as `maxConcurrent`, `minTime`, etc., are shared across the whole cluster, which means —for example— that `{ maxConcurrent: 5 }` guarantees no more than 5 jobs can ever run at a time in the entire cluster of limiters. 100% of Bottleneck's features are supported in Clustering mode. Enabling Clustering is as simple as changing a few settings. It's also a convenient way to store or export state for later use.
 
 ### Enabling Clustering
 
-__IMPORTANT:__ Add `redis` or `ioredis` to your application's dependencies.
+First, add `redis` or `ioredis` to your application's dependencies:
 ```bash
 # If you prefer to use NodeRedis (https://github.com/NodeRedis/node_redis)
 npm install --save redis
@@ -578,7 +539,7 @@ npm install --save redis
 # If you prefer to use ioredis (https://github.com/luin/ioredis)
 npm install --save ioredis
 ```
-
+Then create a limiter or a Group:
 ```js
 const limiter = new Bottleneck({
   /* Some basic options */
@@ -590,13 +551,12 @@ const limiter = new Bottleneck({
   datastore: "redis", // or "ioredis"
   clearDatastore: false,
   clientOptions: {
-    // Redis client options
-    // For NodeRedis, see https://github.com/NodeRedis/node_redis#options-object-properties
-    // For ioredis, see https://github.com/luin/ioredis/blob/master/API.md#new-redisport-host-options
-
     host: "127.0.0.1",
     port: 6379
-    // "db" is another useful option
+
+    // Redis client options
+    // Using NodeRedis? See https://github.com/NodeRedis/node_redis#options-object-properties
+    // Using ioredis? See https://github.com/luin/ioredis/blob/master/API.md#new-redisport-host-options
   }
 });
 ```
@@ -607,28 +567,26 @@ const limiter = new Bottleneck({
 | `clearDatastore` | `false` | When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db. |
 | `clientOptions` | `{}` | This object is passed directly to the redis client library you've selected. |
 | `clusterNodes` | `null` | **ioredis only.** When `clusterNodes` is not null, the client will be instantiated by calling `new Redis.Cluster(clusterNodes, clientOptions)` instead of `new Redis(clientOptions)`. |
-| `timeout` | `null` | The Redis TTL in milliseconds ([TTL](https://redis.io/commands/ttl)) for the keys created by the limiter. When `timeout` is set, the limiter's state will be automatically removed from Redis after `timeout` milliseconds of inactivity. **Note:** `timeout` is `300000` (5 minutes) by default when using a Group. |
+| `timeout` | `null` (no TTL) | The Redis TTL in milliseconds ([TTL](https://redis.io/commands/ttl)) for the keys created by the limiter. When `timeout` is set, the limiter's state will be automatically removed from Redis after `timeout` milliseconds of inactivity. |
 
-When using Groups, the `timeout` option is set to `300000` milliseconds by default and the generated limiters automatically receive an `id` with the pattern `${group.id}-${KEY}`.
-
-The `ready()`, `publish()` and `clients()` methods also exist when using the `local` datastore, for code compatibility reasons: code written for `redis`/`ioredis` won't break with `local`.
+**Note: When using Groups**, the `timeout` option has a default of `300000` milliseconds and the generated limiters automatically receive an `id` with the pattern `${group.id}-${KEY}`.
 
 ### Important considerations when Clustering
 
 The first limiter connecting to Redis will store its [constructor options](#constructor) on Redis and all subsequent limiters will be using those settings. You can alter the constructor options used by all the connected limiters by calling `updateSettings()`. The `clearDatastore` option instructs a new limiter to wipe any previous Bottleneck data (for that `id`), including previously stored settings.
 
-Queued jobs are **NOT** stored on Redis. They are local to each limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run a job across a different Node.js process than the one it originated on. Bottleneck doesn't keep track of the queue contents of the limiters on a cluster for performance and reliability reasons.
+Queued jobs are **NOT** stored on Redis. They are local to each limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run a job across a different Node.js process than the one it originated on. Bottleneck doesn't keep track of the queue contents of the limiters on a cluster for performance and reliability reasons. You can use something like [`BeeQueue`](https://github.com/bee-queue/bee-queue) to get around this limitation.
 
 Due to the above, functionality relying on the queue length happens purely locally:
-- Priorities are local. A higher priority job will run before a lower priority job **on the same limiter**. Another limiter on the cluster might run a lower priority before our higher priority one.
-- (Assuming default priority levels) Bottleneck guarantees that jobs will be run in the order they were queued **on the same limiter**. Another limiter on the cluster might run a job queued later before ours runs.
+- Priorities are local. A higher priority job will run before a lower priority job **on the same limiter**. Another limiter on the cluster might run a lower priority job before our higher priority one.
+- Assuming constant priority levels, Bottleneck guarantees that jobs will be run in the order they were received **on the same limiter**. Another limiter on the cluster might run a job received later before ours runs.
 - `highWater` and load shedding ([strategies](#strategies)) are per limiter. However, one limiter entering Blocked mode will put the entire cluster in Blocked mode until `penalty` milliseconds have passed. See [Strategies](#strategies).
 - The `empty` event is triggered when the (local) queue is empty.
 - The `idle` event is triggered when the (local) queue is empty *and* no jobs are currently running anywhere in the cluster.
 
-You must work around these limitations in your application code if they are an issue to you.
+You must work around these limitations in your application code if they are an issue to you. The `publish()` method could be useful here.
 
-The current design guarantees reliability and lets clients (limiters) come and go. Your application can scale up or down, and clients can be disconnected without issues.
+The current design guarantees reliability, is highly performant and lets limiters come and go. Your application can scale up or down, and clients can be disconnected at any time without issues.
 
 It is **strongly recommended** that you give an `id` to every limiter and Group since it is used to build the name of your limiter's Redis keys! Limiters with the same `id` inside the same Redis db will be sharing the same datastore.
 
@@ -656,6 +614,10 @@ clusterLimiter.ready()
 .catch((error) => { /* ... */ });
 ```
 
+### Clustering Methods
+
+The `ready()`, `publish()` and `clients()` methods also exist when using the `local` datastore, for code compatibility reasons: code written for `redis`/`ioredis` won't break with `local`.
+
 #### ready()
 
 This method returns a promise that resolves once the limiter is connected to Redis.
@@ -663,7 +625,7 @@ This method returns a promise that resolves once the limiter is connected to Red
 As of v2.9.0, it's no longer necessary to wait for `.ready()` to resolve before issuing commands to a limiter. The commands will be queued until the limiter successfully connects. Make sure to listen to the `error` event to handle connection errors.
 
 ```js
-const limiter = new Bottleneck({ /* ... */ });
+const limiter = new Bottleneck({/* options */});
 
 limiter.on("error", (err) => {
   // handle network errors
@@ -678,27 +640,24 @@ limiter.ready()
 #### publish(message)
 
 This method broadcasts the `message` string to every limiter in the Cluster. It returns a promise.
-
 ```js
-const limiter = new Bottleneck({ /* ... */ });
+const limiter = new Bottleneck({/* options */});
 
 limiter.on("message", (msg) => {
-  // handle messages
+  console.log(msg); // prints "this is a string"
 });
 
 limiter.publish("this is a string");
 ```
 
-To send objects, stringify them first.
-
+To send objects, stringify them first:
 ```js
 limiter.on("message", (msg) => {
-  console.log(JSON.parse(msg).hello) // Prints "world"
+  console.log(JSON.parse(msg).hello) // prints "world"
 });
 
 limiter.publish(JSON.stringify({ hello: "world" }));
 ```
-
 
 #### clients()
 
@@ -723,9 +682,7 @@ Bottleneck needs to create 2 Redis Clients to function, one for normal operation
 By default, every Group and every standalone limiter (a limiter not created by a Group) will create their own Connection object, but it is possible to manually control this behavior. In this example, every Group and limiter is sharing the same Connection object and therefore the same 2 clients:
 ```js
 const connection = new Bottleneck.RedisConnection({
-  clientOptions: {
-    port: 5555
-  }
+  clientOptions: {/* NodeRedis/ioredis options */}
   // ioredis also accepts `clusterNodes` here
 });
 
@@ -741,27 +698,27 @@ When a Connection object is created manually, the connectivity `"error"` events 
 ```js
 connection.on("error", (err) => { /* handle connectivity errors here */ });
 ```
-If you already have a NodeRedis/ioredis client, you can ask Bottleneck to reuse it (currently the Connection still needs to create a second client for pubsub operations):
+If you already have a NodeRedis/ioredis client, you can ask Bottleneck to reuse it, although currently the Connection object will still create a second client for pubsub operations:
 ```js
 import Redis from "redis";
-const client = new Redis.createClient({ options });
+const client = new Redis.createClient({/* options */});
 
 const connection = new Bottleneck.RedisConnection({
-  // here `clientOptions` and `clusterNodes` will be ignored
+  // `clientOptions` and `clusterNodes` will be ignored since we're passing a raw client
   client: client
 });
 
 const limiter = new Bottleneck({ connection: connection });
 const group = new Bottleneck.Group({ connection: connection });
 ```
-Depending on your application, creating more clients can improve performance.
+Depending on your application, using more clients can improve performance.
 
 Use the `disconnect(flush)` method to close the Redis clients.
 ```js
 limiter.disconnect();
 group.disconnect();
 ```
-If you created the Connection object yourself, you need to call `connection.disconnect()` instead, for safety reasons.
+If you created the Connection object manually, you need to call `connection.disconnect()` instead, for safety reasons.
 
 ## Debugging your application
 
@@ -769,10 +726,11 @@ Debugging complex scheduling logic can be difficult, especially when priorities,
 
 If your application is not behaving as expected, start by making sure you're catching `error` [events emitted](#events) by your limiters and your Groups. Those errors are most likely uncaught exceptions from your application code.
 
+Make sure you've read the ['Gotchas'](#gotchas) section.
+
 To see exactly what a limiter is doing in real time, listen to the `debug` event. It contains detailed information about how the limiter is executing your code. Adding [job IDs](#job-options) to all your jobs makes the debug output more readable.
 
 When Bottleneck has to fail one of your jobs, it does so by using `BottleneckError` objects. This lets you tell those errors apart from your own code's errors:
-
 ```js
 limiter.schedule(fn)
 .then((result) => { /* ... */ } )
@@ -784,7 +742,6 @@ limiter.schedule(fn)
 ```
 
 Some Promise libraries also support selective `catch()` blocks that only catch a specific type of error:
-
 ```js
 limiter.schedule(fn)
 .then((result) => { /* ... */ } )
