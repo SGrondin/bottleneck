@@ -570,6 +570,34 @@ describe('General', function () {
       .then(function (results) {
         c.checkResultsOrder([[1], [2], [3], [4], [5]])
         c.mustEqual(calledDepleted, 2)
+        c.checkDuration(300)
+      })
+    })
+
+    it('Should allow staggered X by Y type usage', function () {
+      c = makeTest({
+        reservoir: 2,
+        reservoirRefreshInterval: 150,
+        reservoirRefreshAmount: 2,
+        heartbeatInterval: 75 // not for production use
+      })
+
+      return Promise.all([
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1),
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2),
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3),
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
+      ])
+      .then(function () {
+        return c.limiter.currentReservoir()
+      })
+      .then(function (reservoir) {
+        c.mustEqual(reservoir, 0)
+        return c.last({ weight: 0, priority: 9 })
+      })
+      .then(function (results) {
+        c.checkResultsOrder([[1], [2], [3], [4]])
+        c.checkDuration(150)
       })
     })
 

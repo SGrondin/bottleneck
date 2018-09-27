@@ -19,9 +19,15 @@ if redis.call('exists', settings_key) == 0 then
   end
 
   redis.call(unpack(args))
-  redis.call('hset', settings_key, 'nextRequest', now)
-else
+  redis.call('hmset', settings_key,
+    'nextRequest', now,
+    'lastReservoirRefresh', now,
+    'running', 0,
+    'done', 0,
+    'unblockTime', 0
+  )
 
+else
   -- Apply migrations
   local current_version = redis.call('hget', settings_key, 'version')
   if current_version ~= limiter_version then
@@ -31,12 +37,22 @@ else
     end
 
     -- 2.10.0
-    if version_digits[2] <= 9 then
+    if version_digits[2] < 10 then
       redis.call('hsetnx', settings_key, 'reservoirRefreshInterval', '')
       redis.call('hsetnx', settings_key, 'reservoirRefreshAmount', '')
       redis.call('hsetnx', settings_key, 'lastReservoirRefresh', '')
       redis.call('hsetnx', settings_key, 'done', 0)
-      redis.call('hmset', settings_key, 'version', '2.10.0')
+      redis.call('hset', settings_key, 'version', '2.10.0')
+    end
+
+    -- 2.11.1
+    if version_digits[2] < 11 and version_digits[3] < 1 then
+      if redis.call('hstrlen', settings_key, 'lastReservoirRefresh') == 0 then
+        redis.call('hmset', settings_key,
+          'lastReservoirRefresh', now,
+          'version', '2.11.1'
+        )
+      end
     end
   end
 

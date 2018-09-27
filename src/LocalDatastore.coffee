@@ -4,8 +4,7 @@ BottleneckError = require "./BottleneckError"
 class LocalDatastore
   constructor: (@instance, @storeOptions, storeInstanceOptions) ->
     parser.load storeInstanceOptions, storeInstanceOptions, @
-    @_nextRequest = Date.now()
-    @_lastReservoirRefresh = null
+    @_nextRequest = @_lastReservoirRefresh = Date.now()
     @_running = 0
     @_done = 0
     @_unblockTime = 0
@@ -14,7 +13,7 @@ class LocalDatastore
     (@heartbeat = setInterval =>
       now = Date.now()
       reservoirRefreshActive = @storeOptions.reservoirRefreshInterval? and @storeOptions.reservoirRefreshAmount?
-      if reservoirRefreshActive and (not @_lastReservoirRefresh? or now >= @_lastReservoirRefresh + @storeOptions.reservoirRefreshInterval)
+      if reservoirRefreshActive and now >= @_lastReservoirRefresh + @storeOptions.reservoirRefreshInterval
         @storeOptions.reservoir = @storeOptions.reservoirRefreshAmount
         @_lastReservoirRefresh = now
         @instance._drainAll @computeCapacity()

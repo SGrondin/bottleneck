@@ -235,7 +235,8 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         var settings_key = limiterKeys(c.limiter)[0]
         return Promise.all([
           runCommand(c.limiter, 'hset', [settings_key, 'version', '2.8.0']),
-          runCommand(c.limiter, 'hdel', [settings_key, 'done'])
+          runCommand(c.limiter, 'hdel', [settings_key, 'done']),
+          runCommand(c.limiter, 'hset', [settings_key, 'lastReservoirRefresh', ''])
         ])
       })
       .then(function () {
@@ -253,7 +254,9 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         ])
       })
       .then(function (values) {
-        c.mustEqual(values, ['2.10.0', '0', '', '', ''])
+        var lastReservoirRefresh = values[values.length - 1]
+        assert(parseInt(lastReservoirRefresh) > Date.now() - 500)
+        c.mustEqual(values.slice(0, values.length - 1), ['2.11.1', '0', '', ''])
       })
       .then(function () {
         return limiter2.disconnect(false)

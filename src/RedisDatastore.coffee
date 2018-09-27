@@ -70,10 +70,6 @@ class RedisDatastore
   prepareInitSettings: (clear) ->
     args = @prepareObject Object.assign({}, @storeOptions, {
       id: @originalId,
-      nextRequest: 0, # set to now by init.lua due to retries
-      running: 0,
-      done: 0,
-      unblockTime: 0,
       version: @instance.version,
       groupTimeout: @timeout
     })

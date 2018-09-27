@@ -35,7 +35,7 @@ class Bottleneck
   localStoreDefaults:
     Promise: Promise
     timeout: null
-    heartbeatInterval: 5000
+    heartbeatInterval: 250
   redisStoreDefaults:
     Promise: Promise
     timeout: null

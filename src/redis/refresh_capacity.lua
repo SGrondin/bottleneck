@@ -76,7 +76,7 @@ local refresh_capacity = function (executing_key, running_key, settings_key, now
   -- Compute 'reservoir' changes
   --
   local reservoirRefreshActive = reservoirRefreshInterval ~= nil and reservoirRefreshAmount ~= nil
-  if reservoirRefreshActive and (lastReservoirRefresh == nil or now >= lastReservoirRefresh + reservoirRefreshInterval) then
+  if reservoirRefreshActive and now >= lastReservoirRefresh + reservoirRefreshInterval then
     reservoir = reservoirRefreshAmount
     redis.call('hmset', settings_key,
       'reservoir', reservoir,
