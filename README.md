@@ -46,6 +46,18 @@ const limiter = new Bottleneck({
 });
 ```
 
+Sometimes rate limits instead take the form of "X requests every Y seconds". In this example, we throttle to 100 requests every 60 seconds:
+```js
+const limiter = new Bottleneck({
+  reservoir: 100, // initial value
+  reservoirRefreshAmount: 100,
+  reservoirRefreshInterval: 60*1000 // must be divisible by 250
+});
+```
+`reservoir` is a counter decremented every time a job is launched, we set its initial value to 100. Then, every `reservoirRefreshInterval` (60000 ms), `reservoir` is automatically reset to `reservoirRefreshAmount` (100).
+
+You **should** still use `minTime` and/or `maxConcurrent` to spread out the load since running 100 requests in parallel is not always a good idea.
+
 ### Step 2 of 3
 
 #### ➤ Using callbacks?
@@ -106,7 +118,7 @@ const result = await wrapped(arg1, arg2);
 
 Remember...
 
-Bottleneck builds a queue of jobs and executes them as soon as possible. By default, the jobs will be executed in the order that they were received.
+Bottleneck builds a queue of jobs and executes them as soon as possible. By default, the jobs will be executed in the order they were received.
 
 **Read the 'Gotchas' and you're good to go**. Or keep reading to learn about all the fine tuning and advanced options available. If your rate limits need to be enforced across a cluster of computers, read the [Clustering](#Clustering) docs.
 
@@ -116,15 +128,11 @@ Bottleneck builds a queue of jobs and executes them as soon as possible. By defa
 
 * Make sure you're catching `error` events emitted by your limiters!
 
-* Consider setting a `maxConcurrent` value instead of leaving it `null`. This can help your application's performance, especially if you think the limiter's queue might get very long.
+* Consider setting a `maxConcurrent` value instead of leaving it `null`. This can help your application's performance, especially if you think the limiter's queue might become very long.
 
-* **When calling `limiter.submit()`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work otherwise.
+* **When using `submit()`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work otherwise.
 
 * **When using `submit()`**, make sure all the jobs will eventually complete by calling their callback, or set an [`expiration`](#job-options). Even if you submitted your job with a `null` callback , it still needs to call its callback. This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those not completed jobs will be clogging up the limiter and no new jobs will be allowed to run. It's safe to call the callback more than once, subsequent calls are ignored.
-
-* **When using `schedule()` or `wrap()`**, make sure that all the jobs will eventually complete or have an [`expiration`](#job-options). This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those not completed jobs will be clogging up the limiter and no new jobs will be allowed to run.
-
-* **Clustering** has its own share of gotchas. Read the [Clustering](#clustering) chapter carefully.
 
 ## Docs
 
@@ -144,7 +152,7 @@ Basic options:
 | `strategy` | `Bottleneck.strategy.LEAK` | Which strategy to use when the queue gets longer than the high water mark. [Read about strategies](#strategies). Strategies are never executed if `highWater` is `null`. |
 | `penalty` | `15 * minTime`, or `5000` when `minTime` is `0` | The `penalty` value used by the `BLOCK` strategy. |
 | `reservoir` | `null` (unlimited) | How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no longer `0`. New jobs will still be queued up. |
-| `reservoirRefreshInterval` | `null` (disabled) | Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically reset to `reservoirRefreshAmount`. The `reservoirRefreshInterval` should be at least 5 seconds. |
+| `reservoirRefreshInterval` | `null` (disabled) | Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically reset to `reservoirRefreshAmount`. For best results, the `reservoirRefreshInterval` value should be a multiple of 250 (5000 for Clustering). |
 | `reservoirRefreshAmount` | `null` (disabled) | The value to reset `reservoir` to when `reservoirRefreshInterval` is in use. |
 | `Promise` | `Promise` (built-in) | This lets you override the Promise library used by Bottleneck. |
 
@@ -533,10 +541,10 @@ Clustering lets many limiters access the same shared state, stored in Redis. Cha
 
 First, add `redis` or `ioredis` to your application's dependencies:
 ```bash
-# If you prefer to use NodeRedis (https://github.com/NodeRedis/node_redis)
+# NodeRedis (https://github.com/NodeRedis/node_redis)
 npm install --save redis
 
-# If you prefer to use ioredis (https://github.com/luin/ioredis)
+# or ioredis (https://github.com/luin/ioredis)
 npm install --save ioredis
 ```
 Then create a limiter or a Group:
@@ -741,25 +749,15 @@ limiter.schedule(fn)
 });
 ```
 
-Some Promise libraries also support selective `catch()` blocks that only catch a specific type of error:
-```js
-limiter.schedule(fn)
-.then((result) => { /* ... */ } )
-.catch(Bottleneck.BottleneckError, (error) => {
-  /* ... */
-})
-.catch((error) => {
-  /* ... */
-});
-```
-
 ## Upgrading to v2
 
 The internal algorithms essentially haven't changed from v1, but many small changes to the interface were made to introduce new features.
 
 All the breaking changes:
-- Bottleneck v2 uses ES6/ES2015. v1 will continue to use ES5 only.
+- Bottleneck v2 requires Node 6+ or a modern browser. Use Babel if you must support legacy platforms. Bottleneck v1 will continue to use ES5 only.
 - The Bottleneck constructor now takes an options object. See [Constructor](#constructor).
+- The `Cluster` feature is now called `Group`. This is to distinguish it from the new v2 [Clustering](#clustering) feature.
+- The `Group` constructor takes an options object to match the limiter constructor.
 - Jobs take an optional options object. See [Job options](#job-options).
 - Removed `submitPriority()`, use `submit()` with an options object instead.
 - Removed `schedulePriority()`, use `schedule()` with an options object instead.
@@ -773,13 +771,11 @@ All the breaking changes:
 - Changing the Promise library is now done through the options object like any other limiter setting.
 - Removed `changePenalty()`, it is now done through the options object like any other limiter setting.
 - Removed `changeReservoir()`, it is now done through the options object like any other limiter setting.
-- Removed `stopAll()`. Use the `reservoir` feature to disable execution instead.
+- Removed `stopAll()`. Use the new `stop()` method.
 - `check()` now accepts an optional `weight` argument, and returns its result using a promise.
-- The `Cluster` feature is now called `Group`. This is to distinguish it from the new v2 [Clustering](#clustering) feature.
-- The `Group` constructor takes an options object to match the limiter constructor.
-- Removed the `Group` `changeTimeout()` method. Use `updateSettings()` instead, it now takes an options object. See [Group](#group).
+- Removed the `Group` `changeTimeout()` method. Instead, pass a `timeout` option when creating a Group.
 
-Version 2 is more user-friendly, powerful and reliable.
+Version 2 is more user-friendly and powerful.
 
 After upgrading your code, please take a minute to read the [Debugging your application](#debugging-your-application) chapter.
 
