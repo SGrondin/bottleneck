@@ -10,10 +10,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 (function () {
   var Bottleneck,
       DEFAULT_PRIORITY,
-      DLList,
       Events,
       LocalDatastore,
       NUM_PRIORITIES,
+      Queues,
       RedisDatastore,
       States,
       Sync,
@@ -27,6 +27,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   parser = require("./parser");
 
+  Queues = require("./Queues");
+
   LocalDatastore = require("./LocalDatastore");
 
   RedisDatastore = require("./RedisDatastore");
@@ -34,8 +36,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   Events = require("./Events");
 
   States = require("./States");
-
-  DLList = require("./DLList");
 
   Sync = require("./Sync");
 
@@ -52,7 +52,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         this.incrementReservoir = this.incrementReservoir.bind(this);
         this._validateOptions(options, invalid);
         parser.load(options, this.instanceDefaults, this);
-        this._queues = this._makeQueues();
+        this._queues = new Queues(NUM_PRIORITIES);
         this._scheduled = {};
         this._states = new States(["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(this.trackDoneStatus ? ["DONE"] : []));
         this._limiter = null;
@@ -71,6 +71,14 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             throw new Bottleneck.prototype.BottleneckError(`Invalid datastore type: ${this.datastore}`);
           }
         }.call(this);
+        this._queues.on("leftzero", () => {
+          var base;
+          return typeof (base = this._store.heartbeat).ref === "function" ? base.ref() : void 0;
+        });
+        this._queues.on("zero", () => {
+          var base;
+          return typeof (base = this._store.heartbeat).unref === "function" ? base.unref() : void 0;
+        });
       }
 
       _validateOptions(options, invalid) {
@@ -105,13 +113,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       }
 
       queued(priority) {
-        if (priority != null) {
-          return this._queues[priority].length;
-        } else {
-          return this._queues.reduce(function (a, b) {
-            return a + b.length;
-          }, 0);
-        }
+        return this._queues.queued(priority);
       }
 
       empty() {
@@ -138,15 +140,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return this._states.statusCounts();
       }
 
-      _makeQueues() {
-        var i, j, ref, results;
-        results = [];
-        for (i = j = 1, ref = NUM_PRIORITIES; 1 <= ref ? j <= ref : j >= ref; i = 1 <= ref ? ++j : --j) {
-          results.push(new DLList());
-        }
-        return results;
-      }
-
       _sanitizePriority(priority) {
         var sProperty;
         sProperty = ~~priority !== priority ? DEFAULT_PRIORITY : priority;
@@ -157,25 +150,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         } else {
           return sProperty;
         }
-      }
-
-      _find(arr, fn) {
-        var ref;
-        return (ref = function () {
-          var i, j, len, x;
-          for (i = j = 0, len = arr.length; j < len; i = ++j) {
-            x = arr[i];
-            if (fn(x)) {
-              return x;
-            }
-          }
-        }()) != null ? ref : [];
-      }
-
-      _getFirst(arr) {
-        return this._find(arr, function (x) {
-          return x.length > 0;
-        });
       }
 
       _randomIndex() {
@@ -263,7 +237,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           if (this.queued() === 0) {
             return this.Promise.resolve(false);
           }
-          queue = this._getFirst(this._queues);
+          queue = this._queues.getFirst();
 
           var _queue$first = queue.first();
 
@@ -356,10 +330,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
                 this._drop(v.job, options.dropErrorMessage);
               }
             }
-            this._queues.forEach(queue => {
-              return queue.forEachShift(job => {
-                return this._drop(job, options.dropErrorMessage);
-              });
+            this._queues.shiftAll(job => {
+              return this._drop(job, options.dropErrorMessage);
             });
             return waitForExecuting(0);
           });
@@ -434,11 +406,13 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             return false;
           }
           if (blocked) {
-            _this2._queues = _this2._makeQueues();
+            _this2._queues.shiftAll(function (job) {
+              return _this2._drop(job);
+            });
             _this2._drop(job);
             return true;
           } else if (reachedHWM) {
-            shifted = strategy === Bottleneck.prototype.strategy.LEAK ? _this2._getFirst(_this2._queues.slice(options.priority).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? _this2._getFirst(_this2._queues.slice(options.priority + 1).reverse()).shift() : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
+            shifted = strategy === Bottleneck.prototype.strategy.LEAK ? _this2._queues.shiftLastFrom(options.priority) : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? _this2._queues.shiftLastFrom(options.priority + 1) : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
             if (shifted != null) {
               _this2._drop(shifted);
             }
@@ -450,7 +424,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             }
           }
           _this2._states.next(job.options.id); // QUEUED
-          _this2._queues[options.priority].push(job);
+          _this2._queues.push(options.priority, job);
           yield _this2._drainAll();
           return reachedHWM;
         }));
@@ -603,7 +577,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Bottleneck;
 }).call(undefined);
-},{"../package.json":16,"./BottleneckError":2,"./DLList":3,"./Events":4,"./Group":5,"./IORedisConnection":6,"./LocalDatastore":7,"./RedisConnection":8,"./RedisDatastore":9,"./States":11,"./Sync":12,"./parser":15}],2:[function(require,module,exports){
+},{"../package.json":17,"./BottleneckError":2,"./Events":4,"./Group":5,"./IORedisConnection":6,"./LocalDatastore":7,"./Queues":8,"./RedisConnection":9,"./RedisDatastore":10,"./States":12,"./Sync":13,"./parser":16}],2:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -620,15 +594,19 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
   var DLList;
 
   DLList = class DLList {
-    constructor() {
+    constructor(_queues) {
+      this._queues = _queues;
       this._first = null;
       this._last = null;
       this.length = 0;
     }
 
     push(value) {
-      var node;
+      var node, ref1;
       this.length++;
+      if ((ref1 = this._queues) != null) {
+        ref1.incr();
+      }
       node = {
         value,
         next: null
@@ -643,14 +621,17 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }
 
     shift() {
-      var ref1, value;
+      var ref1, ref2, value;
       if (this._first == null) {
         return void 0;
       } else {
         this.length--;
+        if ((ref1 = this._queues) != null) {
+          ref1.decr();
+        }
       }
       value = this._first.value;
-      this._first = (ref1 = this._first.next) != null ? ref1 : this._last = null;
+      this._first = (ref2 = this._first.next) != null ? ref2 : this._last = null;
       return value;
     }
 
@@ -886,7 +867,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Group;
 }).call(undefined);
-},{"./Bottleneck":1,"./Events":4,"./IORedisConnection":6,"./RedisConnection":8,"./parser":15}],6:[function(require,module,exports){
+},{"./Bottleneck":1,"./Events":4,"./IORedisConnection":6,"./RedisConnection":9,"./parser":16}],6:[function(require,module,exports){
 "use strict";
 
 function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
@@ -1022,7 +1003,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = IORedisConnection;
 }).call(undefined);
-},{"./Events":4,"./Scripts":10,"./parser":15}],7:[function(require,module,exports){
+},{"./Events":4,"./Scripts":11,"./parser":16}],7:[function(require,module,exports){
 "use strict";
 
 function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
@@ -1259,7 +1240,81 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = LocalDatastore;
 }).call(undefined);
-},{"./BottleneckError":2,"./parser":15}],8:[function(require,module,exports){
+},{"./BottleneckError":2,"./parser":16}],8:[function(require,module,exports){
+"use strict";
+
+(function () {
+  var DLList, Events, Queues;
+
+  DLList = require("./DLList");
+
+  Events = require("./Events");
+
+  Queues = class Queues {
+    constructor(num_priorities) {
+      var i;
+      this.Events = new Events(this);
+      this._lists = function () {
+        var j, ref, results;
+        results = [];
+        for (i = j = 1, ref = num_priorities; 1 <= ref ? j <= ref : j >= ref; i = 1 <= ref ? ++j : --j) {
+          results.push(new DLList(this));
+        }
+        return results;
+      }.call(this);
+      this._length = 0;
+    }
+
+    incr() {
+      if (this._length++ === 0) {
+        return this.Events.trigger("leftzero");
+      }
+    }
+
+    decr() {
+      if (--this._length === 0) {
+        return this.Events.trigger("zero");
+      }
+    }
+
+    push(priority, job) {
+      return this._lists[priority].push(job);
+    }
+
+    queued(priority) {
+      if (priority != null) {
+        return this._lists[priority].length;
+      } else {
+        return this._length;
+      }
+    }
+
+    shiftAll(fn) {
+      return this._lists.forEach(function (list) {
+        return list.forEachShift(fn);
+      });
+    }
+
+    getFirst(arr = this._lists) {
+      var j, len, list;
+      for (j = 0, len = arr.length; j < len; j++) {
+        list = arr[j];
+        if (list.length > 0) {
+          return list;
+        }
+      }
+      return [];
+    }
+
+    shiftLastFrom(priority) {
+      return this.getFirst(this._lists.slice(priority).reverse()).shift();
+    }
+
+  };
+
+  module.exports = Queues;
+}).call(undefined);
+},{"./DLList":3,"./Events":4}],9:[function(require,module,exports){
 "use strict";
 
 function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
@@ -1414,7 +1469,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = RedisConnection;
 }).call(undefined);
-},{"./Events":4,"./Scripts":10,"./parser":15}],9:[function(require,module,exports){
+},{"./Events":4,"./Scripts":11,"./parser":16}],10:[function(require,module,exports){
 "use strict";
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
@@ -1689,7 +1744,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = RedisDatastore;
 }).call(undefined);
-},{"./BottleneckError":2,"./IORedisConnection":6,"./RedisConnection":8,"./parser":15}],10:[function(require,module,exports){
+},{"./BottleneckError":2,"./IORedisConnection":6,"./RedisConnection":9,"./parser":16}],11:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -1804,7 +1859,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }).join("\n") + templates[name].code;
   };
 }).call(undefined);
-},{"./lua.json":14}],11:[function(require,module,exports){
+},{"./lua.json":15}],12:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -1886,7 +1941,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = States;
 }).call(undefined);
-},{"./BottleneckError":2}],12:[function(require,module,exports){
+},{"./BottleneckError":2}],13:[function(require,module,exports){
 "use strict";
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
@@ -1960,13 +2015,13 @@ function _toArray(arr) { return Array.isArray(arr) ? arr : Array.from(arr); }
 
   module.exports = Sync;
 }).call(undefined);
-},{"./DLList":3}],13:[function(require,module,exports){
+},{"./DLList":3}],14:[function(require,module,exports){
 "use strict";
 
 (function () {
   module.exports = require("./Bottleneck");
 }).call(undefined);
-},{"./Bottleneck":1}],14:[function(require,module,exports){
+},{"./Bottleneck":1}],15:[function(require,module,exports){
 module.exports={
   "check.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal weight = tonumber(ARGV[2])\n\nlocal capacity = refresh_capacity(executing_key, running_key, settings_key, now, false)[1]\nlocal nextRequest = tonumber(redis.call('hget', settings_key, 'nextRequest'))\n\nreturn conditions_check(capacity, weight) and nextRequest - now <= 0\n",
   "conditions_check.lua": "local conditions_check = function (capacity, weight)\n  return capacity == nil or weight <= capacity\nend\n",
@@ -1987,7 +2042,7 @@ module.exports={
   "validate_keys.lua": "local settings_key = KEYS[1]\n\nif not (redis.call('exists', settings_key) == 1) then\n  return redis.error_reply('SETTINGS_KEY_NOT_FOUND')\nend\n"
 }
 
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -2011,7 +2066,7 @@ module.exports={
     return onto;
   };
 }).call(undefined);
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 module.exports={
   "name": "bottleneck",
   "version": "2.11.1",
@@ -2064,4 +2119,4 @@ module.exports={
   "dependencies": {}
 }
 
-},{}]},{},[13]);
+},{}]},{},[14]);

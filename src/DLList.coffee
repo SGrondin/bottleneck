@@ -1,10 +1,11 @@
 class DLList
-  constructor: () ->
+  constructor: (@_queues) ->
     @_first = null
     @_last = null
     @length = 0
   push: (value) ->
     @length++
+    @_queues?.incr()
     node = {value, next:null}
     if @_last?
       @_last.next = node
@@ -12,7 +13,10 @@ class DLList
     else @_first = @_last = node
     undefined
   shift: () ->
-    if not @_first? then return undefined else @length--
+    if not @_first? then return undefined
+    else
+      @length--
+      @_queues?.decr()
     value = @_first.value
     @_first = @_first.next ? (@_last = null)
     value

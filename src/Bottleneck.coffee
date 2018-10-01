@@ -2,11 +2,11 @@ NUM_PRIORITIES = 10
 DEFAULT_PRIORITY = 5
 
 parser = require "./parser"
+Queues = require "./Queues"
 LocalDatastore = require "./LocalDatastore"
 RedisDatastore = require "./RedisDatastore"
 Events = require "./Events"
 States = require "./States"
-DLList = require "./DLList"
 Sync = require "./Sync"
 packagejson = require "../package.json"
 
@@ -59,7 +59,7 @@ class Bottleneck
   constructor: (options={}, invalid...) ->
     @_validateOptions options, invalid
     parser.load options, @instanceDefaults, @
-    @_queues = @_makeQueues()
+    @_queues = new Queues NUM_PRIORITIES
     @_scheduled = {}
     @_states = new States ["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(if @trackDoneStatus then ["DONE"] else [])
     @_limiter = null
@@ -77,6 +77,9 @@ class Bottleneck
     else
       throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
 
+    @_queues.on "leftzero", => @_store.heartbeat.ref?()
+    @_queues.on "zero", => @_store.heartbeat.unref?()
+
   _validateOptions: (options, invalid) ->
     unless options? and typeof options == "object" and invalid.length == 0
       throw new Bottleneck::BottleneckError "Bottleneck v2 takes a single object argument. Refer to https://github.com/SGrondin/bottleneck#upgrading-to-v2 if you're upgrading from Bottleneck v1."
@@ -93,7 +96,7 @@ class Bottleneck
 
   chain: (@_limiter) -> @
 
-  queued: (priority) -> if priority? then @_queues[priority].length else @_queues.reduce ((a, b) -> a + b.length), 0
+  queued: (priority) -> @_queues.queued priority
 
   empty: -> @queued() == 0 and @_submitLock.isEmpty()
 
@@ -107,15 +110,9 @@ class Bottleneck
 
   counts: -> @_states.statusCounts()
 
-  _makeQueues: -> new DLList() for i in [1..NUM_PRIORITIES]
-
   _sanitizePriority: (priority) ->
     sProperty = if ~~priority != priority then DEFAULT_PRIORITY else priority
     if sProperty < 0 then 0 else if sProperty > NUM_PRIORITIES-1 then NUM_PRIORITIES-1 else sProperty
-
-  _find: (arr, fn) -> (do -> for x, i in arr then if fn x then return x) ? []
-
-  _getFirst: (arr) -> @_find arr, (x) -> x.length > 0
 
   _randomIndex: -> Math.random().toString(36).slice(2)
 
@@ -155,7 +152,7 @@ class Bottleneck
   _drainOne: (capacity) =>
     @_registerLock.schedule =>
       if @queued() == 0 then return @Promise.resolve false
-      queue = @_getFirst @_queues
+      queue = @_queues.getFirst()
       { options, args } = queue.first()
       if capacity? and options.weight > capacity then return @Promise.resolve false
       @Events.trigger "debug", ["Draining #{options.id}", { args, options }]
@@ -205,7 +202,7 @@ class Bottleneck
             clearTimeout v.timeout
             clearTimeout v.expiration
             @_drop v.job, options.dropErrorMessage
-        @_queues.forEach (queue) => queue.forEachShift (job) => @_drop job, options.dropErrorMessage
+        @_queues.shiftAll (job) => @_drop job, options.dropErrorMessage
         waitForExecuting(0)
     else
       @schedule { priority: NUM_PRIORITIES - 1, weight: 0 }, => waitForExecuting(1)
@@ -242,12 +239,12 @@ class Bottleneck
         return false
 
       if blocked
-        @_queues = @_makeQueues()
+        @_queues.shiftAll (job) => @_drop job
         @_drop job
         return true
       else if reachedHWM
-        shifted = if strategy == Bottleneck::strategy.LEAK then @_getFirst(@_queues[options.priority..].reverse()).shift()
-        else if strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_getFirst(@_queues[(options.priority+1)..].reverse()).shift()
+        shifted = if strategy == Bottleneck::strategy.LEAK then @_queues.shiftLastFrom(options.priority)
+        else if strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_queues.shiftLastFrom(options.priority + 1)
         else if strategy == Bottleneck::strategy.OVERFLOW then job
         if shifted? then @_drop shifted
         if not shifted? or strategy == Bottleneck::strategy.OVERFLOW
@@ -255,7 +252,7 @@ class Bottleneck
           return reachedHWM
 
       @_states.next job.options.id # QUEUED
-      @_queues[options.priority].push job
+      @_queues.push options.priority, job
       await @_drainAll()
       reachedHWM
 
