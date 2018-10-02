@@ -233,16 +233,16 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
       _drainOne(capacity) {
         return this._registerLock.schedule(() => {
-          var args, index, options, queue;
+          var args, index, next, options, queue;
           if (this.queued() === 0) {
             return this.Promise.resolve(false);
           }
           queue = this._queues.getFirst();
 
-          var _queue$first = queue.first();
+          var _next = next = queue.first();
 
-          options = _queue$first.options;
-          args = _queue$first.args;
+          options = _next.options;
+          args = _next.args;
 
           if (capacity != null && options.weight > capacity) {
             return this.Promise.resolve(false);
@@ -250,10 +250,10 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
           this.Events.trigger("debug", [`Draining ${options.id}`, { args, options }]);
           index = this._randomIndex();
           return this._store.__register__(index, options.weight, options.expiration).then(({ success, wait, reservoir }) => {
-            var empty, next;
+            var empty;
             this.Events.trigger("debug", [`Drained ${options.id}`, { success, args, options }]);
             if (success) {
-              next = queue.shift();
+              queue.shift();
               empty = this.empty();
               if (empty) {
                 this.Events.trigger("empty", []);
@@ -282,13 +282,20 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
       _drop(job, message = "This job has been dropped by Bottleneck") {
         var ref;
-        this._states.remove(job.options.id);
-        if (this.rejectOnDrop) {
-          if ((ref = job.cb) != null) {
-            ref.apply({}, [new Bottleneck.prototype.BottleneckError(message)]);
+        if (this._states.remove(job.options.id)) {
+          if (this.rejectOnDrop) {
+            if ((ref = job.cb) != null) {
+              ref.apply({}, [new Bottleneck.prototype.BottleneckError(message)]);
+            }
           }
+          return this.Events.trigger("dropped", [job]);
         }
-        return this.Events.trigger("dropped", [job]);
+      }
+
+      _dropAllQueued(message) {
+        return this._queues.shiftAll(job => {
+          return this._drop(job, message);
+        });
       }
 
       stop(options = {}) {
@@ -330,9 +337,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
                 this._drop(v.job, options.dropErrorMessage);
               }
             }
-            this._queues.shiftAll(job => {
-              return this._drop(job, options.dropErrorMessage);
-            });
+            this._dropAllQueued(options.dropErrorMessage);
             return waitForExecuting(0);
           });
         })) : this.schedule({
@@ -406,9 +411,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
             return false;
           }
           if (blocked) {
-            _this2._queues.shiftAll(function (job) {
-              return _this2._drop(job);
-            });
             _this2._drop(job);
             return true;
           } else if (reachedHWM) {
@@ -1213,6 +1215,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         if (blocked) {
           _this10._unblockTime = now + _this10.computePenalty();
           _this10._nextRequest = _this10._unblockTime + _this10.storeOptions.minTime;
+          _this10.instance._dropAllQueued();
         }
         return {
           reachedHWM,
@@ -1254,6 +1257,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     constructor(num_priorities) {
       var i;
       this.Events = new Events(this);
+      this._length = 0;
       this._lists = function () {
         var j, ref, results;
         results = [];
@@ -1262,7 +1266,6 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         }
         return results;
       }.call(this);
-      this._length = 0;
     }
 
     incr() {
@@ -1552,6 +1555,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
         return this.instance._drainAll(data.length > 0 ? ~~data : void 0);
       } else if (type === "message") {
         return this.instance.Events.trigger("message", [data]);
+      } else if (type === "blocked") {
+        return this.instance._dropAllQueued();
       }
     }
 
@@ -1900,8 +1905,9 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
       current = this.jobs[id];
       if (current != null) {
         this.counts[current]--;
-        return delete this.jobs[id];
+        delete this.jobs[id];
       }
+      return current != null;
     }
 
     jobStatus(id) {
@@ -2037,7 +2043,7 @@ module.exports={
   "refresh_expiration.lua": "local refresh_expiration = function (executing_key, running_key, settings_key, now, nextRequest, groupTimeout)\n\n  if groupTimeout ~= nil then\n    local ttl = (nextRequest + groupTimeout) - now\n\n    redis.call('pexpire', executing_key, ttl)\n    redis.call('pexpire', running_key, ttl)\n    redis.call('pexpire', settings_key, ttl)\n  end\n\nend\n",
   "register.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal index = ARGV[2]\nlocal weight = tonumber(ARGV[3])\nlocal expiration = tonumber(ARGV[4])\n\nlocal state = refresh_capacity(executing_key, running_key, settings_key, now, false)\nlocal capacity = state[1]\nlocal reservoir = state[3]\n\nlocal settings = redis.call('hmget', settings_key,\n  'nextRequest',\n  'minTime',\n  'groupTimeout'\n)\nlocal nextRequest = tonumber(settings[1])\nlocal minTime = tonumber(settings[2])\nlocal groupTimeout = tonumber(settings[3])\n\nif conditions_check(capacity, weight) then\n\n  if expiration ~= nil then\n    redis.call('zadd', executing_key, now + expiration, index)\n  end\n  redis.call('hset', running_key, index, weight)\n  redis.call('hincrby', settings_key, 'running', weight)\n\n  local wait = math.max(nextRequest - now, 0)\n  local newNextRequest = now + wait + minTime\n\n  if reservoir == nil then\n    redis.call('hset', settings_key,\n    'nextRequest', newNextRequest\n    )\n  else\n    reservoir = reservoir - weight\n    redis.call('hmset', settings_key,\n      'reservoir', reservoir,\n      'nextRequest', newNextRequest\n    )\n  end\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\n\n  return {true, wait, reservoir}\n\nelse\n  return {false}\nend\n",
   "running.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\n\nreturn refresh_capacity(executing_key, running_key, settings_key, now, false)[2]\n",
-  "submit.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal queueLength = tonumber(ARGV[2])\nlocal weight = tonumber(ARGV[3])\n\nlocal capacity = refresh_capacity(executing_key, running_key, settings_key, now, false)[1]\n\nlocal settings = redis.call('hmget', settings_key,\n  'maxConcurrent',\n  'highWater',\n  'nextRequest',\n  'strategy',\n  'unblockTime',\n  'penalty',\n  'minTime',\n  'groupTimeout'\n)\nlocal maxConcurrent = tonumber(settings[1])\nlocal highWater = tonumber(settings[2])\nlocal nextRequest = tonumber(settings[3])\nlocal strategy = tonumber(settings[4])\nlocal unblockTime = tonumber(settings[5])\nlocal penalty = tonumber(settings[6])\nlocal minTime = tonumber(settings[7])\nlocal groupTimeout = tonumber(settings[8])\n\nif maxConcurrent ~= nil and weight > maxConcurrent then\n  return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)\nend\n\nlocal reachedHWM = (highWater ~= nil and queueLength == highWater\n  and not (\n    conditions_check(capacity, weight)\n    and nextRequest - now <= 0\n  )\n)\n\nlocal blocked = strategy == 3 and (reachedHWM or unblockTime >= now)\n\nif blocked then\n  local computedPenalty = penalty\n  if computedPenalty == nil then\n    if minTime == 0 then\n      computedPenalty = 5000\n    else\n      computedPenalty = 15 * minTime\n    end\n  end\n\n  local newNextRequest = now + computedPenalty + minTime\n\n  redis.call('hmset', settings_key,\n    'unblockTime', now + computedPenalty,\n    'nextRequest', newNextRequest\n  )\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\nend\n\nreturn {reachedHWM, blocked, strategy}\n",
+  "submit.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal queueLength = tonumber(ARGV[2])\nlocal weight = tonumber(ARGV[3])\n\nlocal capacity = refresh_capacity(executing_key, running_key, settings_key, now, false)[1]\n\nlocal settings = redis.call('hmget', settings_key,\n  'id',\n  'maxConcurrent',\n  'highWater',\n  'nextRequest',\n  'strategy',\n  'unblockTime',\n  'penalty',\n  'minTime',\n  'groupTimeout'\n)\nlocal id = settings[1]\nlocal maxConcurrent = tonumber(settings[2])\nlocal highWater = tonumber(settings[3])\nlocal nextRequest = tonumber(settings[4])\nlocal strategy = tonumber(settings[5])\nlocal unblockTime = tonumber(settings[6])\nlocal penalty = tonumber(settings[7])\nlocal minTime = tonumber(settings[8])\nlocal groupTimeout = tonumber(settings[9])\n\nif maxConcurrent ~= nil and weight > maxConcurrent then\n  return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)\nend\n\nlocal reachedHWM = (highWater ~= nil and queueLength == highWater\n  and not (\n    conditions_check(capacity, weight)\n    and nextRequest - now <= 0\n  )\n)\n\nlocal blocked = strategy == 3 and (reachedHWM or unblockTime >= now)\n\nif blocked then\n  local computedPenalty = penalty\n  if computedPenalty == nil then\n    if minTime == 0 then\n      computedPenalty = 5000\n    else\n      computedPenalty = 15 * minTime\n    end\n  end\n\n  local newNextRequest = now + computedPenalty + minTime\n\n  redis.call('hmset', settings_key,\n    'unblockTime', now + computedPenalty,\n    'nextRequest', newNextRequest\n  )\n\n  redis.call('publish', 'b_'..id, 'blocked:')\n\n  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)\nend\n\nreturn {reachedHWM, blocked, strategy}\n",
   "update_settings.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\n\nlocal args = {'hmset', settings_key}\n\nfor i = 2, #ARGV do\n  table.insert(args, ARGV[i])\nend\n\nredis.call(unpack(args))\n\nrefresh_capacity(executing_key, running_key, settings_key, now, true)\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
   "validate_keys.lua": "local settings_key = KEYS[1]\n\nif not (redis.call('exists', settings_key) == 1) then\n  return redis.error_reply('SETTINGS_KEY_NOT_FOUND')\nend\n"
 }

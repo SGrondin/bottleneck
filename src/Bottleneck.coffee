@@ -153,7 +153,7 @@ class Bottleneck
     @_registerLock.schedule =>
       if @queued() == 0 then return @Promise.resolve false
       queue = @_queues.getFirst()
-      { options, args } = queue.first()
+      { options, args } = next = queue.first()
       if capacity? and options.weight > capacity then return @Promise.resolve false
       @Events.trigger "debug", ["Draining #{options.id}", { args, options }]
       index = @_randomIndex()
@@ -161,7 +161,7 @@ class Bottleneck
       .then ({ success, wait, reservoir }) =>
         @Events.trigger "debug", ["Drained #{options.id}", { success, args, options }]
         if success
-          next = queue.shift()
+          queue.shift()
           empty = @empty()
           if empty then @Events.trigger "empty", []
           if reservoir == 0 then @Events.trigger "depleted", [empty]
@@ -176,9 +176,12 @@ class Bottleneck
     .catch (e) => @Events.trigger "error", [e]
 
   _drop: (job, message="This job has been dropped by Bottleneck") ->
-    @_states.remove job.options.id
-    if @rejectOnDrop then job.cb?.apply {}, [new Bottleneck::BottleneckError message]
-    @Events.trigger "dropped", [job]
+    if @_states.remove job.options.id
+      if @rejectOnDrop then job.cb?.apply {}, [new Bottleneck::BottleneckError message]
+      @Events.trigger "dropped", [job]
+
+  _dropAllQueued: (message) ->
+    @_queues.shiftAll (job) => @_drop job, message
 
   stop: (options={}) ->
     options = parser.load options, @stopDefaults
@@ -202,7 +205,7 @@ class Bottleneck
             clearTimeout v.timeout
             clearTimeout v.expiration
             @_drop v.job, options.dropErrorMessage
-        @_queues.shiftAll (job) => @_drop job, options.dropErrorMessage
+        @_dropAllQueued options.dropErrorMessage
         waitForExecuting(0)
     else
       @schedule { priority: NUM_PRIORITIES - 1, weight: 0 }, => waitForExecuting(1)
@@ -239,7 +242,6 @@ class Bottleneck
         return false
 
       if blocked
-        @_queues.shiftAll (job) => @_drop job
         @_drop job
         return true
       else if reachedHWM

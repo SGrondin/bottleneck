@@ -597,6 +597,75 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
+    it('Should drop all jobs in the Cluster when entering blocked mode', function () {
+      c = makeTest()
+      var limiter1 = new Bottleneck({
+        id: 'blocked',
+        trackDoneStatus: true,
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+
+        maxConcurrent: 1,
+        minTime: 50,
+        highWater: 2,
+        strategy: Bottleneck.strategy.BLOCK
+      })
+      var limiter2
+
+      return limiter1.ready()
+      .then(function () {
+        limiter2 = new Bottleneck({
+          id: 'blocked',
+          trackDoneStatus: true,
+          datastore: process.env.DATASTORE,
+          clearDatastore: false,
+        })
+        return limiter2.ready()
+      })
+      .then(function () {
+        return Promise.all([
+          limiter1.submit(c.slowJob, 100, null, 1, c.noErrVal(1)),
+          limiter1.submit(c.slowJob, 100, null, 2, (err) => c.mustExist(err))
+        ])
+      })
+      .then(function () {
+        return Promise.all([
+          limiter2.submit(c.slowJob, 100, null, 3, (err) => c.mustExist(err)),
+          limiter2.submit(c.slowJob, 100, null, 4, (err) => c.mustExist(err)),
+          limiter2.submit(c.slowJob, 100, null, 5, (err) => c.mustExist(err))
+        ])
+      })
+      .then(function () {
+        return c.wait(100)
+      })
+      .then(function () {
+        var counts1 = limiter1.counts()
+        c.mustEqual(counts1.RECEIVED, 0)
+        c.mustEqual(counts1.QUEUED, 0)
+        c.mustEqual(counts1.RUNNING, 0)
+        c.mustEqual(counts1.EXECUTING, 0)
+        c.mustEqual(counts1.DONE, 1)
+
+        var counts2 = limiter2.counts()
+        c.mustEqual(counts2.RECEIVED, 0)
+        c.mustEqual(counts2.QUEUED, 0)
+        c.mustEqual(counts2.RUNNING, 0)
+        c.mustEqual(counts2.EXECUTING, 0)
+        c.mustEqual(counts2.DONE, 0)
+
+        return c.last()
+      })
+      .then(function (results) {
+        c.checkResultsOrder([[1]])
+        c.checkDuration(100)
+
+        return Promise.all([
+          limiter1.disconnect(false),
+          limiter2.disconnect(false)
+        ])
+      })
+    })
+
     it('Should pass messages to all limiters in Cluster', function (done) {
       c = makeTest({
         maxConcurrent: 1,

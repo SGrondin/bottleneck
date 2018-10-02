@@ -24,6 +24,7 @@ class States
     if current?
       @counts[current]--
       delete @jobs[id]
+    current?
 
   jobStatus: (id) -> @status[@jobs[id]] ? null
 

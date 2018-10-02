@@ -133,6 +133,7 @@ describe('Priority', function () {
       maxConcurrent: 1,
       minTime: 100,
       highWater: 2,
+      trackDoneStatus: true,
       strategy: Bottleneck.strategy.BLOCK
     })
     var called = 0
@@ -142,7 +143,7 @@ describe('Priority', function () {
       c.mustExist(dropped.args)
       c.mustExist(dropped.cb)
       called++
-      if (called === 5) {
+      if (called === 3) {
         c.limiter.updateSettings({ highWater: null })
         .then(function () {
           return c.limiter.schedule(c.job, null, 8)
@@ -156,12 +157,10 @@ describe('Priority', function () {
       }
     })
 
-    c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
-    c.limiter.submit(c.job, null, 2, (err) => c.mustExist(err))
-    c.limiter.submit(c.job, null, 3, (err) => c.mustExist(err))
-    c.limiter.submit(c.job, null, 5, (err) => c.mustExist(err))
-    c.limiter.submit(c.job, null, 6, (err) => c.mustExist(err))
-    c.limiter.submit(c.job, null, 7, (err) => c.mustExist(err))
+    c.limiter.submit(c.slowJob, 20, null, 1, c.noErrVal(1))
+    c.limiter.submit(c.slowJob, 20, null, 2, (err) => c.mustExist(err))
+    c.limiter.submit(c.slowJob, 20, null, 3, (err) => c.mustExist(err))
+    c.limiter.submit(c.slowJob, 20, null, 4, (err) => c.mustExist(err))
   })
 
   it('Should have the right priority', function () {

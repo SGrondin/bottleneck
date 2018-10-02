@@ -37,6 +37,8 @@ class RedisDatastore
       @instance._drainAll(if data.length > 0 then ~~data)
     else if type == "message"
       @instance.Events.trigger "message", [data]
+    else if type == "blocked"
+      @instance._dropAllQueued()
 
   __disconnect__: (flush) ->
     clearInterval @heartbeat

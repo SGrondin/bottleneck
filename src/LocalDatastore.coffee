@@ -102,6 +102,7 @@ class LocalDatastore
     if blocked
       @_unblockTime = now + @computePenalty()
       @_nextRequest = @_unblockTime + @storeOptions.minTime
+      @instance._dropAllQueued()
     { reachedHWM, blocked, strategy: @storeOptions.strategy }
 
   __free__: (index, weight) ->
