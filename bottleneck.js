@@ -1,6 +1,79 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 "use strict";
 
+(function () {
+  var Batcher, Events, parser;
+
+  parser = require("./parser");
+
+  Events = require("./Events");
+
+  Batcher = function () {
+    class Batcher {
+      constructor(options = {}) {
+        var base;
+        this.options = options;
+        parser.load(this.options, this.defaults, this);
+        this.Events = new Events(this);
+        this._arr = [];
+        this._resetPromise();
+        this._lastFlush = Date.now();
+        if (this.maxTime != null) {
+          if (typeof (base = this.interval = setInterval(() => {
+            if (Date.now() >= this._lastFlush + this.maxTime && this._arr.length > 0) {
+              return this._flush();
+            }
+          }, Math.max(Math.floor(this.maxTime / 5), 25))).unref === "function") {
+            base.unref();
+          }
+        }
+      }
+
+      _resetPromise() {
+        var _promise$_resolve;
+
+        var _promise, _resolve;
+        _resolve = null;
+        _promise = new this.Promise(function (res, rej) {
+          return _resolve = res;
+        });
+        return _promise$_resolve = { _promise, _resolve }, this._promise = _promise$_resolve._promise, this._resolve = _promise$_resolve._resolve, _promise$_resolve;
+      }
+
+      _flush() {
+        this._lastFlush = Date.now();
+        this._resolve();
+        this.Events.trigger("batch", [this._arr]);
+        this._arr = [];
+        return this._resetPromise();
+      }
+
+      add(data) {
+        var ret;
+        this._arr.push(data);
+        ret = this._promise;
+        if (this._arr.length === this.maxSize) {
+          this._flush();
+        }
+        return ret;
+      }
+
+    };
+
+    Batcher.prototype.defaults = {
+      maxTime: null,
+      maxSize: null,
+      Promise: Promise
+    };
+
+    return Batcher;
+  }.call(this);
+
+  module.exports = Batcher;
+}).call(undefined);
+},{"./Events":5,"./parser":17}],2:[function(require,module,exports){
+"use strict";
+
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
 function _toArray(arr) { return Array.isArray(arr) ? arr : Array.from(arr); }
@@ -525,6 +598,8 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
     Bottleneck.IORedisConnection = Bottleneck.prototype.IORedisConnection = require("./IORedisConnection");
 
+    Bottleneck.Batcher = Bottleneck.prototype.Batcher = require("./Batcher");
+
     Bottleneck.prototype.jobDefaults = {
       priority: DEFAULT_PRIORITY,
       weight: 1,
@@ -579,7 +654,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Bottleneck;
 }).call(undefined);
-},{"../package.json":17,"./BottleneckError":2,"./Events":4,"./Group":5,"./IORedisConnection":6,"./LocalDatastore":7,"./Queues":8,"./RedisConnection":9,"./RedisDatastore":10,"./States":12,"./Sync":13,"./parser":16}],2:[function(require,module,exports){
+},{"../package.json":18,"./Batcher":1,"./BottleneckError":3,"./Events":5,"./Group":6,"./IORedisConnection":7,"./LocalDatastore":8,"./Queues":9,"./RedisConnection":10,"./RedisDatastore":11,"./States":13,"./Sync":14,"./parser":17}],3:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -589,7 +664,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = BottleneckError;
 }).call(undefined);
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -666,7 +741,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = DLList;
 }).call(undefined);
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -738,7 +813,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Events;
 }).call(undefined);
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 "use strict";
 
 function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
@@ -869,7 +944,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Group;
 }).call(undefined);
-},{"./Bottleneck":1,"./Events":4,"./IORedisConnection":6,"./RedisConnection":9,"./parser":16}],6:[function(require,module,exports){
+},{"./Bottleneck":2,"./Events":5,"./IORedisConnection":7,"./RedisConnection":10,"./parser":17}],7:[function(require,module,exports){
 "use strict";
 
 function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
@@ -1005,7 +1080,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = IORedisConnection;
 }).call(undefined);
-},{"./Events":4,"./Scripts":11,"./parser":16}],7:[function(require,module,exports){
+},{"./Events":5,"./Scripts":12,"./parser":17}],8:[function(require,module,exports){
 "use strict";
 
 function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
@@ -1243,7 +1318,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = LocalDatastore;
 }).call(undefined);
-},{"./BottleneckError":2,"./parser":16}],8:[function(require,module,exports){
+},{"./BottleneckError":3,"./parser":17}],9:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -1317,7 +1392,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = Queues;
 }).call(undefined);
-},{"./DLList":3,"./Events":4}],9:[function(require,module,exports){
+},{"./DLList":4,"./Events":5}],10:[function(require,module,exports){
 "use strict";
 
 function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
@@ -1472,7 +1547,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = RedisConnection;
 }).call(undefined);
-},{"./Events":4,"./Scripts":11,"./parser":16}],10:[function(require,module,exports){
+},{"./Events":5,"./Scripts":12,"./parser":17}],11:[function(require,module,exports){
 "use strict";
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
@@ -1749,7 +1824,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = RedisDatastore;
 }).call(undefined);
-},{"./BottleneckError":2,"./IORedisConnection":6,"./RedisConnection":9,"./parser":16}],11:[function(require,module,exports){
+},{"./BottleneckError":3,"./IORedisConnection":7,"./RedisConnection":10,"./parser":17}],12:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -1864,7 +1939,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
     }).join("\n") + templates[name].code;
   };
 }).call(undefined);
-},{"./lua.json":15}],12:[function(require,module,exports){
+},{"./lua.json":16}],13:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -1947,7 +2022,7 @@ function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, a
 
   module.exports = States;
 }).call(undefined);
-},{"./BottleneckError":2}],13:[function(require,module,exports){
+},{"./BottleneckError":3}],14:[function(require,module,exports){
 "use strict";
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
@@ -2021,13 +2096,13 @@ function _toArray(arr) { return Array.isArray(arr) ? arr : Array.from(arr); }
 
   module.exports = Sync;
 }).call(undefined);
-},{"./DLList":3}],14:[function(require,module,exports){
+},{"./DLList":4}],15:[function(require,module,exports){
 "use strict";
 
 (function () {
   module.exports = require("./Bottleneck");
 }).call(undefined);
-},{"./Bottleneck":1}],15:[function(require,module,exports){
+},{"./Bottleneck":2}],16:[function(require,module,exports){
 module.exports={
   "check.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal weight = tonumber(ARGV[2])\n\nlocal capacity = refresh_capacity(executing_key, running_key, settings_key, now, false)[1]\nlocal nextRequest = tonumber(redis.call('hget', settings_key, 'nextRequest'))\n\nreturn conditions_check(capacity, weight) and nextRequest - now <= 0\n",
   "conditions_check.lua": "local conditions_check = function (capacity, weight)\n  return capacity == nil or weight <= capacity\nend\n",
@@ -2048,7 +2123,7 @@ module.exports={
   "validate_keys.lua": "local settings_key = KEYS[1]\n\nif not (redis.call('exists', settings_key) == 1) then\n  return redis.error_reply('SETTINGS_KEY_NOT_FOUND')\nend\n"
 }
 
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 "use strict";
 
 (function () {
@@ -2072,7 +2147,7 @@ module.exports={
     return onto;
   };
 }).call(undefined);
-},{}],17:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 module.exports={
   "name": "bottleneck",
   "version": "2.11.2",
@@ -2125,4 +2200,4 @@ module.exports={
   "dependencies": {}
 }
 
-},{}]},{},[14]);
+},{}]},{},[15]);

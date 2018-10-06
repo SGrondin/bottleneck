@@ -18,6 +18,7 @@ class Bottleneck
   Bottleneck.Group = Bottleneck::Group = require "./Group"
   Bottleneck.RedisConnection = Bottleneck::RedisConnection = require "./RedisConnection"
   Bottleneck.IORedisConnection = Bottleneck::IORedisConnection = require "./IORedisConnection"
+  Bottleneck.Batcher = Bottleneck::Batcher = require "./Batcher"
   jobDefaults:
     priority: DEFAULT_PRIORITY
     weight: 1
