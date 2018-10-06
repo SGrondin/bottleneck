@@ -1,6 +1,7 @@
 var makeTest = require('./context')
 var Bottleneck = require('../lib/index.js')
 var assert = require('assert')
+var child_process = require('child_process')
 
 describe('General', function () {
   var c
@@ -598,6 +599,19 @@ describe('General', function () {
       .then(function (results) {
         c.checkResultsOrder([[1], [2], [3], [4]])
         c.checkDuration(150)
+      })
+    })
+
+    it('Should keep process alive until queue is empty', function (done) {
+      c = makeTest()
+      var options = {
+        cwd: process.cwd() + '/test/spawn',
+        timeout: 1000
+      }
+      child_process.exec('node ref.js', options, function (err, stdout, stderr) {
+        c.mustEqual(stdout, '[0][0][2][2]')
+        c.mustEqual(stderr, '')
+        done(err)
       })
     })
 
