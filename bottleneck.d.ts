@@ -155,8 +155,35 @@ declare module "bottleneck" {
             readonly client?: any;
         };
 
+        type BatcherOptions = {
+            /**
+             * Maximum acceptable time (in milliseconds) a request can have to wait before being flushed to the `"batch"` event.
+             */
+            readonly maxTime?: number;
+            /**
+             * Maximum number of requests in a batch.
+             */
+            readonly maxSize?: number;
+        };
+
         class RedisConnection {
             constructor(options?: Bottleneck.RedisConnectionOptions);
+
+            /**
+             * Register an event listener.
+             * @param name - The event name.
+             * @param fn - The callback function.
+             */
+            on(name: string, fn: Function): void;
+            on(name: "error", fn: (error: any) => void): void;
+
+            /**
+             * Register an event listener for one event only.
+             * @param name - The event name.
+             * @param fn - The callback function.
+             */
+            once(name: string, fn: Function): void;
+            once(name: "error", fn: (error: any) => void): void;
 
             /**
              * Close the redis clients.
@@ -169,10 +196,53 @@ declare module "bottleneck" {
             constructor(options?: Bottleneck.IORedisConnectionOptions);
 
             /**
+             * Register an event listener.
+             * @param name - The event name.
+             * @param fn - The callback function.
+             */
+            on(name: string, fn: Function): void;
+            on(name: "error", fn: (error: any) => void): void;
+
+            /**
+             * Register an event listener for one event only.
+             * @param name - The event name.
+             * @param fn - The callback function.
+             */
+            once(name: string, fn: Function): void;
+            once(name: "error", fn: (error: any) => void): void;
+
+            /**
              * Close the redis clients.
              * @param flush - Write transient data before closing.
              */
             disconnect(flush?: boolean): Promise<void>;
+        }
+
+        class Batcher {
+            constructor(options?: Bottleneck.BatcherOptions);
+
+            /**
+             * Register an event listener.
+             * @param name - The event name.
+             * @param fn - The callback function.
+             */
+            on(name: string, fn: Function): void;
+            on(name: "error", fn: (error: any) => void): void;
+            on(name: "batch", fn: (batch: any[]) => void): void;
+
+            /**
+             * Register an event listener for one event only.
+             * @param name - The event name.
+             * @param fn - The callback function.
+             */
+            once(name: string, fn: Function): void;
+            once(name: "error", fn: (error: any) => void): void;
+            once(name: "batch", fn: (batch: any[]) => void): void;
+
+            /**
+             * Add a request to the Batcher. Batches are flushed to the "batch" event.
+             */
+            add(data: any): Promise<void>;
         }
 
         class Group {

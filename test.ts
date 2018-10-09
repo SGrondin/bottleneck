@@ -170,6 +170,10 @@ const redisConnection = new Bottleneck.RedisConnection({
   clientOptions: {}
 })
 
+redisConnection.on("error", (err) => {
+  console.log(err.message)
+})
+
 const limiterWithConn = new Bottleneck({
   connection: redisConnection
 })
@@ -178,6 +182,10 @@ const ioredisConnection = new Bottleneck.IORedisConnection({
   client: "ioredis client object",
   clientOptions: {},
   clusterNodes: []
+})
+
+ioredisConnection.on("error", (err) => {
+  console.log(err.message)
 })
 
 const groupWithConn = new Bottleneck.Group({
@@ -191,3 +199,22 @@ const limiterWithConnFromGroup = new Bottleneck({
 const groupWithConnFromLimiter = new Bottleneck.Group({
   connection: limiterWithConn.connection
 })
+
+
+const batcher = new Bottleneck.Batcher({
+  maxTime: 1000,
+  maxSize: 10
+})
+
+batcher.on("batch", (batch) => {
+  const len: number = batch.length
+  console.log("Number of elements:", len)
+})
+
+batcher.on("error", (err) => {
+  console.log(err.message)
+})
+
+batcher.add("abc")
+batcher.add({ xyz: 5 })
+.then(() => console.log("Flushed!"))

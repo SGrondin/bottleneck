@@ -28,7 +28,6 @@ Not using npm? Import the `bottleneck.min.js` file.
 ### Step 1 of 3
 
 Most APIs have a rate limit. For example, to execute 3 requests per second:
-
 ```js
 import Bottleneck from "bottleneck"
 
@@ -37,8 +36,7 @@ const limiter = new Bottleneck({
 });
 ```
 
-If there's a chance some requests might take longer than 333ms and you want to prevent more than 1 request from running at a time, add `maxConcurrent: 1`.
-
+If there's a chance some requests might take longer than 333ms and you want to prevent more than 1 request from running at a time, add `maxConcurrent: 1`:
 ```js
 const limiter = new Bottleneck({
   maxConcurrent: 1,
@@ -46,17 +44,17 @@ const limiter = new Bottleneck({
 });
 ```
 
-Sometimes rate limits instead take the form of "X requests every Y seconds". In this example, we throttle to 100 requests every 60 seconds:
+**Sometimes rate limits instead take the form of "X requests every Y seconds".** In this example, we throttle to 100 requests every 60 seconds:
 ```js
 const limiter = new Bottleneck({
   reservoir: 100, // initial value
   reservoirRefreshAmount: 100,
-  reservoirRefreshInterval: 60*1000 // must be divisible by 250
+  reservoirRefreshInterval: 60 * 1000 // must be divisible by 250
 });
 ```
 `reservoir` is a counter decremented every time a job is launched, we set its initial value to 100. Then, every `reservoirRefreshInterval` (60000 ms), `reservoir` is automatically reset to `reservoirRefreshAmount` (100).
 
-You **should** still use `minTime` and/or `maxConcurrent` to spread out the load since running 100 requests in parallel is not always a good idea.
+**You should** still use `minTime` and/or `maxConcurrent` to spread out the load since running 100 requests in parallel might not be a good idea!
 
 ### Step 2 of 3
 
@@ -123,6 +121,8 @@ Bottleneck builds a queue of jobs and executes them as soon as possible. By defa
 **Read the 'Gotchas' and you're good to go**. Or keep reading to learn about all the fine tuning and advanced options available. If your rate limits need to be enforced across a cluster of computers, read the [Clustering](#Clustering) docs.
 
 [Need help debugging your application?](#debugging-your-application).
+
+Instead of throttling maybe [you want to batch up requests](#batching) into fewer calls?
 
 ##### Gotchas
 
@@ -532,6 +532,32 @@ const limiters = group.limiters();
 console.log(limiters);
 // [ { key: "some key", limiter: <limiter> }, { key: "some other key", limiter: <some other limiter> } ]
 ```
+
+## Batching
+
+Some APIs can accept multiple operations in a single call. Bottleneck's Batching feature helps you take advantage of those APIs:
+```js
+const batcher = new Bottleneck.Batcher({
+  maxTime: 1000,
+  maxSize: 10
+});
+
+batcher.on("batch", (batch) => {
+  console.log(batch); // ["some-data", "some-other-data"]
+
+  // Handle batch here
+});
+
+batcher.add("some-data");
+batcher.add("some-other-data");
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `maxTime` | `null` (unlimited) | Maximum acceptable time (in milliseconds) a request can have to wait before being flushed to the `"batch"` event. |
+| `maxSize` | `null` (unlimited) | Maximum number of requests in a batch. |
+
+Batching doesn't throttle requests, it only groups them up optimally according to your `maxTime` and `maxSize` settings.
 
 ## Clustering
 
