@@ -11,36 +11,22 @@
   Batcher = function () {
     class Batcher {
       constructor(options = {}) {
-        var base;
         this.options = options;
         parser.load(this.options, this.defaults, this);
         this.Events = new Events(this);
         this._arr = [];
         this._resetPromise();
         this._lastFlush = Date.now();
-        if (this.maxTime != null) {
-          if (typeof (base = this.interval = setInterval(() => {
-            if (Date.now() >= this._lastFlush + this.maxTime && this._arr.length > 0) {
-              return this._flush();
-            }
-          }, Math.max(Math.floor(this.maxTime / 5), 25))).unref === "function") {
-            base.unref();
-          }
-        }
       }
 
       _resetPromise() {
-        var _promise$_resolve;
-
-        var _promise, _resolve;
-        _resolve = null;
-        _promise = new this.Promise(function (res, rej) {
-          return _resolve = res;
+        return this._promise = new this.Promise((res, rej) => {
+          return this._resolve = res;
         });
-        return _promise$_resolve = { _promise, _resolve }, this._promise = _promise$_resolve._promise, this._resolve = _promise$_resolve._resolve, _promise$_resolve;
       }
 
       _flush() {
+        clearTimeout(this._timeout);
         this._lastFlush = Date.now();
         this._resolve();
         this.Events.trigger("batch", [this._arr]);
@@ -54,6 +40,10 @@
         ret = this._promise;
         if (this._arr.length === this.maxSize) {
           this._flush();
+        } else if (this.maxTime != null && this._arr.length === 1) {
+          this._timeout = setTimeout(() => {
+            return this._flush();
+          }, this.maxTime);
         }
         return ret;
       }

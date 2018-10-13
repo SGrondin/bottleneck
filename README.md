@@ -29,7 +29,7 @@ Not using npm? Import the `bottleneck.min.js` file.
 
 Most APIs have a rate limit. For example, to execute 3 requests per second:
 ```js
-import Bottleneck from "bottleneck"
+import Bottleneck from "bottleneck";
 
 const limiter = new Bottleneck({
   minTime: 333
@@ -126,7 +126,7 @@ Instead of throttling maybe [you want to batch up requests](#batching) into fewe
 
 ##### Gotchas
 
-* Make sure you're catching `error` events emitted by your limiters!
+* Make sure you're catching `"error"` events emitted by your limiters!
 
 * Consider setting a `maxConcurrent` value instead of leaving it `null`. This can help your application's performance, especially if you think the limiter's queue might become very long.
 
@@ -345,7 +345,7 @@ Checks if a new job would be executed immediately if it was submitted now. Retur
 
 ### Events
 
-Event names: `error`, `empty`, `idle`, `dropped`, `depleted` and `debug`.
+Event names: `"error"`, `"empty"`, `"idle"`, `"dropped"`, `"depleted"` and `"debug"`.
 
 __error__
 ```js
@@ -354,9 +354,9 @@ limiter.on("error", function (error) {
 });
 ```
 
-By far the most common source of errors is uncaught exceptions in your application code. If the jobs you add to Bottleneck don't catch their own exceptions, the limiter will emit an `error` event.
+By far the most common source of errors is uncaught exceptions in your application code. If the jobs you add to Bottleneck don't catch their own exceptions, the limiter will emit an `"error"` event.
 
-If using Clustering, errors thrown by the Redis client will emit an `error` event.
+If using Clustering, errors thrown by the Redis client will emit an `"error"` event.
 
 __empty__
 ```js
@@ -496,14 +496,14 @@ __on("created")__
 group.on("created", (limiter, key) => {
   console.log("A new limiter was created for key: " + key)
 
-  // Prepare the limiter, for example we'll want to listen to its 'error' events!
+  // Prepare the limiter, for example we'll want to listen to its "error" events!
   limiter.on("error", (err) => {
     // Handle errors here
   })
 });
 ```
 
-Listening for the `created` event is the recommended way to set up a new limiter. Your event handler is executed before `key()` returns the newly created limiter.
+Listening for the `"created"` event is the recommended way to set up a new limiter. Your event handler is executed before `key()` returns the newly created limiter.
 
 __updateSettings()__
 
@@ -551,6 +551,8 @@ batcher.on("batch", (batch) => {
 batcher.add("some-data");
 batcher.add("some-other-data");
 ```
+
+`batcher.add()` returns a Promise that resolves once the request has been flushed to a `"batch"` event.
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -615,8 +617,8 @@ Due to the above, functionality relying on the queue length happens purely local
 - Priorities are local. A higher priority job will run before a lower priority job **on the same limiter**. Another limiter on the cluster might run a lower priority job before our higher priority one.
 - Assuming constant priority levels, Bottleneck guarantees that jobs will be run in the order they were received **on the same limiter**. Another limiter on the cluster might run a job received later before ours runs.
 - `highWater` and load shedding ([strategies](#strategies)) are per limiter. However, one limiter entering Blocked mode will put the entire cluster in Blocked mode until `penalty` milliseconds have passed. See [Strategies](#strategies).
-- The `empty` event is triggered when the (local) queue is empty.
-- The `idle` event is triggered when the (local) queue is empty *and* no jobs are currently running anywhere in the cluster.
+- The `"empty"` event is triggered when the (local) queue is empty.
+- The `"idle"` event is triggered when the (local) queue is empty *and* no jobs are currently running anywhere in the cluster.
 
 You must work around these limitations in your application code if they are an issue to you. The `publish()` method could be useful here.
 
@@ -628,7 +630,7 @@ It is **strongly recommended** that you set an `expiration` (See [Job Options](#
 
 Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience. Keeping the clients' OS time consistent will also help.
 
-It is **strongly recommended** to [set up an `error` listener](#events) on all your limiters and on your Groups.
+It is **strongly recommended** to [set up an `"error"` listener](#events) on all your limiters and on your Groups.
 
 Bottleneck does not guarantee that the concurrency will be spread evenly across limiters. With `{ maxConcurrent: 5 }`, it's absolutely possible for a single limiter to end up running 5 jobs simultaneously while the other limiters in the cluster sit idle. To spread the load, use the `.chain()` method:
 
@@ -656,7 +658,7 @@ The `ready()`, `publish()` and `clients()` methods also exist when using the `lo
 
 This method returns a promise that resolves once the limiter is connected to Redis.
 
-As of v2.9.0, it's no longer necessary to wait for `.ready()` to resolve before issuing commands to a limiter. The commands will be queued until the limiter successfully connects. Make sure to listen to the `error` event to handle connection errors.
+As of v2.9.0, it's no longer necessary to wait for `.ready()` to resolve before issuing commands to a limiter. The commands will be queued until the limiter successfully connects. Make sure to listen to the `"error"` event to handle connection errors.
 
 ```js
 const limiter = new Bottleneck({/* options */});
@@ -758,11 +760,11 @@ If you created the Connection object manually, you need to call `connection.disc
 
 Debugging complex scheduling logic can be difficult, especially when priorities, weights, and network latency all interact with one another.
 
-If your application is not behaving as expected, start by making sure you're catching `error` [events emitted](#events) by your limiters and your Groups. Those errors are most likely uncaught exceptions from your application code.
+If your application is not behaving as expected, start by making sure you're catching `"error"` [events emitted](#events) by your limiters and your Groups. Those errors are most likely uncaught exceptions from your application code.
 
 Make sure you've read the ['Gotchas'](#gotchas) section.
 
-To see exactly what a limiter is doing in real time, listen to the `debug` event. It contains detailed information about how the limiter is executing your code. Adding [job IDs](#job-options) to all your jobs makes the debug output more readable.
+To see exactly what a limiter is doing in real time, listen to the `"debug"` event. It contains detailed information about how the limiter is executing your code. Adding [job IDs](#job-options) to all your jobs makes the debug output more readable.
 
 When Bottleneck has to fail one of your jobs, it does so by using `BottleneckError` objects. This lets you tell those errors apart from your own code's errors:
 ```js
