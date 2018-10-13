@@ -2140,7 +2140,7 @@ module.exports={
 },{}],18:[function(require,module,exports){
 module.exports={
   "name": "bottleneck",
-  "version": "2.12.0",
+  "version": "2.12.1",
   "description": "Distributed task scheduler and rate limiter",
   "main": "lib/index.js",
   "typings": "bottleneck.d.ts",
