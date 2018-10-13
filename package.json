@@ -34,10 +34,10 @@
     "url": "https://github.com/SGrondin/bottleneck/issues"
   },
   "devDependencies": {
+    "@babel/core": "^7.1.x",
+    "@babel/preset-env": "^7.1.x",
     "@types/es6-promise": "0.0.33",
     "assert": "1.4.x",
-    "babel-core": "^6.26.0",
-    "babel-preset-env": "^1.6.1",
     "browserify": "*",
     "coffeescript": "2.3.x",
     "ejs-cli": "2.0.1",
