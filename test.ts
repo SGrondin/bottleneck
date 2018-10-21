@@ -184,7 +184,7 @@ const ioredisConnection = new Bottleneck.IORedisConnection({
   clusterNodes: []
 })
 
-ioredisConnection.on("error", (err) => {
+ioredisConnection.on("error", (err: Bottleneck.BottleneckError) => {
   console.log(err.message)
 })
 
@@ -211,7 +211,7 @@ batcher.on("batch", (batch) => {
   console.log("Number of elements:", len)
 })
 
-batcher.on("error", (err) => {
+batcher.on("error", (err: Bottleneck.BottleneckError) => {
   console.log(err.message)
 })
 

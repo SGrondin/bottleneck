@@ -166,6 +166,9 @@ declare module "bottleneck" {
             readonly maxSize?: number;
         };
 
+        class BottleneckError extends Error {
+        }
+
         class RedisConnection {
             constructor(options?: Bottleneck.RedisConnectionOptions);
 
