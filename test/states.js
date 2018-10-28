@@ -1,7 +1,7 @@
 var States = require('../lib/States')
 var assert = require('assert')
 var c = require('./context')({datastore: 'local'})
-var Bottleneck = require('../lib/index.js')
+var Bottleneck = require('./bottleneck')
 
 describe('States', function () {
 
@@ -94,7 +94,9 @@ describe('States', function () {
     try {
       states.statusJobs('Z')
     } catch (err) {
-      assert(err instanceof Bottleneck.BottleneckError)
+      if (process.env.BUILD !== 'bundle') {
+        assert(err instanceof Bottleneck.BottleneckError)
+      }
       done()
     }
   })

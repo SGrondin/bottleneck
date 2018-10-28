@@ -6,8 +6,7 @@
   "typings": "bottleneck.d.ts",
   "scripts": {
     "test": "./node_modules/mocha/bin/mocha test",
-    "build": "./scripts/build.sh",
-    "compile": "./scripts/build.sh compile"
+    "test-all": "DATASTORE=ioredis npm test && DATASTORE=redis npm test && BUILD=bundle npm test && npm test"
   },
   "repository": {
     "type": "git",
@@ -23,8 +22,9 @@
     "limiter",
     "throttle",
     "throttling",
+    "throttler",
     "load",
-    "ddos"
+    "clustering"
   ],
   "author": {
     "name": "Simon Grondin"
@@ -34,18 +34,22 @@
     "url": "https://github.com/SGrondin/bottleneck/issues"
   },
   "devDependencies": {
-    "@babel/core": "^7.1.x",
-    "@babel/preset-env": "^7.1.x",
+    "@babel/core": "^7.1.2",
+    "@babel/preset-env": "7.1.x",
     "@types/es6-promise": "0.0.33",
     "assert": "1.4.x",
-    "browserify": "*",
     "coffeescript": "2.3.x",
     "ejs-cli": "2.0.1",
     "ioredis": "^4.0.0",
     "mocha": "4.x",
     "redis": "^2.8.0",
-    "typescript": "^2.6.2",
-    "uglify-es": "3.x"
+    "regenerator-runtime": "^0.12.1",
+    "rollup": "^0.66.6",
+    "rollup-plugin-babel": "4.0.x",
+    "rollup-plugin-commonjs": "^9.2.0",
+    "rollup-plugin-json": "^3.1.0",
+    "rollup-plugin-node-resolve": "^3.4.0",
+    "typescript": "^2.6.2"
   },
   "dependencies": {}
 }

@@ -1,5 +1,5 @@
 var makeTest = require('./context')
-var Bottleneck = require('../lib/index.js')
+var Bottleneck = require('./bottleneck')
 var Scripts = require('../lib/Scripts.js')
 var assert = require('assert')
 var packagejson = require('../package.json')

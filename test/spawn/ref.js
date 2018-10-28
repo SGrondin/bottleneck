@@ -1,4 +1,4 @@
-var Bottleneck = require('../../lib/index.js')
+var Bottleneck = require('../bottleneck.js')
 var now = Date.now()
 
 var limiter = new Bottleneck({

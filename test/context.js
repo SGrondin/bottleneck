@@ -1,5 +1,5 @@
 global.TEST = true
-var Bottleneck = require('../lib/index.js')
+var Bottleneck = require('./bottleneck')
 var assert = require('assert')
 
 module.exports = function (options={}) {

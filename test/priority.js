@@ -1,5 +1,5 @@
 var makeTest = require('./context')
-var Bottleneck = require('../lib/index.js')
+var Bottleneck = require('./bottleneck')
 var assert = require('assert')
 
 describe('Priority', function () {

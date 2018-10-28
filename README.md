@@ -11,17 +11,18 @@ Bottleneck is an easy solution as it adds very little complexity to your code. I
 
 It supports **Clustering**: it can rate limit jobs across multiple Node.js instances. It uses Redis and strictly atomic operations to stay reliable in the presence of unreliable clients and networks. It also supports *Redis Cluster* and *Redis Sentinel*.
 
-Bottleneck v2 targets **Node 6+** and modern browsers. [Use Babel](https://github.com/SGrondin/bottleneck/issues/81) in your project if you must support older platforms.
-
-Bottleneck v1 is compatible with any browser or Node version. It's still maintained, but it will not be receiving any new features. The v1 documentation is [here](https://github.com/SGrondin/bottleneck/tree/version-1). **[Upgrading from version 1?](#upgrading-to-v2)**
+**[Upgrading from version 1?](#upgrading-to-v2)**
 
 ## Install
 
 ```
 npm install --save bottleneck
 ```
-Not using npm? Import the `bottleneck.min.js` file.
 
+**Note:** To support old browsers or deprecated Node versions, you must import the ES5 bundle instead.
+```js
+import Bottleneck from "bottleneck/bundle";
+```
 
 ## Quick Start
 
@@ -124,7 +125,9 @@ Bottleneck builds a queue of jobs and executes them as soon as possible. By defa
 
 Instead of throttling maybe [you want to batch up requests](#batching) into fewer calls?
 
-##### Gotchas
+#### Gotchas
+
+* Bottleneck requires Node 6+ to function. However, an ES5 build is included: `import Bottleneck from "bottleneck/bundle";`.
 
 * Make sure you're catching `"error"` events emitted by your limiters!
 
