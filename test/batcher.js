@@ -202,7 +202,7 @@ describe('Batcher', function () {
       return c.last()
     })
     .then(function (results) {
-      c.checkDuration(85, 20)
+      c.checkDuration(85, 25)
       c.mustEqual(batches, [[1, 2, 3], [4, 5]])
     })
   })
