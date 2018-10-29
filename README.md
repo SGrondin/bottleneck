@@ -21,7 +21,7 @@ npm install --save bottleneck
 
 ## Quick Start
 
-**Note:** To support older browsers and deprecated Node versions, you must import the ES5 bundle instead.
+**Note:** To support older browsers and Node <6.0, you must import the ES5 bundle instead.
 ```js
 import Bottleneck from "bottleneck/bundle";
 ```
