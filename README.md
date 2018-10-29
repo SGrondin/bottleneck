@@ -19,12 +19,12 @@ It supports **Clustering**: it can rate limit jobs across multiple Node.js insta
 npm install --save bottleneck
 ```
 
-**Note:** To support old browsers or deprecated Node versions, you must import the ES5 bundle instead.
+## Quick Start
+
+**Note:** To support older browsers and deprecated Node versions, you must import the ES5 bundle instead.
 ```js
 import Bottleneck from "bottleneck/bundle";
 ```
-
-## Quick Start
 
 ### Step 1 of 3
 
