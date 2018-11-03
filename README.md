@@ -23,7 +23,7 @@ npm install --save bottleneck
 
 **Note:** To support older browsers and Node <6.0, you must import the ES5 bundle instead.
 ```js
-import Bottleneck from "bottleneck/bundle";
+import Bottleneck from "bottleneck/es5";
 ```
 
 ### Step 1 of 3
@@ -127,7 +127,7 @@ Instead of throttling maybe [you want to batch up requests](#batching) into fewe
 
 #### Gotchas
 
-* Bottleneck requires Node 6+ to function. However, an ES5 build is included: `import Bottleneck from "bottleneck/bundle";`.
+* Bottleneck requires Node 6+ to function. However, an ES5 build is included: `import Bottleneck from "bottleneck/es5";`.
 
 * Make sure you're catching `"error"` events emitted by your limiters!
 

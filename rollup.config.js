@@ -8,7 +8,7 @@ export default {
   input: 'lib/bundle.js',
   output: {
     name: 'Bottleneck',
-    file: 'bundle.js',
+    file: 'es5.js',
     sourcemap: false,
     globals: {},
     format: 'umd'
