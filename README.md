@@ -785,7 +785,7 @@ limiter.schedule(fn)
 The internal algorithms essentially haven't changed from v1, but many small changes to the interface were made to introduce new features.
 
 All the breaking changes:
-- Bottleneck v2 requires Node 6+ or a modern browser. Use Babel if you must support legacy platforms. Bottleneck v1 will continue to use ES5 only.
+- Bottleneck v2 requires Node 6+ or a modern browser. Use `require("bottleneck/es5")` if you need ES5 support in v2. Bottleneck v1 will continue to use ES5 only.
 - The Bottleneck constructor now takes an options object. See [Constructor](#constructor).
 - The `Cluster` feature is now called `Group`. This is to distinguish it from the new v2 [Clustering](#clustering) feature.
 - The `Group` constructor takes an options object to match the limiter constructor.
