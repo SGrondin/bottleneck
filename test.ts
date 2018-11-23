@@ -170,6 +170,12 @@ const redisConnection = new Bottleneck.RedisConnection({
   clientOptions: {}
 })
 
+redisConnection.ready()
+.then(function (redisConnectionClients) {
+  const client = redisConnectionClients.client;
+  const subscriber = redisConnectionClients.subscriber;
+})
+
 redisConnection.on("error", (err) => {
   console.log(err.message)
 })
@@ -182,6 +188,12 @@ const ioredisConnection = new Bottleneck.IORedisConnection({
   client: "ioredis client object",
   clientOptions: {},
   clusterNodes: []
+})
+
+ioredisConnection.ready()
+.then(function (ioredisConnectionClients) {
+  const client = ioredisConnectionClients.client;
+  const subscriber = ioredisConnectionClients.subscriber;
 })
 
 ioredisConnection.on("error", (err: Bottleneck.BottleneckError) => {

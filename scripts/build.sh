@@ -37,12 +37,14 @@ makeTypings() {
   node_modules/typescript/bin/tsc --noEmit --strict test.ts
 }
 
-if [[ $1 = 'dev' ]]; then
+if [ "$1" = 'dev' ]; then
   clean
   makeLib
-elif [[ $1 = 'bundle' ]]; then
+elif [ "$1" = 'bundle' ]; then
   clean
   makeBundle
+elif [ "$1" = 'typings' ]; then
+  makeTypings
 else
   clean
   makeBundle

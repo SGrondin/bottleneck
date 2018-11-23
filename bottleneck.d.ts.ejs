@@ -189,6 +189,11 @@ declare module "bottleneck" {
             once(name: "error", fn: (error: any) => void): void;
 
             /**
+             * Waits until the connection is ready and returns the raw Node_Redis clients.
+             */
+            ready(): Promise<ClientsList>;
+
+            /**
              * Close the redis clients.
              * @param flush - Write transient data before closing.
              */
@@ -213,6 +218,11 @@ declare module "bottleneck" {
              */
             once(name: string, fn: Function): void;
             once(name: "error", fn: (error: any) => void): void;
+
+            /**
+             * Waits until the connection is ready and returns the raw ioredis clients.
+             */
+            ready(): Promise<ClientsList>;
 
             /**
              * Close the redis clients.

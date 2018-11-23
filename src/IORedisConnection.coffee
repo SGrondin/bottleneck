@@ -30,10 +30,11 @@ class IORedisConnection
       @_loadScripts()
       { @client, @subscriber }
 
-  _setup: (client, subscriber) ->
+  _setup: (client, sub) ->
+    client.setMaxListeners 0
     new @Promise (resolve, reject) =>
       client.on "error", (e) => @Events.trigger "error", [e]
-      if subscriber
+      if sub
         client.on "message", (channel, message) =>
           @limiters[channel]?._store.onMessage message
       if client.status == "ready" then resolve()

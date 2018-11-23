@@ -49,10 +49,10 @@ class RedisDatastore
 
   runScript: (name, args) ->
     await @ready unless name == "init" or name == "heartbeat"
-    args.unshift Date.now().toString()
     new @Promise (resolve, reject) =>
-      @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args]
-      arr = @connection.__scriptArgs__ name, @originalId, args, (err, replies) ->
+      args_ts = [Date.now()].concat(args)
+      @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args_ts]
+      arr = @connection.__scriptArgs__ name, @originalId, args_ts, (err, replies) ->
         if err? then return reject err
         return resolve replies
       @connection.__scriptFn__(name).apply {}, arr

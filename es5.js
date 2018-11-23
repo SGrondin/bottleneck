@@ -1967,15 +1967,16 @@
 
 	    _createClass(RedisConnection, [{
 	      key: "_setup",
-	      value: function _setup(client, subscriber) {
+	      value: function _setup(client, sub) {
 	        var _this2 = this;
 
+	        client.setMaxListeners(0);
 	        return new this.Promise(function (resolve, reject) {
 	          client.on("error", function (e) {
 	            return _this2.Events.trigger("error", [e]);
 	          });
 
-	          if (subscriber) {
+	          if (sub) {
 	            client.on("message", function (channel, message) {
 	              var ref;
 	              return (ref = _this2.limiters[channel]) != null ? ref._store.onMessage(message) : void 0;
@@ -2185,15 +2186,16 @@
 
 	    _createClass(IORedisConnection, [{
 	      key: "_setup",
-	      value: function _setup(client, subscriber) {
+	      value: function _setup(client, sub) {
 	        var _this2 = this;
 
+	        client.setMaxListeners(0);
 	        return new this.Promise(function (resolve, reject) {
 	          client.on("error", function (e) {
 	            return _this2.Events.trigger("error", [e]);
 	          });
 
-	          if (subscriber) {
+	          if (sub) {
 	            client.on("message", function (channel, message) {
 	              var ref;
 	              return (ref = _this2.limiters[channel]) != null ? ref._store.onMessage(message) : void 0;
@@ -2457,13 +2459,13 @@
 	                return this.ready;
 
 	              case 3:
-	                args.unshift(Date.now().toString());
 	                return _context2.abrupt("return", new this.Promise(function (resolve, reject) {
-	                  var arr;
+	                  var args_ts, arr;
+	                  args_ts = [Date.now()].concat(args);
 
-	                  _this2.instance.Events.trigger("debug", ["Calling Redis script: ".concat(name, ".lua"), args]);
+	                  _this2.instance.Events.trigger("debug", ["Calling Redis script: ".concat(name, ".lua"), args_ts]);
 
-	                  arr = _this2.connection.__scriptArgs__(name, _this2.originalId, args, function (err, replies) {
+	                  arr = _this2.connection.__scriptArgs__(name, _this2.originalId, args_ts, function (err, replies) {
 	                    if (err != null) {
 	                      return reject(err);
 	                    }
@@ -2481,7 +2483,7 @@
 	                  }
 	                }));
 
-	              case 5:
+	              case 4:
 	              case "end":
 	                return _context2.stop();
 	            }
