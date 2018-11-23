@@ -402,7 +402,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         c.mustEqual(sumRunning(running), 15)
         c.mustEqual(executing, 4)
 
-        return c.wait(150)
+        return c.wait(170)
       })
       .then(function () {
         return getData(c.limiter)

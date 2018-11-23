@@ -2817,7 +2817,8 @@
 	  }, {
 	    key: "start",
 	    value: function start(id) {
-	      var initial = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+	      var initial;
+	      initial = 0;
 	      this.jobs[id] = initial;
 	      return this.counts[initial]++;
 	    }
@@ -2843,12 +2844,12 @@
 	  }, {
 	    key: "statusJobs",
 	    value: function statusJobs(status) {
-	      var index, k, ref, results, v;
+	      var k, pos, ref, results, v;
 
 	      if (status != null) {
-	        index = this.status.indexOf(status);
+	        pos = this.status.indexOf(status);
 
-	        if (index < 0) {
+	        if (pos < 0) {
 	          throw new BottleneckError$3("status must be one of ".concat(this.status.join(', ')));
 	        }
 
@@ -2858,7 +2859,7 @@
 	        for (k in ref) {
 	          v = ref[k];
 
-	          if (v === index) {
+	          if (v === pos) {
 	            results.push(k);
 	          }
 	        }

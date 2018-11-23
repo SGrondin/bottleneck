@@ -15,7 +15,8 @@ class States
       @counts[current]--
       delete @jobs[id]
 
-  start: (id, initial=0) ->
+  start: (id) ->
+    initial = 0
     @jobs[id] = initial
     @counts[initial]++
 
@@ -30,10 +31,10 @@ class States
 
   statusJobs: (status) ->
     if status?
-      index = @status.indexOf status
-      if index < 0
+      pos = @status.indexOf status
+      if pos < 0
         throw new BottleneckError "status must be one of #{@status.join ', '}"
-      k for k,v of @jobs when v == index
+      k for k,v of @jobs when v == pos
     else
       Object.keys @jobs
 
