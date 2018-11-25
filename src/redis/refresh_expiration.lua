@@ -1,11 +1,11 @@
-local refresh_expiration = function (executing_key, running_key, settings_key, now, nextRequest, groupTimeout)
+local refresh_expiration = function (now, nextRequest, groupTimeout)
 
   if groupTimeout ~= nil then
     local ttl = (nextRequest + groupTimeout) - now
 
-    redis.call('pexpire', executing_key, ttl)
-    redis.call('pexpire', running_key, ttl)
-    redis.call('pexpire', settings_key, ttl)
+    for i = 1, #KEYS do
+      redis.call('pexpire', KEYS[i], ttl)
+    end
   end
 
 end

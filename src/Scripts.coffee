@@ -1,60 +1,109 @@
 lua = require "./lua.json"
 
-libraries =
-  get_time: lua["get_time.lua"]
-  refresh_capacity: lua["refresh_capacity.lua"]
-  conditions_check: lua["conditions_check.lua"]
-  refresh_expiration: lua["refresh_expiration.lua"]
+headers =
+  refs: lua["refs.lua"]
   validate_keys: lua["validate_keys.lua"]
+  refresh_expiration: lua["refresh_expiration.lua"]
+  process_tick: lua["process_tick.lua"]
+  conditions_check: lua["conditions_check.lua"]
+  get_time: lua["get_time.lua"]
+
+defaultKeys = (id) -> [
+  ###
+  HASH
+  ###
+  "b_#{id}_settings"
+
+  ###
+  HASH
+  job index -> weight
+  ###
+  "b_#{id}_job_weights"
+
+  ###
+  ZSET
+  job index -> expiration
+  ###
+  "b_#{id}_job_expirations"
+
+  ###
+  HASH
+  job index -> client
+  ###
+  "b_#{id}_job_clients"
+
+  ###
+  ZSET
+  client -> sum running
+  ###
+  "b_#{id}_client_running"
+]
 
 templates =
   init:
-    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["refresh_capacity", "refresh_expiration"]
+    keys: defaultKeys
+    headers: ["process_tick"]
+    refresh_expiration: true
     code: lua["init.lua"]
-  heartbeat:
-    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_capacity"]
-    code: lua["heartbeat.lua"]
-  update_settings:
-    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_capacity", "refresh_expiration"]
-    code: lua["update_settings.lua"]
-  running:
-    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_capacity"]
-    code: lua["running.lua"]
-  done:
-    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_capacity"]
-    code: lua["done.lua"]
   group_check:
     keys: (id) -> ["b_#{id}_settings"]
-    libs: []
+    headers: []
+    refresh_expiration: false
     code: lua["group_check.lua"]
+  register_client:
+    keys: defaultKeys
+    headers: ["validate_keys"]
+    refresh_expiration: false
+    code: lua["register_client.lua"]
+  heartbeat:
+    keys: defaultKeys
+    headers: ["validate_keys", "process_tick"]
+    refresh_expiration: false
+    code: lua["heartbeat.lua"]
+  update_settings:
+    keys: defaultKeys
+    headers: ["validate_keys", "process_tick"]
+    refresh_expiration: true
+    code: lua["update_settings.lua"]
+  running:
+    keys: defaultKeys
+    headers: ["validate_keys", "process_tick"]
+    refresh_expiration: false
+    code: lua["running.lua"]
+  done:
+    keys: defaultKeys
+    headers: ["validate_keys", "process_tick"]
+    refresh_expiration: false
+    code: lua["done.lua"]
   check:
-    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_capacity", "conditions_check"]
+    keys: defaultKeys
+    headers: ["validate_keys", "process_tick", "conditions_check"]
+    refresh_expiration: false
     code: lua["check.lua"]
   submit:
-    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_capacity", "conditions_check", "refresh_expiration"]
+    keys: defaultKeys
+    headers: ["validate_keys", "process_tick", "conditions_check"]
+    refresh_expiration: true
     code: lua["submit.lua"]
   register:
-    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_capacity", "conditions_check", "refresh_expiration"]
+    keys: defaultKeys
+    headers: ["validate_keys", "process_tick", "conditions_check"]
+    refresh_expiration: true
     code: lua["register.lua"]
   free:
-    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_capacity"]
+    keys: defaultKeys
+    headers: ["validate_keys", "process_tick"]
+    refresh_expiration: false
     code: lua["free.lua"]
   current_reservoir:
-    keys: (id) -> ["b_#{id}_settings"]
-    libs: ["validate_keys"]
+    keys: defaultKeys
+    headers: ["validate_keys", "process_tick"]
+    refresh_expiration: false
     code: lua["current_reservoir.lua"]
   increment_reservoir:
-    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
-    libs: ["validate_keys", "refresh_capacity", "refresh_expiration"]
+    keys: defaultKeys
+    headers: ["validate_keys", "process_tick"]
+    refresh_expiration: true
     code: lua["increment_reservoir.lua"]
 
 exports.names = Object.keys templates
@@ -63,5 +112,11 @@ exports.keys = (name, id) ->
   templates[name].keys id
 
 exports.payload = (name) ->
-  templates[name].libs.map (lib) -> libraries[lib]
-  .join("\n") + templates[name].code
+  template = templates[name]
+  Array::concat(
+    headers.refs,
+    template.headers.map((h) -> headers[h]),
+    (if template.refresh_expiration then headers.refresh_expiration else ""),
+    template.code
+  )
+  .join("\n")

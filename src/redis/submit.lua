@@ -1,12 +1,7 @@
-local settings_key = KEYS[1]
-local running_key = KEYS[2]
-local executing_key = KEYS[3]
+local queueLength = tonumber(ARGV[3])
+local weight = tonumber(ARGV[4])
 
-local now = tonumber(ARGV[1])
-local queueLength = tonumber(ARGV[2])
-local weight = tonumber(ARGV[3])
-
-local capacity = refresh_capacity(executing_key, running_key, settings_key, now, false)[1]
+local capacity = process_tick(now, false)[1]
 
 local settings = redis.call('hmget', settings_key,
   'id',
@@ -61,7 +56,7 @@ if blocked then
 
   redis.call('publish', 'b_'..id, 'blocked:')
 
-  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)
+  refresh_expiration(now, newNextRequest, groupTimeout)
 end
 
 return {reachedHWM, blocked, strategy}

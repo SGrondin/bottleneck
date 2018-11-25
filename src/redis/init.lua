@@ -1,20 +1,16 @@
-local settings_key = KEYS[1]
-local running_key = KEYS[2]
-local executing_key = KEYS[3]
-
-local now = tonumber(ARGV[1])
-local clear = tonumber(ARGV[2])
-local limiter_version = ARGV[3]
+local clear = tonumber(ARGV[3])
+local limiter_version = ARGV[4]
+local num_static_argv = 4
 
 if clear == 1 then
-  redis.call('del', settings_key, running_key, executing_key)
+  redis.call('del', unpack(KEYS))
 end
 
 if redis.call('exists', settings_key) == 0 then
   -- Create
   local args = {'hmset', settings_key}
 
-  for i = 4, #ARGV do
+  for i = num_static_argv + 1, #ARGV do
     table.insert(args, ARGV[i])
   end
 
@@ -29,7 +25,13 @@ if redis.call('exists', settings_key) == 0 then
 
 else
   -- Apply migrations
-  local current_version = redis.call('hget', settings_key, 'version')
+  local settings = redis.call('hmget', settings_key,
+    'id',
+    'version'
+  )
+  local id = settings[1]
+  local current_version = settings[2]
+
   if current_version ~= limiter_version then
     local version_digits = {}
     for k, v in string.gmatch(current_version, "([^.]+)") do
@@ -54,12 +56,27 @@ else
         )
       end
     end
+
+    -- 2.14.0
+    if version_digits[2] < 14 then
+      local old_running_key = 'b_'..id..'_running'
+      local old_executing_key = 'b_'..id..'_executing'
+
+      if redis.call('exists', old_running_key) == 1 then
+        redis.call('rename', old_running_key, job_weights_key)
+      end
+      if redis.call('exists', old_executing_key) == 1 then
+        redis.call('rename', old_executing_key, job_expirations_key)
+      end
+      redis.call('hset', settings_key, 'version', '2.14.0')
+    end
+
   end
 
-  refresh_capacity(executing_key, running_key, settings_key, now, false)
+  process_tick(now, false)
 end
 
 local groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))
-refresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)
+refresh_expiration(0, 0, groupTimeout)
 
 return {}

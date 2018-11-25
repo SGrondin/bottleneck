@@ -226,7 +226,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
     })
 
     it('Should migrate from 2.8.0', function () {
-      c = makeTest()
+      c = makeTest({ id: 'migrate' })
       var settings_key = limiterKeys(c.limiter)[0]
       var limiter2
 
@@ -240,7 +240,10 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         ])
       })
       .then(function () {
-        limiter2 = new Bottleneck({ datastore: process.env.DATASTORE })
+        limiter2 = new Bottleneck({
+          id: 'migrate',
+          datastore: process.env.DATASTORE
+        })
         return limiter2.ready()
       })
       .then(function () {
@@ -256,14 +259,14 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       .then(function (values) {
         var lastReservoirRefresh = values[values.length - 1]
         assert(parseInt(lastReservoirRefresh) > Date.now() - 500)
-        c.mustEqual(values.slice(0, values.length - 1), ['2.11.1', '0', '', ''])
+        c.mustEqual(values.slice(0, values.length - 1), ['2.14.0', '0', '', ''])
       })
       .then(function () {
         return limiter2.disconnect(false)
       })
     })
 
-    it('Should publish running decreases', function () {
+    it('Should publish capacity increases', function () {
       c = makeTest({ maxConcurrent: 2 })
       var limiter2
       var p3, p4
@@ -288,12 +291,6 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         c.checkResultsOrder([[0], [1], [2], [3]])
         c.checkDuration(200)
 
-        // Also check that the version gets set
-        var settings_key = limiterKeys(limiter2)[0]
-        return runCommand(limiter2, 'hget', [settings_key, 'version'])
-      })
-      .then(function (data) {
-        c.mustEqual(data, packagejson.version)
         return limiter2.disconnect(false)
       })
     })
@@ -356,6 +353,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         id: 'lost',
         errorEventsExpected: true
       })
+      var clientId = c.limiter._store.clientId
       var limiter1 = new Bottleneck({ datastore: process.env.DATASTORE })
       var limiter2 = new Bottleneck({
           id: 'lost',
@@ -363,22 +361,34 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           heartbeatInterval: 150
         })
       var getData = function (limiter) {
-        var [settings_key, running_key, executing_key] = limiterKeys(limiter)
+        c.mustEqual(limiterKeys(limiter).length, 5) // Asserting, to remember to edit this test when keys change
+        var [
+          settings_key,
+          job_weights_key,
+          job_expirations_key,
+          job_clients_key,
+          client_running_key
+        ] = limiterKeys(limiter)
         return Promise.all([
           runCommand(limiter1, 'hmget', [settings_key, 'running', 'done']),
-          runCommand(limiter1, 'hgetall', [running_key]),
-          runCommand(limiter1, 'zcard', [executing_key])
+          runCommand(limiter1, 'hgetall', [job_weights_key]),
+          runCommand(limiter1, 'zcard', [job_expirations_key]),
+          runCommand(limiter1, 'hvals', [job_clients_key]),
+          runCommand(limiter1, 'zrange', [client_running_key, '0', '-1', 'withscores'])
         ])
       }
-      var sumRunning = function (running) {
-        return Object.keys(running).reduce((acc, x) => {
-          return acc + ~~running[x]
+      var sumWeights = function (weights) {
+        return Object.keys(weights).reduce((acc, x) => {
+          return acc + ~~weights[x]
         }, 0)
       }
 
       return Promise.all([c.limiter.ready(), limiter1.ready(), limiter2.ready()])
       .then(function () {
+        // No expiration, it should not be removed
         c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 150, null, 1), 1),
+
+        // Expiration present, these jobs should be removed automatically
         c.limiter.schedule({ expiration: 50, weight: 2 }, c.slowPromise, 75, null, 2),
         c.limiter.schedule({ expiration: 50, weight: 3 }, c.slowPromise, 75, null, 3),
         c.limiter.schedule({ expiration: 50, weight: 4 }, c.slowPromise, 75, null, 4),
@@ -397,20 +407,26 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       .then(function () {
         return getData(c.limiter)
       })
-      .then(function ([settings, running, executing]) {
+      .then(function ([settings, job_weights, job_expirations, job_clients, client_running]) {
         c.mustEqual(settings, ['15', '0'])
-        c.mustEqual(sumRunning(running), 15)
-        c.mustEqual(executing, 4)
+        c.mustEqual(sumWeights(job_weights), 15)
+        c.mustEqual(job_expirations, 4)
+        c.mustEqual(job_clients.length, 5)
+        job_clients.forEach((id) => c.mustEqual(id, clientId))
+        c.mustEqual(sumWeights(client_running), 15)
 
         return c.wait(170)
       })
       .then(function () {
         return getData(c.limiter)
       })
-      .then(function ([settings, running, executing]) {
+      .then(function ([settings, job_weights, job_expirations, job_clients, client_running]) {
         c.mustEqual(settings, ['1', '14'])
-        c.mustEqual(sumRunning(running), 1)
-        c.mustEqual(executing, 0)
+        c.mustEqual(sumWeights(job_weights), 1)
+        c.mustEqual(job_expirations, 0)
+        c.mustEqual(job_clients.length, 1)
+        job_clients.forEach((id) => c.mustEqual(id, clientId))
+        c.mustEqual(sumWeights(client_running), 1)
       })
       .then(function () {
         return Promise.all([

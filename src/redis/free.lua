@@ -1,10 +1,5 @@
-local settings_key = KEYS[1]
-local running_key = KEYS[2]
-local executing_key = KEYS[3]
+local index = ARGV[3]
 
-local now = tonumber(ARGV[1])
-local index = ARGV[2]
+redis.call('zadd', job_expirations_key, 0, index)
 
-redis.call('zadd', executing_key, 0, index)
-
-return refresh_capacity(executing_key, running_key, settings_key, now, false)[2]
+return process_tick(now, false)[2]

@@ -1,4 +1,4 @@
-local refresh_capacity = function (executing_key, running_key, settings_key, now, always_publish)
+local process_tick = function (now, always_publish)
 
   local compute_capacity = function (maxConcurrent, running, reservoir)
     if maxConcurrent ~= nil and reservoir ~= nil then
@@ -32,48 +32,62 @@ local refresh_capacity = function (executing_key, running_key, settings_key, now
   local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)
 
   --
-  -- Compute 'running' changes
+  -- Process 'running' changes
   --
-  local expired = redis.call('zrangebyscore', executing_key, '-inf', '('..now)
+  local expired = redis.call('zrangebyscore', job_expirations_key, '-inf', '('..now)
 
   if #expired > 0 then
-    redis.call('zremrangebyscore', executing_key, '-inf', '('..now)
+    redis.call('zremrangebyscore', job_expirations_key, '-inf', '('..now)
 
-    local make_batch = function ()
-      return {'hmget', running_key}
-    end
+    local flush_batch = function (batch, acc)
+      local weights = redis.call('hmget', job_weights_key, unpack(batch))
+                      redis.call('hdel',  job_weights_key, unpack(batch))
+      local clients = redis.call('hmget', job_clients_key, unpack(batch))
+                      redis.call('hdel',  job_clients_key, unpack(batch))
 
-    local flush_batch = function (batch)
-      local weights = redis.call(unpack(batch))
-      batch[1] = 'hdel'
-      local deleted = redis.call(unpack(batch))
-
-      local sum = 0
+      -- Calculate sum of removed weights
       for i = 1, #weights do
-        sum = sum + (tonumber(weights[i]) or 0)
+        acc['total'] = acc['total'] + (tonumber(weights[i]) or 0)
       end
-      return sum
+
+      -- Calculate sum of removed weights by client
+      local client_weights = {}
+      for i = 1, #clients do
+        if weights[i] ~= nil then
+          acc['client_weights'][clients[i]] = (acc['client_weights'][clients[i]] or 0) + tonumber(weights[i])
+        end
+      end
     end
 
-    local total = 0
+    local acc = {
+      ['total'] = 0,
+      ['client_weights'] = {}
+    }
     local batch_size = 1000
 
+    -- Compute changes to Zsets and apply changes to Hashes
     for i = 1, #expired, batch_size do
-      local batch = make_batch()
+      local batch = {}
       for j = i, math.min(i + batch_size - 1, #expired) do
         table.insert(batch, expired[j])
       end
-      total = total + flush_batch(batch)
+
+      flush_batch(batch, acc)
     end
 
-    if total > 0 then
-      redis.call('hincrby', settings_key, 'done', total)
-      running = tonumber(redis.call('hincrby', settings_key, 'running', -total))
+    -- Apply changes to Zsets
+    if acc['total'] > 0 then
+      redis.call('hincrby', settings_key, 'done', acc['total'])
+      running = tonumber(redis.call('hincrby', settings_key, 'running', -acc['total']))
+    end
+
+    for client, weight in pairs(acc['client_weights']) do
+      redis.call('zincrby', client_running_key, -weight, client)
     end
   end
 
   --
-  -- Compute 'reservoir' changes
+  -- Process 'reservoir' changes
   --
   local reservoirRefreshActive = reservoirRefreshInterval ~= nil and reservoirRefreshAmount ~= nil
   if reservoirRefreshActive and now >= lastReservoirRefresh + reservoirRefreshInterval then

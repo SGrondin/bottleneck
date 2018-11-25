@@ -6,6 +6,7 @@ IORedisConnection = require "./IORedisConnection"
 class RedisDatastore
   constructor: (@instance, @storeOptions, storeInstanceOptions) ->
     @originalId = @instance.id
+    @clientId = @instance._randomIndex()
     parser.load storeInstanceOptions, storeInstanceOptions, @
     @clients = {}
     @sharedConnection = @connection?
@@ -19,6 +20,7 @@ class RedisDatastore
     @ready = @connection.ready
     .then (@clients) => @runScript "init", @prepareInitSettings @clearDatastore
     .then => @connection.__addLimiter__ @instance
+    .then => @runScript "register_client", []
     .then =>
       (@heartbeat = setInterval =>
         @runScript "heartbeat", []
@@ -48,9 +50,9 @@ class RedisDatastore
       @connection.disconnect flush
 
   runScript: (name, args) ->
-    await @ready unless name == "init" or name == "heartbeat"
+    await @ready unless name == "init" or name == "heartbeat" or name == "register_client"
     new @Promise (resolve, reject) =>
-      args_ts = [Date.now()].concat(args)
+      args_ts = [Date.now(), @clientId].concat args
       @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args_ts]
       arr = @connection.__scriptArgs__ name, @originalId, args_ts, (err, replies) ->
         if err? then return reject err

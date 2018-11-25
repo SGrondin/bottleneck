@@ -1,13 +1,8 @@
-local settings_key = KEYS[1]
-local running_key = KEYS[2]
-local executing_key = KEYS[3]
+local index = ARGV[3]
+local weight = tonumber(ARGV[4])
+local expiration = tonumber(ARGV[5])
 
-local now = tonumber(ARGV[1])
-local index = ARGV[2]
-local weight = tonumber(ARGV[3])
-local expiration = tonumber(ARGV[4])
-
-local state = refresh_capacity(executing_key, running_key, settings_key, now, false)
+local state = process_tick(now, false)
 local capacity = state[1]
 local reservoir = state[3]
 
@@ -22,18 +17,20 @@ local groupTimeout = tonumber(settings[3])
 
 if conditions_check(capacity, weight) then
 
-  if expiration ~= nil then
-    redis.call('zadd', executing_key, now + expiration, index)
-  end
-  redis.call('hset', running_key, index, weight)
   redis.call('hincrby', settings_key, 'running', weight)
+  redis.call('hset', job_weights_key, index, weight)
+  if expiration ~= nil then
+    redis.call('zadd', job_expirations_key, now + expiration, index)
+  end
+  redis.call('hset', job_clients_key, index, client)
+  redis.call('zincrby', client_running_key, weight, client)
 
   local wait = math.max(nextRequest - now, 0)
   local newNextRequest = now + wait + minTime
 
   if reservoir == nil then
     redis.call('hset', settings_key,
-    'nextRequest', newNextRequest
+      'nextRequest', newNextRequest
     )
   else
     reservoir = reservoir - weight
@@ -43,7 +40,7 @@ if conditions_check(capacity, weight) then
     )
   end
 
-  refresh_expiration(executing_key, running_key, settings_key, now, newNextRequest, groupTimeout)
+  refresh_expiration(now, newNextRequest, groupTimeout)
 
   return {true, wait, reservoir}
 
