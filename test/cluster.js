@@ -266,6 +266,66 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
+    it('Should keep track of each client\'s queue length', function () {
+      c = makeTest({
+        id: 'queues',
+        maxConcurrent: 1,
+        trackDoneStatus: true
+      })
+      var limiter2 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        id: 'queues',
+        maxConcurrent: 1,
+        trackDoneStatus: true
+      })
+      var client_num_queued_key = limiterKeys(c.limiter)[5]
+      var clientId1 = c.limiter._store.clientId
+      var clientId2 = limiter2._store.clientId
+      var p0, p1, p2, p3
+
+      return c.limiter.ready()
+      .then(function () {
+        return limiter2.ready()
+      })
+      .then(function () {
+        p0 = c.limiter.schedule({id: 0}, c.slowPromise, 100, null, 0)
+        return c.limiter._submitLock.schedule(() => Promise.resolve())
+      })
+      .then(function () {
+        p1 = c.limiter.schedule({id: 1}, c.promise, null, 1)
+        p2 = c.limiter.schedule({id: 2}, c.promise, null, 2)
+        p3 = limiter2.schedule({id: 3}, c.promise, null, 3)
+        return Promise.all([
+          c.limiter._submitLock.schedule(() => Promise.resolve()),
+          limiter2._submitLock.schedule(() => Promise.resolve())
+        ])
+      })
+      .then(function () {
+        return runCommand(c.limiter, 'hgetall', [client_num_queued_key])
+      })
+      .then(function (queued) {
+        c.mustEqual(c.limiter.counts().QUEUED, 2)
+        c.mustEqual(limiter2.counts().QUEUED, 1)
+        c.mustEqual(~~queued[clientId1], 2)
+        c.mustEqual(~~queued[clientId2], 1)
+
+        return Promise.all([p0, p1, p2, p3])
+      })
+      .then(function () {
+        return runCommand(c.limiter, 'hgetall', [client_num_queued_key])
+      })
+      .then(function (queued) {
+        c.mustEqual(c.limiter.counts().QUEUED, 0)
+        c.mustEqual(limiter2.counts().QUEUED, 0)
+        c.mustEqual(~~queued[clientId1], 0)
+        c.mustEqual(~~queued[clientId2], 0)
+        c.mustEqual(c.limiter.counts().DONE, 3)
+        c.mustEqual(limiter2.counts().DONE, 1)
+
+        return limiter2.disconnect(false)
+      })
+    })
+
     it('Should publish capacity increases', function () {
       c = makeTest({ maxConcurrent: 2 })
       var limiter2
@@ -283,8 +343,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return c.limiter.schedule({id: 0, weight: 0}, c.promise, null, 0)
       })
       .then(function () {
-        p3 = limiter2.schedule({id: 3}, c.slowPromise, 100, null, 3)
-        return p3
+        return limiter2.schedule({id: 3}, c.slowPromise, 100, null, 3)
       })
       .then(c.last)
       .then(function (results) {
@@ -361,7 +420,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           heartbeatInterval: 150
         })
       var getData = function (limiter) {
-        c.mustEqual(limiterKeys(limiter).length, 5) // Asserting, to remember to edit this test when keys change
+        c.mustEqual(limiterKeys(limiter).length, 6) // Asserting, to remember to edit this test when keys change
         var [
           settings_key,
           job_weights_key,
@@ -627,6 +686,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         strategy: Bottleneck.strategy.BLOCK
       })
       var limiter2
+      var client_num_queued_key = limiterKeys(limiter1)[5]
 
       return limiter1.ready()
       .then(function () {
@@ -652,6 +712,10 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         ])
       })
       .then(function () {
+        return runCommand(limiter1, 'exists', [client_num_queued_key])
+      })
+      .then(function (exists) {
+        c.mustEqual(exists, 0)
         return c.wait(100)
       })
       .then(function () {

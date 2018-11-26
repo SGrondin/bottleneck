@@ -37,6 +37,12 @@ defaultKeys = (id) -> [
   client -> sum running
   ###
   "b_#{id}_client_running"
+
+  ###
+  HASH
+  client -> num queued
+  ###
+  "b_#{id}_client_num_queued"
 ]
 
 templates =

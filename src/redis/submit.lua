@@ -53,10 +53,14 @@ if blocked then
     'unblockTime', now + computedPenalty,
     'nextRequest', newNextRequest
   )
-
+  redis.call('del', client_num_queued_key)
   redis.call('publish', 'b_'..id, 'blocked:')
 
   refresh_expiration(now, newNextRequest, groupTimeout)
+end
+
+if not blocked and not reachedHWM then
+  redis.call('hincrby', client_num_queued_key, client, 1)
 end
 
 return {reachedHWM, blocked, strategy}

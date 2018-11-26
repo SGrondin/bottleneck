@@ -24,6 +24,7 @@ if conditions_check(capacity, weight) then
   end
   redis.call('hset', job_clients_key, index, client)
   redis.call('zincrby', client_running_key, weight, client)
+  redis.call('hincrby', client_num_queued_key, client, -1)
 
   local wait = math.max(nextRequest - now, 0)
   local newNextRequest = now + wait + minTime
