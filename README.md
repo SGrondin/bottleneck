@@ -521,7 +521,7 @@ __deleteKey()__
 
 * `str`: The key for the limiter to delete.
 
-Manually deletes the limiter at the specified key. This can be useful when the auto cleanup is turned off.
+Manually deletes the limiter at the specified key. When using Clustering, the Redis data is immediately deleted and the other Groups in the Cluster will eventually delete their local key automatically, unless it is still being used.
 
 __keys()__
 

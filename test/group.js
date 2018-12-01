@@ -193,7 +193,7 @@ describe('Group', function () {
     c.mustEqual(limiter2._store.storeOptions.minTime, 200)
   })
 
-  it('Should support keys() and limiters()', function () {
+  it('Should support keys(), limiters(), deleteKey()', function () {
     c = makeTest()
     var group1 = new Bottleneck.Group({
       maxConcurrent: 1
@@ -201,17 +201,31 @@ describe('Group', function () {
     var KEY_A = "AAA"
     var KEY_B = "BBB"
 
-    group1.key(KEY_A).submit(c.job, null, 1)
-    group1.key(KEY_B).submit(c.job, null, 2)
+    return Promise.all([
+      c.pNoErrVal(group1.key(KEY_A).schedule(c.promise, null, 1), 1),
+      c.pNoErrVal(group1.key(KEY_B).schedule(c.promise, null, 2), 2)
+    ])
+    .then(function () {
+      var keys = group1.keys()
+      var limiters = group1.limiters()
+      c.mustEqual(keys, [KEY_A, KEY_B])
+      c.mustEqual(limiters.length, 2)
 
-    var keys = group1.keys()
-    var limiters = group1.limiters()
-    c.mustEqual(keys, [KEY_A, KEY_B])
-    c.mustEqual(limiters.length, 2)
+      limiters.forEach(function (limiter, i) {
+        c.mustEqual(limiter.key, keys[i])
+        assert(limiter.limiter instanceof Bottleneck)
+      })
 
-    limiters.forEach(function (limiter, i) {
-      c.mustEqual(limiter.key, keys[i])
-      assert(limiter.limiter instanceof Bottleneck)
+      return group1.deleteKey(KEY_A)
+    })
+    .then(function (deleted) {
+      c.mustEqual(deleted, true)
+      c.mustEqual(group1.keys().length, 1)
+      return group1.deleteKey(KEY_A)
+    })
+    .then(function (deleted) {
+      c.mustEqual(deleted, false)
+      c.mustEqual(group1.keys().length, 1)
     })
   })
 

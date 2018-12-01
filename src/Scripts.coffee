@@ -56,6 +56,11 @@ templates =
     headers: []
     refresh_expiration: false
     code: lua["group_check.lua"]
+  group_delete_key:
+    keys: defaultKeys
+    headers: []
+    refresh_expiration: false
+    code: lua["group_delete_key.lua"]
   register_client:
     keys: defaultKeys
     headers: ["validate_keys"]

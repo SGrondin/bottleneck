@@ -59,9 +59,10 @@ class RedisDatastore
         return resolve replies
       @connection.__scriptFn__(name).apply {}, arr
     .catch (e) =>
-      if e.message == "SETTINGS_KEY_NOT_FOUND"
+      if e.message == "SETTINGS_KEY_NOT_FOUND" and name != "heartbeat"
         @runScript("init", @prepareInitSettings(false))
         .then => @runScript(name, args)
+      else if name == "heartbeat" then @Promise.resolve()
       else @Promise.reject e
 
   prepareArray: (arr) -> (if x? then x.toString() else "") for x in arr
@@ -91,6 +92,8 @@ class RedisDatastore
   __done__: -> @runScript "done", []
 
   __groupCheck__: -> @convertBool await @runScript "group_check", []
+
+  __groupDeleteKey__: -> await @runScript "group_delete_key", []
 
   __incrementReservoir__: (incr) -> @runScript "increment_reservoir", [incr]
 
