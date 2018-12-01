@@ -2893,12 +2893,12 @@
 	Sync =
 	/*#__PURE__*/
 	function () {
-	  function Sync(name, instance) {
+	  function Sync(name, Promise) {
 	    _classCallCheck(this, Sync);
 
 	    this.submit = this.submit.bind(this);
 	    this.name = name;
-	    this.instance = instance;
+	    this.Promise = Promise;
 	    this._running = 0;
 	    this._queue = new DLList$2();
 	  }
@@ -2987,7 +2987,7 @@
 	        });
 	      };
 
-	      return new this.instance.Promise(function (resolve, reject) {
+	      return new this.Promise(function (resolve, reject) {
 	        return _this2.submit.apply({}, Array.prototype.concat(wrapped, args, function () {
 	          for (var _len7 = arguments.length, args = new Array(_len7), _key7 = 0; _key7 < _len7; _key7++) {
 	            args[_key7] = arguments[_key7];
@@ -3424,8 +3424,8 @@
 	      this._states = new States$1(["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(this.trackDoneStatus ? ["DONE"] : []));
 	      this._limiter = null;
 	      this.Events = new Events$6(this);
-	      this._submitLock = new Sync$1("submit", this);
-	      this._registerLock = new Sync$1("register", this);
+	      this._submitLock = new Sync$1("submit", this.Promise);
+	      this._registerLock = new Sync$1("register", this.Promise);
 	      storeOptions = parser$7.load(options, this.storeDefaults, {});
 
 	      this._store = function () {

@@ -65,8 +65,8 @@ class Bottleneck
     @_states = new States ["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(if @trackDoneStatus then ["DONE"] else [])
     @_limiter = null
     @Events = new Events @
-    @_submitLock = new Sync "submit", @
-    @_registerLock = new Sync "register", @
+    @_submitLock = new Sync "submit", @Promise
+    @_registerLock = new Sync "register", @Promise
     storeOptions = parser.load options, @storeDefaults, {}
 
     @_store = if @datastore == "redis" or @datastore == "ioredis" or @connection?
