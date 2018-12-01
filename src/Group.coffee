@@ -34,8 +34,11 @@ class Group
 
   deleteKey: (key="") =>
     instance = @instances[key]
-    delete @instances[key]
-    instance?.disconnect()
+    if instance?
+      delete @instances[key]
+      await instance._store.__groupDeleteKey__()
+      await instance.disconnect()
+    instance?
 
   limiters: -> { key: k, limiter: v } for k, v of @instances
 

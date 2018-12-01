@@ -32,6 +32,10 @@ templates =
     keys: (id) -> ["b_#{id}_settings"]
     libs: []
     code: lua["group_check.lua"]
+  group_delete_key:
+    keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
+    libs: []
+    code: lua["group_delete_key.lua"]
   check:
     keys: (id) -> ["b_#{id}_settings", "b_#{id}_running", "b_#{id}_executing"]
     libs: ["validate_keys", "refresh_capacity", "conditions_check"]

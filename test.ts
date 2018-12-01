@@ -141,7 +141,10 @@ console.log(limiter.jobs());
 console.log(limiter.jobs(Bottleneck.Status.RUNNING));
 
 
-group.deleteKey("pizza");
+group.deleteKey("pizza")
+.then(function (deleted: boolean) {
+  console.log(deleted)
+});
 group.updateSettings({ timeout: 5, maxConcurrent: null, reservoir: null });
 
 let keys: string[] = group.keys();

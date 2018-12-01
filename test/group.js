@@ -193,7 +193,7 @@ describe('Group', function () {
     c.mustEqual(limiter2._store.storeOptions.minTime, 200)
   })
 
-  it('Should support keys() and limiters()', function () {
+  it('Should support keys(), limiters(), deleteKey()', function () {
     c = makeTest()
     var group1 = new Bottleneck.Group({
       maxConcurrent: 1
@@ -212,6 +212,17 @@ describe('Group', function () {
     limiters.forEach(function (limiter, i) {
       c.mustEqual(limiter.key, keys[i])
       assert(limiter.limiter instanceof Bottleneck)
+    })
+
+    return group1.deleteKey(KEY_A)
+    .then(function (deleted) {
+      c.mustEqual(deleted, true)
+      c.mustEqual(group1.keys().length, 1)
+      return group1.deleteKey(KEY_A)
+    })
+    .then(function (deleted) {
+      c.mustEqual(deleted, false)
+      c.mustEqual(group1.keys().length, 1)
     })
   })
 

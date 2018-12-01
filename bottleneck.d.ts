@@ -292,10 +292,11 @@ declare module "bottleneck" {
             updateSettings(options: Bottleneck.ConstructorOptions): void;
 
             /**
-             * Deletes the limiter for the given key
+             * Deletes the limiter for the given key.
+             * Returns true if a key was deleted.
              * @param str - The key
              */
-            deleteKey(str: string): Promise<void>;
+            deleteKey(str: string): Promise<boolean>;
 
             /**
              * Disconnects the underlying redis clients, unless the Group was created with the `connection` option.

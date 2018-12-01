@@ -1370,10 +1370,33 @@
 	    }()
 	  }, {
 	    key: "__disconnect__",
-	    value: function __disconnect__(flush) {
-	      clearInterval(this.heartbeat);
-	      return this.Promise.resolve();
-	    }
+	    value: function () {
+	      var _disconnect__ = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee2(flush) {
+	        return regeneratorRuntime.wrap(function _callee2$(_context2) {
+	          while (1) {
+	            switch (_context2.prev = _context2.next) {
+	              case 0:
+	                _context2.next = 2;
+	                return this.yieldLoop();
+
+	              case 2:
+	                clearInterval(this.heartbeat);
+	                return _context2.abrupt("return", this.Promise.resolve());
+
+	              case 4:
+	              case "end":
+	                return _context2.stop();
+	            }
+	          }
+	        }, _callee2, this);
+	      }));
+
+	      return function __disconnect__(_x2) {
+	        return _disconnect__.apply(this, arguments);
+	      };
+	    }()
 	  }, {
 	    key: "yieldLoop",
 	    value: function yieldLoop() {
@@ -1393,39 +1416,7 @@
 	    value: function () {
 	      var _updateSettings__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee2(options) {
-	        return regeneratorRuntime.wrap(function _callee2$(_context2) {
-	          while (1) {
-	            switch (_context2.prev = _context2.next) {
-	              case 0:
-	                _context2.next = 2;
-	                return this.yieldLoop();
-
-	              case 2:
-	                parser$1.overwrite(options, options, this.storeOptions);
-
-	                this.instance._drainAll(this.computeCapacity());
-
-	                return _context2.abrupt("return", true);
-
-	              case 5:
-	              case "end":
-	                return _context2.stop();
-	            }
-	          }
-	        }, _callee2, this);
-	      }));
-
-	      return function __updateSettings__(_x2) {
-	        return _updateSettings__.apply(this, arguments);
-	      };
-	    }()
-	  }, {
-	    key: "__running__",
-	    value: function () {
-	      var _running__ = _asyncToGenerator(
-	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee3() {
+	      regeneratorRuntime.mark(function _callee3(options) {
 	        return regeneratorRuntime.wrap(function _callee3$(_context3) {
 	          while (1) {
 	            switch (_context3.prev = _context3.next) {
@@ -1434,14 +1425,46 @@
 	                return this.yieldLoop();
 
 	              case 2:
-	                return _context3.abrupt("return", this._running);
+	                parser$1.overwrite(options, options, this.storeOptions);
 
-	              case 3:
+	                this.instance._drainAll(this.computeCapacity());
+
+	                return _context3.abrupt("return", true);
+
+	              case 5:
 	              case "end":
 	                return _context3.stop();
 	            }
 	          }
 	        }, _callee3, this);
+	      }));
+
+	      return function __updateSettings__(_x3) {
+	        return _updateSettings__.apply(this, arguments);
+	      };
+	    }()
+	  }, {
+	    key: "__running__",
+	    value: function () {
+	      var _running__ = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee4() {
+	        return regeneratorRuntime.wrap(function _callee4$(_context4) {
+	          while (1) {
+	            switch (_context4.prev = _context4.next) {
+	              case 0:
+	                _context4.next = 2;
+	                return this.yieldLoop();
+
+	              case 2:
+	                return _context4.abrupt("return", this._running);
+
+	              case 3:
+	              case "end":
+	                return _context4.stop();
+	            }
+	          }
+	        }, _callee4, this);
 	      }));
 
 	      return function __running__() {
@@ -1453,23 +1476,23 @@
 	    value: function () {
 	      var _done__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee4() {
-	        return regeneratorRuntime.wrap(function _callee4$(_context4) {
+	      regeneratorRuntime.mark(function _callee5() {
+	        return regeneratorRuntime.wrap(function _callee5$(_context5) {
 	          while (1) {
-	            switch (_context4.prev = _context4.next) {
+	            switch (_context5.prev = _context5.next) {
 	              case 0:
-	                _context4.next = 2;
+	                _context5.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
-	                return _context4.abrupt("return", this._done);
+	                return _context5.abrupt("return", this._done);
 
 	              case 3:
 	              case "end":
-	                return _context4.stop();
+	                return _context5.stop();
 	            }
 	          }
-	        }, _callee4, this);
+	        }, _callee5, this);
 	      }));
 
 	      return function __done__() {
@@ -1481,27 +1504,55 @@
 	    value: function () {
 	      var _groupCheck__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee5(time) {
-	        return regeneratorRuntime.wrap(function _callee5$(_context5) {
+	      regeneratorRuntime.mark(function _callee6(time) {
+	        return regeneratorRuntime.wrap(function _callee6$(_context6) {
 	          while (1) {
-	            switch (_context5.prev = _context5.next) {
+	            switch (_context6.prev = _context6.next) {
 	              case 0:
-	                _context5.next = 2;
+	                _context6.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
-	                return _context5.abrupt("return", this._nextRequest + this.timeout < time);
+	                return _context6.abrupt("return", this._nextRequest + this.timeout < time);
 
 	              case 3:
 	              case "end":
-	                return _context5.stop();
+	                return _context6.stop();
 	            }
 	          }
-	        }, _callee5, this);
+	        }, _callee6, this);
 	      }));
 
-	      return function __groupCheck__(_x3) {
+	      return function __groupCheck__(_x4) {
 	        return _groupCheck__.apply(this, arguments);
+	      };
+	    }()
+	  }, {
+	    key: "__groupDeleteKey__",
+	    value: function () {
+	      var _groupDeleteKey__ = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee7() {
+	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
+	          while (1) {
+	            switch (_context7.prev = _context7.next) {
+	              case 0:
+	                _context7.next = 2;
+	                return this.yieldLoop();
+
+	              case 2:
+	                return _context7.abrupt("return", 1);
+
+	              case 3:
+	              case "end":
+	                return _context7.stop();
+	            }
+	          }
+	        }, _callee7, this);
+	      }));
+
+	      return function __groupDeleteKey__() {
+	        return _groupDeleteKey__.apply(this, arguments);
 	      };
 	    }()
 	  }, {
@@ -1534,13 +1585,13 @@
 	    value: function () {
 	      var _incrementReservoir__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee6(incr) {
+	      regeneratorRuntime.mark(function _callee8(incr) {
 	        var reservoir;
-	        return regeneratorRuntime.wrap(function _callee6$(_context6) {
+	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
 	          while (1) {
-	            switch (_context6.prev = _context6.next) {
+	            switch (_context8.prev = _context8.next) {
 	              case 0:
-	                _context6.next = 2;
+	                _context8.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
@@ -1548,17 +1599,17 @@
 
 	                this.instance._drainAll(this.computeCapacity());
 
-	                return _context6.abrupt("return", reservoir);
+	                return _context8.abrupt("return", reservoir);
 
 	              case 5:
 	              case "end":
-	                return _context6.stop();
+	                return _context8.stop();
 	            }
 	          }
-	        }, _callee6, this);
+	        }, _callee8, this);
 	      }));
 
-	      return function __incrementReservoir__(_x4) {
+	      return function __incrementReservoir__(_x5) {
 	        return _incrementReservoir__.apply(this, arguments);
 	      };
 	    }()
@@ -1567,23 +1618,23 @@
 	    value: function () {
 	      var _currentReservoir__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee7() {
-	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
+	      regeneratorRuntime.mark(function _callee9() {
+	        return regeneratorRuntime.wrap(function _callee9$(_context9) {
 	          while (1) {
-	            switch (_context7.prev = _context7.next) {
+	            switch (_context9.prev = _context9.next) {
 	              case 0:
-	                _context7.next = 2;
+	                _context9.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
-	                return _context7.abrupt("return", this.storeOptions.reservoir);
+	                return _context9.abrupt("return", this.storeOptions.reservoir);
 
 	              case 3:
 	              case "end":
-	                return _context7.stop();
+	                return _context9.stop();
 	            }
 	          }
-	        }, _callee7, this);
+	        }, _callee9, this);
 	      }));
 
 	      return function __currentReservoir__() {
@@ -1605,28 +1656,28 @@
 	    value: function () {
 	      var _check__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee8(weight) {
+	      regeneratorRuntime.mark(function _callee10(weight) {
 	        var now;
-	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
+	        return regeneratorRuntime.wrap(function _callee10$(_context10) {
 	          while (1) {
-	            switch (_context8.prev = _context8.next) {
+	            switch (_context10.prev = _context10.next) {
 	              case 0:
-	                _context8.next = 2;
+	                _context10.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
 	                now = Date.now();
-	                return _context8.abrupt("return", this.check(weight, now));
+	                return _context10.abrupt("return", this.check(weight, now));
 
 	              case 4:
 	              case "end":
-	                return _context8.stop();
+	                return _context10.stop();
 	            }
 	          }
-	        }, _callee8, this);
+	        }, _callee10, this);
 	      }));
 
-	      return function __check__(_x5) {
+	      return function __check__(_x6) {
 	        return _check__.apply(this, arguments);
 	      };
 	    }()
@@ -1635,20 +1686,20 @@
 	    value: function () {
 	      var _register__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee9(index, weight, expiration) {
+	      regeneratorRuntime.mark(function _callee11(index, weight, expiration) {
 	        var now, wait;
-	        return regeneratorRuntime.wrap(function _callee9$(_context9) {
+	        return regeneratorRuntime.wrap(function _callee11$(_context11) {
 	          while (1) {
-	            switch (_context9.prev = _context9.next) {
+	            switch (_context11.prev = _context11.next) {
 	              case 0:
-	                _context9.next = 2;
+	                _context11.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
 	                now = Date.now();
 
 	                if (!this.conditionsCheck(weight)) {
-	                  _context9.next = 11;
+	                  _context11.next = 11;
 	                  break;
 	                }
 
@@ -1660,26 +1711,26 @@
 
 	                wait = Math.max(this._nextRequest - now, 0);
 	                this._nextRequest = now + wait + this.storeOptions.minTime;
-	                return _context9.abrupt("return", {
+	                return _context11.abrupt("return", {
 	                  success: true,
 	                  wait: wait,
 	                  reservoir: this.storeOptions.reservoir
 	                });
 
 	              case 11:
-	                return _context9.abrupt("return", {
+	                return _context11.abrupt("return", {
 	                  success: false
 	                });
 
 	              case 12:
 	              case "end":
-	                return _context9.stop();
+	                return _context11.stop();
 	            }
 	          }
-	        }, _callee9, this);
+	        }, _callee11, this);
 	      }));
 
-	      return function __register__(_x6, _x7, _x8) {
+	      return function __register__(_x7, _x8, _x9) {
 	        return _register__.apply(this, arguments);
 	      };
 	    }()
@@ -1693,18 +1744,18 @@
 	    value: function () {
 	      var _submit__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee10(queueLength, weight) {
+	      regeneratorRuntime.mark(function _callee12(queueLength, weight) {
 	        var blocked, now, reachedHWM;
-	        return regeneratorRuntime.wrap(function _callee10$(_context10) {
+	        return regeneratorRuntime.wrap(function _callee12$(_context12) {
 	          while (1) {
-	            switch (_context10.prev = _context10.next) {
+	            switch (_context12.prev = _context12.next) {
 	              case 0:
-	                _context10.next = 2;
+	                _context12.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
 	                if (!(this.storeOptions.maxConcurrent != null && weight > this.storeOptions.maxConcurrent)) {
-	                  _context10.next = 4;
+	                  _context12.next = 4;
 	                  break;
 	                }
 
@@ -1722,7 +1773,7 @@
 	                  this.instance._dropAllQueued();
 	                }
 
-	                return _context10.abrupt("return", {
+	                return _context12.abrupt("return", {
 	                  reachedHWM: reachedHWM,
 	                  blocked: blocked,
 	                  strategy: this.storeOptions.strategy
@@ -1730,13 +1781,13 @@
 
 	              case 9:
 	              case "end":
-	                return _context10.stop();
+	                return _context12.stop();
 	            }
 	          }
-	        }, _callee10, this);
+	        }, _callee12, this);
 	      }));
 
-	      return function __submit__(_x9, _x10) {
+	      return function __submit__(_x10, _x11) {
 	        return _submit__.apply(this, arguments);
 	      };
 	    }()
@@ -1745,12 +1796,12 @@
 	    value: function () {
 	      var _free__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee11(index, weight) {
-	        return regeneratorRuntime.wrap(function _callee11$(_context11) {
+	      regeneratorRuntime.mark(function _callee13(index, weight) {
+	        return regeneratorRuntime.wrap(function _callee13$(_context13) {
 	          while (1) {
-	            switch (_context11.prev = _context11.next) {
+	            switch (_context13.prev = _context13.next) {
 	              case 0:
-	                _context11.next = 2;
+	                _context13.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
@@ -1759,19 +1810,19 @@
 
 	                this.instance._drainAll(this.computeCapacity());
 
-	                return _context11.abrupt("return", {
+	                return _context13.abrupt("return", {
 	                  running: this._running
 	                });
 
 	              case 6:
 	              case "end":
-	                return _context11.stop();
+	                return _context13.stop();
 	            }
 	          }
-	        }, _callee11, this);
+	        }, _callee13, this);
 	      }));
 
-	      return function __free__(_x11, _x12) {
+	      return function __free__(_x12, _x13) {
 	        return _free__.apply(this, arguments);
 	      };
 	    }()
@@ -1790,6 +1841,7 @@
 		"free.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal index = ARGV[2]\n\nredis.call('zadd', executing_key, 0, index)\n\nreturn refresh_capacity(executing_key, running_key, settings_key, now, false)[2]\n",
 		"get_time.lua": "redis.replicate_commands()\n\nlocal get_time = function ()\n  local time = redis.call('time')\n\n  return tonumber(time[1]..string.sub(time[2], 1, 3))\nend\n",
 		"group_check.lua": "local settings_key = KEYS[1]\n\nlocal now = tonumber(ARGV[1])\n\nreturn not (redis.call('exists', settings_key) == 1)\n",
+		"group_delete_key.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nreturn redis.call('del', settings_key, running_key, executing_key)\n",
 		"heartbeat.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\n\nrefresh_capacity(executing_key, running_key, settings_key, now, false)\n",
 		"increment_reservoir.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal incr = tonumber(ARGV[2])\n\nredis.call('hincrby', settings_key, 'reservoir', incr)\n\nlocal reservoir = refresh_capacity(executing_key, running_key, settings_key, now, true)[3]\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn reservoir\n",
 		"init.lua": "local settings_key = KEYS[1]\nlocal running_key = KEYS[2]\nlocal executing_key = KEYS[3]\n\nlocal now = tonumber(ARGV[1])\nlocal clear = tonumber(ARGV[2])\nlocal limiter_version = ARGV[3]\n\nif clear == 1 then\n  redis.call('del', settings_key, running_key, executing_key)\nend\n\nif redis.call('exists', settings_key) == 0 then\n  -- Create\n  local args = {'hmset', settings_key}\n\n  for i = 4, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\n  redis.call('hmset', settings_key,\n    'nextRequest', now,\n    'lastReservoirRefresh', now,\n    'running', 0,\n    'done', 0,\n    'unblockTime', 0\n  )\n\nelse\n  -- Apply migrations\n  local current_version = redis.call('hget', settings_key, 'version')\n  if current_version ~= limiter_version then\n    local version_digits = {}\n    for k, v in string.gmatch(current_version, \"([^.]+)\") do\n      table.insert(version_digits, tonumber(k))\n    end\n\n    -- 2.10.0\n    if version_digits[2] < 10 then\n      redis.call('hsetnx', settings_key, 'reservoirRefreshInterval', '')\n      redis.call('hsetnx', settings_key, 'reservoirRefreshAmount', '')\n      redis.call('hsetnx', settings_key, 'lastReservoirRefresh', '')\n      redis.call('hsetnx', settings_key, 'done', 0)\n      redis.call('hset', settings_key, 'version', '2.10.0')\n    end\n\n    -- 2.11.1\n    if version_digits[2] < 11 and version_digits[3] < 1 then\n      if redis.call('hstrlen', settings_key, 'lastReservoirRefresh') == 0 then\n        redis.call('hmset', settings_key,\n          'lastReservoirRefresh', now,\n          'version', '2.11.1'\n        )\n      end\n    end\n  end\n\n  refresh_capacity(executing_key, running_key, settings_key, now, false)\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(executing_key, running_key, settings_key, 0, 0, groupTimeout)\n\nreturn {}\n",
@@ -1859,6 +1911,13 @@
 	    },
 	    libs: [],
 	    code: lua$2["group_check.lua"]
+	  },
+	  group_delete_key: {
+	    keys: function keys(id) {
+	      return ["b_".concat(id, "_settings"), "b_".concat(id, "_running"), "b_".concat(id, "_executing")];
+	    },
+	    libs: [],
+	    code: lua$2["group_delete_key.lua"]
 	  },
 	  check: {
 	    keys: function keys(id) {
@@ -2472,10 +2531,12 @@
 	                  });
 	                  return _this2.connection.__scriptFn__(name).apply({}, arr);
 	                }).catch(function (e) {
-	                  if (e.message === "SETTINGS_KEY_NOT_FOUND") {
+	                  if (e.message === "SETTINGS_KEY_NOT_FOUND" && name !== "heartbeat") {
 	                    return _this2.runScript("init", _this2.prepareInitSettings(false)).then(function () {
 	                      return _this2.runScript(name, args);
 	                    });
+	                  } else if (name === "heartbeat") {
+	                    return _this2.Promise.resolve();
 	                  } else {
 	                    return _this2.Promise.reject(e);
 	                  }
@@ -2605,6 +2666,34 @@
 	      };
 	    }()
 	  }, {
+	    key: "__groupDeleteKey__",
+	    value: function () {
+	      var _groupDeleteKey__ = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee5() {
+	        return regeneratorRuntime.wrap(function _callee5$(_context5) {
+	          while (1) {
+	            switch (_context5.prev = _context5.next) {
+	              case 0:
+	                _context5.next = 2;
+	                return this.runScript("group_delete_key", []);
+
+	              case 2:
+	                return _context5.abrupt("return", _context5.sent);
+
+	              case 3:
+	              case "end":
+	                return _context5.stop();
+	            }
+	          }
+	        }, _callee5, this);
+	      }));
+
+	      return function __groupDeleteKey__() {
+	        return _groupDeleteKey__.apply(this, arguments);
+	      };
+	    }()
+	  }, {
 	    key: "__incrementReservoir__",
 	    value: function __incrementReservoir__(incr) {
 	      return this.runScript("increment_reservoir", [incr]);
@@ -2619,25 +2708,25 @@
 	    value: function () {
 	      var _check__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee5(weight) {
-	        return regeneratorRuntime.wrap(function _callee5$(_context5) {
+	      regeneratorRuntime.mark(function _callee6(weight) {
+	        return regeneratorRuntime.wrap(function _callee6$(_context6) {
 	          while (1) {
-	            switch (_context5.prev = _context5.next) {
+	            switch (_context6.prev = _context6.next) {
 	              case 0:
-	                _context5.t0 = this;
-	                _context5.next = 3;
+	                _context6.t0 = this;
+	                _context6.next = 3;
 	                return this.runScript("check", this.prepareArray([weight]));
 
 	              case 3:
-	                _context5.t1 = _context5.sent;
-	                return _context5.abrupt("return", _context5.t0.convertBool.call(_context5.t0, _context5.t1));
+	                _context6.t1 = _context6.sent;
+	                return _context6.abrupt("return", _context6.t0.convertBool.call(_context6.t0, _context6.t1));
 
 	              case 5:
 	              case "end":
-	                return _context5.stop();
+	                return _context6.stop();
 	            }
 	          }
-	        }, _callee5, this);
+	        }, _callee6, this);
 	      }));
 
 	      return function __check__(_x5) {
@@ -2649,23 +2738,23 @@
 	    value: function () {
 	      var _register__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee6(index, weight, expiration) {
+	      regeneratorRuntime.mark(function _callee7(index, weight, expiration) {
 	        var reservoir, success, wait, _ref3, _ref4;
 
-	        return regeneratorRuntime.wrap(function _callee6$(_context6) {
+	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
 	          while (1) {
-	            switch (_context6.prev = _context6.next) {
+	            switch (_context7.prev = _context7.next) {
 	              case 0:
-	                _context6.next = 2;
+	                _context7.next = 2;
 	                return this.runScript("register", this.prepareArray([index, weight, expiration]));
 
 	              case 2:
-	                _ref3 = _context6.sent;
+	                _ref3 = _context7.sent;
 	                _ref4 = _slicedToArray(_ref3, 3);
 	                success = _ref4[0];
 	                wait = _ref4[1];
 	                reservoir = _ref4[2];
-	                return _context6.abrupt("return", {
+	                return _context7.abrupt("return", {
 	                  success: this.convertBool(success),
 	                  wait: wait,
 	                  reservoir: reservoir
@@ -2673,10 +2762,10 @@
 
 	              case 8:
 	              case "end":
-	                return _context6.stop();
+	                return _context7.stop();
 	            }
 	          }
-	        }, _callee6, this);
+	        }, _callee7, this);
 	      }));
 
 	      return function __register__(_x6, _x7, _x8) {
@@ -2688,36 +2777,36 @@
 	    value: function () {
 	      var _submit__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee7(queueLength, weight) {
+	      regeneratorRuntime.mark(function _callee8(queueLength, weight) {
 	        var blocked, e, maxConcurrent, overweight, reachedHWM, strategy, _ref5, _ref6, _e$message$split, _e$message$split2;
 
-	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
+	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
 	          while (1) {
-	            switch (_context7.prev = _context7.next) {
+	            switch (_context8.prev = _context8.next) {
 	              case 0:
-	                _context7.prev = 0;
-	                _context7.next = 3;
+	                _context8.prev = 0;
+	                _context8.next = 3;
 	                return this.runScript("submit", this.prepareArray([queueLength, weight]));
 
 	              case 3:
-	                _ref5 = _context7.sent;
+	                _ref5 = _context8.sent;
 	                _ref6 = _slicedToArray(_ref5, 3);
 	                reachedHWM = _ref6[0];
 	                blocked = _ref6[1];
 	                strategy = _ref6[2];
-	                return _context7.abrupt("return", {
+	                return _context8.abrupt("return", {
 	                  reachedHWM: this.convertBool(reachedHWM),
 	                  blocked: this.convertBool(blocked),
 	                  strategy: strategy
 	                });
 
 	              case 11:
-	                _context7.prev = 11;
-	                _context7.t0 = _context7["catch"](0);
-	                e = _context7.t0;
+	                _context8.prev = 11;
+	                _context8.t0 = _context8["catch"](0);
+	                e = _context8.t0;
 
 	                if (!(e.message.indexOf("OVERWEIGHT") === 0)) {
-	                  _context7.next = 23;
+	                  _context8.next = 23;
 	                  break;
 	                }
 
@@ -2733,10 +2822,10 @@
 
 	              case 24:
 	              case "end":
-	                return _context7.stop();
+	                return _context8.stop();
 	            }
 	          }
-	        }, _callee7, this, [[0, 11]]);
+	        }, _callee8, this, [[0, 11]]);
 	      }));
 
 	      return function __submit__(_x9, _x10) {
@@ -2748,27 +2837,27 @@
 	    value: function () {
 	      var _free__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee8(index, weight) {
+	      regeneratorRuntime.mark(function _callee9(index, weight) {
 	        var running;
-	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
+	        return regeneratorRuntime.wrap(function _callee9$(_context9) {
 	          while (1) {
-	            switch (_context8.prev = _context8.next) {
+	            switch (_context9.prev = _context9.next) {
 	              case 0:
-	                _context8.next = 2;
+	                _context9.next = 2;
 	                return this.runScript("free", this.prepareArray([index]));
 
 	              case 2:
-	                running = _context8.sent;
-	                return _context8.abrupt("return", {
+	                running = _context9.sent;
+	                return _context9.abrupt("return", {
 	                  running: running
 	                });
 
 	              case 4:
 	              case "end":
-	                return _context8.stop();
+	                return _context9.stop();
 	            }
 	          }
-	        }, _callee8, this);
+	        }, _callee9, this);
 	      }));
 
 	      return function __free__(_x11, _x12) {
@@ -3154,13 +3243,48 @@
 	      }
 	    }, {
 	      key: "deleteKey",
-	      value: function deleteKey() {
-	        var key = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : "";
-	        var instance;
-	        instance = this.instances[key];
-	        delete this.instances[key];
-	        return instance != null ? instance.disconnect() : void 0;
-	      }
+	      value: function () {
+	        var _deleteKey = _asyncToGenerator(
+	        /*#__PURE__*/
+	        regeneratorRuntime.mark(function _callee() {
+	          var key,
+	              instance,
+	              _args = arguments;
+	          return regeneratorRuntime.wrap(function _callee$(_context) {
+	            while (1) {
+	              switch (_context.prev = _context.next) {
+	                case 0:
+	                  key = _args.length > 0 && _args[0] !== undefined ? _args[0] : "";
+	                  instance = this.instances[key];
+
+	                  if (!(instance != null)) {
+	                    _context.next = 8;
+	                    break;
+	                  }
+
+	                  delete this.instances[key];
+	                  _context.next = 6;
+	                  return instance._store.__groupDeleteKey__();
+
+	                case 6:
+	                  _context.next = 8;
+	                  return instance.disconnect();
+
+	                case 8:
+	                  return _context.abrupt("return", instance != null);
+
+	                case 9:
+	                case "end":
+	                  return _context.stop();
+	              }
+	            }
+	          }, _callee, this);
+	        }));
+
+	        return function deleteKey() {
+	          return _deleteKey.apply(this, arguments);
+	        };
+	      }()
 	    }, {
 	      key: "limiters",
 	      value: function limiters() {
@@ -3194,65 +3318,65 @@
 	        /*#__PURE__*/
 	        _asyncToGenerator(
 	        /*#__PURE__*/
-	        regeneratorRuntime.mark(function _callee() {
+	        regeneratorRuntime.mark(function _callee2() {
 	          var e, k, ref, results, time, v;
-	          return regeneratorRuntime.wrap(function _callee$(_context) {
+	          return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	            while (1) {
-	              switch (_context.prev = _context.next) {
+	              switch (_context2.prev = _context2.next) {
 	                case 0:
 	                  time = Date.now();
 	                  ref = _this2.instances;
 	                  results = [];
-	                  _context.t0 = regeneratorRuntime.keys(ref);
+	                  _context2.t0 = regeneratorRuntime.keys(ref);
 
 	                case 4:
-	                  if ((_context.t1 = _context.t0()).done) {
-	                    _context.next = 23;
+	                  if ((_context2.t1 = _context2.t0()).done) {
+	                    _context2.next = 23;
 	                    break;
 	                  }
 
-	                  k = _context.t1.value;
+	                  k = _context2.t1.value;
 	                  v = ref[k];
-	                  _context.prev = 7;
-	                  _context.next = 10;
+	                  _context2.prev = 7;
+	                  _context2.next = 10;
 	                  return v._store.__groupCheck__(time);
 
 	                case 10:
-	                  if (!_context.sent) {
-	                    _context.next = 14;
+	                  if (!_context2.sent) {
+	                    _context2.next = 14;
 	                    break;
 	                  }
 
 	                  results.push(_this2.deleteKey(k));
-	                  _context.next = 15;
+	                  _context2.next = 15;
 	                  break;
 
 	                case 14:
 	                  results.push(void 0);
 
 	                case 15:
-	                  _context.next = 21;
+	                  _context2.next = 21;
 	                  break;
 
 	                case 17:
-	                  _context.prev = 17;
-	                  _context.t2 = _context["catch"](7);
-	                  e = _context.t2;
+	                  _context2.prev = 17;
+	                  _context2.t2 = _context2["catch"](7);
+	                  e = _context2.t2;
 	                  results.push(v.Events.trigger("error", [e]));
 
 	                case 21:
-	                  _context.next = 4;
+	                  _context2.next = 4;
 	                  break;
 
 	                case 23:
-	                  return _context.abrupt("return", results);
+	                  return _context2.abrupt("return", results);
 
 	                case 24:
 	                case "end":
-	                  return _context.stop();
+	                  return _context2.stop();
 	              }
 	            }
-	          }, _callee, this, [[7, 17]]);
+	          }, _callee2, this, [[7, 17]]);
 	        })), this.timeout / 2)).unref === "function" ? base.unref() : void 0;
 	      }
 	    }, {

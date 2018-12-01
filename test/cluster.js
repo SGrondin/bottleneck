@@ -845,5 +845,83 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
     })
 
+    it('Should not recreate a key when running heartbeat', function () {
+      c = makeTest()
+      var group = new Bottleneck.Group({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        maxConcurrent: 50,
+        minTime: 50,
+        timeout: 300,
+        heartbeatInterval: 5
+      })
+      var key = 'heartbeat'
+
+      var limiter = group.key(key)
+      return c.pNoErrVal(limiter.schedule(c.promise, null, 1), 1)
+      .then(function () {
+        return limiter.done()
+      })
+      .then(function (done) {
+        c.mustEqual(done, 1)
+        return c.wait(500)
+      })
+      .then(function () {
+        return countKeys(limiter)
+      })
+      .then(function (count) {
+        c.mustEqual(count, 0)
+        return group.disconnect(false)
+      })
+    })
+
+    it('Should delete Redis key when manually deleting a group key', function () {
+      c = makeTest()
+      var group1 = new Bottleneck.Group({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        maxConcurrent: 50,
+        minTime: 50,
+        timeout: 300
+      })
+      var group2 = new Bottleneck.Group({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        maxConcurrent: 50,
+        minTime: 50,
+        timeout: 300
+      })
+      var key = 'deleted'
+      var limiter = group1.key(key) // only for countKeys() use
+
+      return c.pNoErrVal(group1.key(key).schedule(c.promise, null, 1), 1)
+      .then(function () {
+        return c.pNoErrVal(group2.key(key).schedule(c.promise, null, 2), 2)
+      })
+      .then(function () {
+        c.mustEqual(group1.keys().length, 1)
+        c.mustEqual(group2.keys().length, 1)
+        return group1.deleteKey(key)
+      })
+      .then(function (deleted) {
+        c.mustEqual(deleted, true)
+        return countKeys(limiter)
+      })
+      .then(function (count) {
+        c.mustEqual(count, 0)
+        c.mustEqual(group1.keys().length, 0)
+        c.mustEqual(group2.keys().length, 1)
+        return c.wait(200)
+      })
+      .then(function () {
+        c.mustEqual(group1.keys().length, 0)
+        c.mustEqual(group2.keys().length, 0)
+        return Promise.all([
+          group1.disconnect(false),
+          group2.disconnect(false)
+        ])
+      })
+    })
+
   })
 }

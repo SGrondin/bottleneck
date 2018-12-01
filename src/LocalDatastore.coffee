@@ -24,6 +24,7 @@ class LocalDatastore
     @instance.Events.trigger "message", [message.toString()]
 
   __disconnect__: (flush) ->
+    await @yieldLoop()
     clearInterval @heartbeat
     @Promise.resolve()
 
@@ -48,6 +49,10 @@ class LocalDatastore
   __groupCheck__: (time) ->
     await @yieldLoop()
     (@_nextRequest + @timeout) < time
+
+  __groupDeleteKey__: ->
+    await @yieldLoop()
+    1
 
   computeCapacity: ->
     { maxConcurrent, reservoir } = @storeOptions
