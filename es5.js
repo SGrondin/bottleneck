@@ -3094,7 +3094,7 @@
 	var Sync_1 = Sync;
 
 	var name = "bottleneck";
-	var version = "2.13.1";
+	var version = "2.13.2";
 	var description = "Distributed task scheduler and rate limiter";
 	var main = "lib/index.js";
 	var typings = "bottleneck.d.ts";
