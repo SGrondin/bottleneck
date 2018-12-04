@@ -96,7 +96,7 @@ local refresh_capacity = function (executing_key, running_key, settings_key, now
     -- capacity was increased
     initial_capacity ~= nil and final_capacity ~= nil and final_capacity > initial_capacity
   ) then
-    redis.call('publish', 'b_'..id, 'capacity:'..final_capacity)
+    redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))
   end
 
   return {final_capacity, running, reservoir}
