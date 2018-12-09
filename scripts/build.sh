@@ -12,7 +12,14 @@ clean() {
   rm -rf lib/*
 }
 
-makeLib() {
+makeLib10() {
+  echo '[B] Compiling Bottleneck to Node 10+...'
+  node_modules/coffeescript/bin/coffee --compile --bare --no-header src/*.coffee
+  node scripts/assemble_lua.js > lib/lua.json
+  mv src/*.js lib/
+}
+
+makeLib6() {
   echo '[B] Compiling Bottleneck to Node 6+...'
   ln -s .babelrc.lib .babelrc
   node_modules/coffeescript/bin/coffee --compile --bare --no-header --transpile src/*.coffee
@@ -39,7 +46,7 @@ makeTypings() {
 
 if [ "$1" = 'dev' ]; then
   clean
-  makeLib
+  makeLib10
 elif [ "$1" = 'bundle' ]; then
   clean
   makeBundle
@@ -49,7 +56,7 @@ else
   clean
   makeBundle
   clean
-  makeLib
+  makeLib6
   makeTypings
 fi
 

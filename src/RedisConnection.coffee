@@ -45,6 +45,12 @@ class RedisConnection
 
   _loadScripts: -> @Promise.all(Scripts.names.map (k) => @_loadScript k)
 
+  __runCommand__: (cmd) ->
+    await @ready
+    new @Promise (resolve, reject) =>
+      @client.multi([cmd]).exec_atomic (err, replies) ->
+        if err? then reject(err) else resolve(replies[0])
+
   __addLimiter__: (instance) ->
     channel = instance.channel()
     new @Promise (resolve, reject) =>

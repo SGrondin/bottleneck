@@ -50,10 +50,6 @@ class LocalDatastore
     await @yieldLoop()
     (@_nextRequest + @timeout) < time
 
-  __groupDeleteKey__: ->
-    await @yieldLoop()
-    1
-
   computeCapacity: ->
     { maxConcurrent, reservoir } = @storeOptions
     if maxConcurrent? and reservoir? then Math.min((maxConcurrent - @_running), reservoir)

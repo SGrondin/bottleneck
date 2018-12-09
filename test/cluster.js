@@ -7,7 +7,7 @@ var packagejson = require('../package.json')
 if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
   var limiterKeys = function (limiter) {
-    return Scripts.keys("init", limiter._store.originalId)
+    return Scripts.allKeys(limiter._store.originalId)
   }
   var countKeys = function (limiter) {
     return runCommand(limiter, 'exists', limiterKeys(limiter))
@@ -819,8 +819,10 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         })
       })
       .then(function () {
+        return group.deleteKey('A')
+      })
+      .then(function () {
         return new Promise(function (resolve, reject) {
-          group.deleteKey('A')
           var limiter = group.key('A')
 
           limiter.on('message', function (msg) {
@@ -991,6 +993,51 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         c.mustEqual(count, 0)
         c.mustEqual(group1.keys().length, 0)
         c.mustEqual(group2.keys().length, 1)
+        return c.wait(200)
+      })
+      .then(function () {
+        c.mustEqual(group1.keys().length, 0)
+        c.mustEqual(group2.keys().length, 0)
+        return Promise.all([
+          group1.disconnect(false),
+          group2.disconnect(false)
+        ])
+      })
+    })
+
+    it('Should delete Redis keys from a group even when the local limiter is not present', function () {
+      c = makeTest()
+      var group1 = new Bottleneck.Group({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        maxConcurrent: 50,
+        minTime: 50,
+        timeout: 300
+      })
+      var group2 = new Bottleneck.Group({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        maxConcurrent: 50,
+        minTime: 50,
+        timeout: 300
+      })
+      var key = 'deleted-cluster-wide'
+      var limiter = group1.key(key) // only for countKeys() use
+
+      return c.pNoErrVal(group1.key(key).schedule(c.promise, null, 1), 1)
+      .then(function () {
+        c.mustEqual(group1.keys().length, 1)
+        c.mustEqual(group2.keys().length, 0)
+        return group2.deleteKey(key)
+      })
+      .then(function (deleted) {
+        c.mustEqual(deleted, true)
+        return countKeys(limiter)
+      })
+      .then(function (count) {
+        c.mustEqual(count, 0)
+        c.mustEqual(group1.keys().length, 1)
+        c.mustEqual(group2.keys().length, 0)
         return c.wait(200)
       })
       .then(function () {

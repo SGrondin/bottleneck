@@ -93,8 +93,6 @@ class RedisDatastore
 
   __groupCheck__: -> @convertBool await @runScript "group_check", []
 
-  __groupDeleteKey__: -> await @runScript "group_delete_key", []
-
   __incrementReservoir__: (incr) -> @runScript "increment_reservoir", [incr]
 
   __currentReservoir__: -> @runScript "current_reservoir", []

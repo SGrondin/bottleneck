@@ -8,7 +8,7 @@ headers =
   conditions_check: lua["conditions_check.lua"]
   get_time: lua["get_time.lua"]
 
-defaultKeys = (id) -> [
+exports.allKeys = (id) -> [
   ###
   HASH
   ###
@@ -47,7 +47,7 @@ defaultKeys = (id) -> [
 
 templates =
   init:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["process_tick"]
     refresh_expiration: true
     code: lua["init.lua"]
@@ -56,63 +56,58 @@ templates =
     headers: []
     refresh_expiration: false
     code: lua["group_check.lua"]
-  group_delete_key:
-    keys: defaultKeys
-    headers: []
-    refresh_expiration: false
-    code: lua["group_delete_key.lua"]
   register_client:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys"]
     refresh_expiration: false
     code: lua["register_client.lua"]
   heartbeat:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys", "process_tick"]
     refresh_expiration: false
     code: lua["heartbeat.lua"]
   update_settings:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys", "process_tick"]
     refresh_expiration: true
     code: lua["update_settings.lua"]
   running:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys", "process_tick"]
     refresh_expiration: false
     code: lua["running.lua"]
   done:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys", "process_tick"]
     refresh_expiration: false
     code: lua["done.lua"]
   check:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys", "process_tick", "conditions_check"]
     refresh_expiration: false
     code: lua["check.lua"]
   submit:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys", "process_tick", "conditions_check"]
     refresh_expiration: true
     code: lua["submit.lua"]
   register:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys", "process_tick", "conditions_check"]
     refresh_expiration: true
     code: lua["register.lua"]
   free:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys", "process_tick"]
     refresh_expiration: false
     code: lua["free.lua"]
   current_reservoir:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys", "process_tick"]
     refresh_expiration: false
     code: lua["current_reservoir.lua"]
   increment_reservoir:
-    keys: defaultKeys
+    keys: exports.allKeys
     headers: ["validate_keys", "process_tick"]
     refresh_expiration: true
     code: lua["increment_reservoir.lua"]

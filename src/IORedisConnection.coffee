@@ -42,6 +42,11 @@ class IORedisConnection
 
   _loadScripts: -> Scripts.names.forEach (name) => @client.defineCommand name, { lua: Scripts.payload(name) }
 
+  __runCommand__: (cmd) ->
+    await @ready
+    [[_, deleted]] = await @client.pipeline([cmd]).exec()
+    deleted
+
   __addLimiter__: (instance) ->
     channel = instance.channel()
     new @Promise (resolve, reject) =>

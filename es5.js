@@ -930,6 +930,18 @@
 	  return _arrayWithHoles(arr) || _iterableToArray(arr) || _nonIterableRest();
 	}
 
+	function _toConsumableArray(arr) {
+	  return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread();
+	}
+
+	function _arrayWithoutHoles(arr) {
+	  if (Array.isArray(arr)) {
+	    for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
+
+	    return arr2;
+	  }
+	}
+
 	function _arrayWithHoles(arr) {
 	  if (Array.isArray(arr)) return arr;
 	}
@@ -962,6 +974,10 @@
 	  }
 
 	  return _arr;
+	}
+
+	function _nonIterableSpread() {
+	  throw new TypeError("Invalid attempt to spread non-iterable instance");
 	}
 
 	function _nonIterableRest() {
@@ -1528,34 +1544,6 @@
 	      };
 	    }()
 	  }, {
-	    key: "__groupDeleteKey__",
-	    value: function () {
-	      var _groupDeleteKey__ = _asyncToGenerator(
-	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee7() {
-	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
-	          while (1) {
-	            switch (_context7.prev = _context7.next) {
-	              case 0:
-	                _context7.next = 2;
-	                return this.yieldLoop();
-
-	              case 2:
-	                return _context7.abrupt("return", 1);
-
-	              case 3:
-	              case "end":
-	                return _context7.stop();
-	            }
-	          }
-	        }, _callee7, this);
-	      }));
-
-	      return function __groupDeleteKey__() {
-	        return _groupDeleteKey__.apply(this, arguments);
-	      };
-	    }()
-	  }, {
 	    key: "computeCapacity",
 	    value: function computeCapacity() {
 	      var maxConcurrent, reservoir;
@@ -1585,13 +1573,13 @@
 	    value: function () {
 	      var _incrementReservoir__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee8(incr) {
+	      regeneratorRuntime.mark(function _callee7(incr) {
 	        var reservoir;
-	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
+	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
 	          while (1) {
-	            switch (_context8.prev = _context8.next) {
+	            switch (_context7.prev = _context7.next) {
 	              case 0:
-	                _context8.next = 2;
+	                _context7.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
@@ -1599,14 +1587,14 @@
 
 	                this.instance._drainAll(this.computeCapacity());
 
-	                return _context8.abrupt("return", reservoir);
+	                return _context7.abrupt("return", reservoir);
 
 	              case 5:
 	              case "end":
-	                return _context8.stop();
+	                return _context7.stop();
 	            }
 	          }
-	        }, _callee8, this);
+	        }, _callee7, this);
 	      }));
 
 	      return function __incrementReservoir__(_x5) {
@@ -1618,23 +1606,23 @@
 	    value: function () {
 	      var _currentReservoir__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee9() {
-	        return regeneratorRuntime.wrap(function _callee9$(_context9) {
+	      regeneratorRuntime.mark(function _callee8() {
+	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
 	          while (1) {
-	            switch (_context9.prev = _context9.next) {
+	            switch (_context8.prev = _context8.next) {
 	              case 0:
-	                _context9.next = 2;
+	                _context8.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
-	                return _context9.abrupt("return", this.storeOptions.reservoir);
+	                return _context8.abrupt("return", this.storeOptions.reservoir);
 
 	              case 3:
 	              case "end":
-	                return _context9.stop();
+	                return _context8.stop();
 	            }
 	          }
-	        }, _callee9, this);
+	        }, _callee8, this);
 	      }));
 
 	      return function __currentReservoir__() {
@@ -1656,25 +1644,25 @@
 	    value: function () {
 	      var _check__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee10(weight) {
+	      regeneratorRuntime.mark(function _callee9(weight) {
 	        var now;
-	        return regeneratorRuntime.wrap(function _callee10$(_context10) {
+	        return regeneratorRuntime.wrap(function _callee9$(_context9) {
 	          while (1) {
-	            switch (_context10.prev = _context10.next) {
+	            switch (_context9.prev = _context9.next) {
 	              case 0:
-	                _context10.next = 2;
+	                _context9.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
 	                now = Date.now();
-	                return _context10.abrupt("return", this.check(weight, now));
+	                return _context9.abrupt("return", this.check(weight, now));
 
 	              case 4:
 	              case "end":
-	                return _context10.stop();
+	                return _context9.stop();
 	            }
 	          }
-	        }, _callee10, this);
+	        }, _callee9, this);
 	      }));
 
 	      return function __check__(_x6) {
@@ -1686,20 +1674,20 @@
 	    value: function () {
 	      var _register__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee11(index, weight, expiration) {
+	      regeneratorRuntime.mark(function _callee10(index, weight, expiration) {
 	        var now, wait;
-	        return regeneratorRuntime.wrap(function _callee11$(_context11) {
+	        return regeneratorRuntime.wrap(function _callee10$(_context10) {
 	          while (1) {
-	            switch (_context11.prev = _context11.next) {
+	            switch (_context10.prev = _context10.next) {
 	              case 0:
-	                _context11.next = 2;
+	                _context10.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
 	                now = Date.now();
 
 	                if (!this.conditionsCheck(weight)) {
-	                  _context11.next = 11;
+	                  _context10.next = 11;
 	                  break;
 	                }
 
@@ -1711,23 +1699,23 @@
 
 	                wait = Math.max(this._nextRequest - now, 0);
 	                this._nextRequest = now + wait + this.storeOptions.minTime;
-	                return _context11.abrupt("return", {
+	                return _context10.abrupt("return", {
 	                  success: true,
 	                  wait: wait,
 	                  reservoir: this.storeOptions.reservoir
 	                });
 
 	              case 11:
-	                return _context11.abrupt("return", {
+	                return _context10.abrupt("return", {
 	                  success: false
 	                });
 
 	              case 12:
 	              case "end":
-	                return _context11.stop();
+	                return _context10.stop();
 	            }
 	          }
-	        }, _callee11, this);
+	        }, _callee10, this);
 	      }));
 
 	      return function __register__(_x7, _x8, _x9) {
@@ -1744,18 +1732,18 @@
 	    value: function () {
 	      var _submit__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee12(queueLength, weight) {
+	      regeneratorRuntime.mark(function _callee11(queueLength, weight) {
 	        var blocked, now, reachedHWM;
-	        return regeneratorRuntime.wrap(function _callee12$(_context12) {
+	        return regeneratorRuntime.wrap(function _callee11$(_context11) {
 	          while (1) {
-	            switch (_context12.prev = _context12.next) {
+	            switch (_context11.prev = _context11.next) {
 	              case 0:
-	                _context12.next = 2;
+	                _context11.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
 	                if (!(this.storeOptions.maxConcurrent != null && weight > this.storeOptions.maxConcurrent)) {
-	                  _context12.next = 4;
+	                  _context11.next = 4;
 	                  break;
 	                }
 
@@ -1773,7 +1761,7 @@
 	                  this.instance._dropAllQueued();
 	                }
 
-	                return _context12.abrupt("return", {
+	                return _context11.abrupt("return", {
 	                  reachedHWM: reachedHWM,
 	                  blocked: blocked,
 	                  strategy: this.storeOptions.strategy
@@ -1781,10 +1769,10 @@
 
 	              case 9:
 	              case "end":
-	                return _context12.stop();
+	                return _context11.stop();
 	            }
 	          }
-	        }, _callee12, this);
+	        }, _callee11, this);
 	      }));
 
 	      return function __submit__(_x10, _x11) {
@@ -1796,12 +1784,12 @@
 	    value: function () {
 	      var _free__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee13(index, weight) {
-	        return regeneratorRuntime.wrap(function _callee13$(_context13) {
+	      regeneratorRuntime.mark(function _callee12(index, weight) {
+	        return regeneratorRuntime.wrap(function _callee12$(_context12) {
 	          while (1) {
-	            switch (_context13.prev = _context13.next) {
+	            switch (_context12.prev = _context12.next) {
 	              case 0:
-	                _context13.next = 2;
+	                _context12.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
@@ -1810,16 +1798,16 @@
 
 	                this.instance._drainAll(this.computeCapacity());
 
-	                return _context13.abrupt("return", {
+	                return _context12.abrupt("return", {
 	                  running: this._running
 	                });
 
 	              case 6:
 	              case "end":
-	                return _context13.stop();
+	                return _context12.stop();
 	            }
 	          }
-	        }, _callee13, this);
+	        }, _callee12, this);
 	      }));
 
 	      return function __free__(_x12, _x13) {
@@ -1842,7 +1830,6 @@
 		"free.lua": "local index = ARGV[3]\n\nredis.call('zadd', job_expirations_key, 0, index)\n\nreturn process_tick(now, false)[2]\n",
 		"get_time.lua": "redis.replicate_commands()\n\nlocal get_time = function ()\n  local time = redis.call('time')\n\n  return tonumber(time[1]..string.sub(time[2], 1, 3))\nend\n",
 		"group_check.lua": "return not (redis.call('exists', settings_key) == 1)\n",
-		"group_delete_key.lua": "return redis.call('del', unpack(KEYS))\n",
 		"heartbeat.lua": "process_tick(now, false)\n",
 		"increment_reservoir.lua": "local incr = tonumber(ARGV[3])\n\nredis.call('hincrby', settings_key, 'reservoir', incr)\n\nlocal reservoir = process_tick(now, true)[3]\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(0, 0, groupTimeout)\n\nreturn reservoir\n",
 		"init.lua": "local clear = tonumber(ARGV[3])\nlocal limiter_version = ARGV[4]\nlocal num_static_argv = 4\n\nif clear == 1 then\n  redis.call('del', unpack(KEYS))\nend\n\nif redis.call('exists', settings_key) == 0 then\n  -- Create\n  local args = {'hmset', settings_key}\n\n  for i = num_static_argv + 1, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\n  redis.call('hmset', settings_key,\n    'nextRequest', now,\n    'lastReservoirRefresh', now,\n    'running', 0,\n    'done', 0,\n    'unblockTime', 0\n  )\n\nelse\n  -- Apply migrations\n  local settings = redis.call('hmget', settings_key,\n    'id',\n    'version'\n  )\n  local id = settings[1]\n  local current_version = settings[2]\n\n  if current_version ~= limiter_version then\n    local version_digits = {}\n    for k, v in string.gmatch(current_version, \"([^.]+)\") do\n      table.insert(version_digits, tonumber(k))\n    end\n\n    -- 2.10.0\n    if version_digits[2] < 10 then\n      redis.call('hsetnx', settings_key, 'reservoirRefreshInterval', '')\n      redis.call('hsetnx', settings_key, 'reservoirRefreshAmount', '')\n      redis.call('hsetnx', settings_key, 'lastReservoirRefresh', '')\n      redis.call('hsetnx', settings_key, 'done', 0)\n      redis.call('hset', settings_key, 'version', '2.10.0')\n    end\n\n    -- 2.11.1\n    if version_digits[2] < 11 and version_digits[3] < 1 then\n      if redis.call('hstrlen', settings_key, 'lastReservoirRefresh') == 0 then\n        redis.call('hmset', settings_key,\n          'lastReservoirRefresh', now,\n          'version', '2.11.1'\n        )\n      end\n    end\n\n    -- 2.14.0\n    if version_digits[2] < 14 then\n      local old_running_key = 'b_'..id..'_running'\n      local old_executing_key = 'b_'..id..'_executing'\n\n      if redis.call('exists', old_running_key) == 1 then\n        redis.call('rename', old_running_key, job_weights_key)\n      end\n      if redis.call('exists', old_executing_key) == 1 then\n        redis.call('rename', old_executing_key, job_expirations_key)\n      end\n      redis.call('hset', settings_key, 'version', '2.14.0')\n    end\n\n  end\n\n  process_tick(now, false)\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(0, 0, groupTimeout)\n\nreturn {}\n",
@@ -1862,157 +1849,151 @@
 
 	var require$$0 = getCjsExportFromNamespace(lua$1);
 
-	var defaultKeys, headers, lua$2, templates;
-	lua$2 = require$$0;
-	headers = {
-	  refs: lua$2["refs.lua"],
-	  validate_keys: lua$2["validate_keys.lua"],
-	  refresh_expiration: lua$2["refresh_expiration.lua"],
-	  process_tick: lua$2["process_tick.lua"],
-	  conditions_check: lua$2["conditions_check.lua"],
-	  get_time: lua$2["get_time.lua"]
-	};
+	var Scripts = createCommonjsModule(function (module, exports) {
+	  var headers, lua, templates;
+	  lua = require$$0;
+	  headers = {
+	    refs: lua["refs.lua"],
+	    validate_keys: lua["validate_keys.lua"],
+	    refresh_expiration: lua["refresh_expiration.lua"],
+	    process_tick: lua["process_tick.lua"],
+	    conditions_check: lua["conditions_check.lua"],
+	    get_time: lua["get_time.lua"]
+	  };
 
-	defaultKeys = function defaultKeys(id) {
-	  return [
-	  /*
-	  HASH
-	  */
-	  "b_".concat(id, "_settings"),
-	  /*
-	  HASH
-	  job index -> weight
-	  */
-	  "b_".concat(id, "_job_weights"),
-	  /*
-	  ZSET
-	  job index -> expiration
-	  */
-	  "b_".concat(id, "_job_expirations"),
-	  /*
-	  HASH
-	  job index -> client
-	  */
-	  "b_".concat(id, "_job_clients"),
-	  /*
-	  ZSET
-	  client -> sum running
-	  */
-	  "b_".concat(id, "_client_running"),
-	  /*
-	  HASH
-	  client -> num queued
-	  */
-	  "b_".concat(id, "_client_num_queued")];
-	};
+	  exports.allKeys = function (id) {
+	    return [
+	    /*
+	    HASH
+	    */
+	    "b_".concat(id, "_settings"),
+	    /*
+	    HASH
+	    job index -> weight
+	    */
+	    "b_".concat(id, "_job_weights"),
+	    /*
+	    ZSET
+	    job index -> expiration
+	    */
+	    "b_".concat(id, "_job_expirations"),
+	    /*
+	    HASH
+	    job index -> client
+	    */
+	    "b_".concat(id, "_job_clients"),
+	    /*
+	    ZSET
+	    client -> sum running
+	    */
+	    "b_".concat(id, "_client_running"),
+	    /*
+	    HASH
+	    client -> num queued
+	    */
+	    "b_".concat(id, "_client_num_queued")];
+	  };
 
-	templates = {
-	  init: {
-	    keys: defaultKeys,
-	    headers: ["process_tick"],
-	    refresh_expiration: true,
-	    code: lua$2["init.lua"]
-	  },
-	  group_check: {
-	    keys: function keys(id) {
-	      return ["b_".concat(id, "_settings")];
+	  templates = {
+	    init: {
+	      keys: exports.allKeys,
+	      headers: ["process_tick"],
+	      refresh_expiration: true,
+	      code: lua["init.lua"]
 	    },
-	    headers: [],
-	    refresh_expiration: false,
-	    code: lua$2["group_check.lua"]
-	  },
-	  group_delete_key: {
-	    keys: defaultKeys,
-	    headers: [],
-	    refresh_expiration: false,
-	    code: lua$2["group_delete_key.lua"]
-	  },
-	  register_client: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys"],
-	    refresh_expiration: false,
-	    code: lua$2["register_client.lua"]
-	  },
-	  heartbeat: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys", "process_tick"],
-	    refresh_expiration: false,
-	    code: lua$2["heartbeat.lua"]
-	  },
-	  update_settings: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys", "process_tick"],
-	    refresh_expiration: true,
-	    code: lua$2["update_settings.lua"]
-	  },
-	  running: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys", "process_tick"],
-	    refresh_expiration: false,
-	    code: lua$2["running.lua"]
-	  },
-	  done: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys", "process_tick"],
-	    refresh_expiration: false,
-	    code: lua$2["done.lua"]
-	  },
-	  check: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys", "process_tick", "conditions_check"],
-	    refresh_expiration: false,
-	    code: lua$2["check.lua"]
-	  },
-	  submit: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys", "process_tick", "conditions_check"],
-	    refresh_expiration: true,
-	    code: lua$2["submit.lua"]
-	  },
-	  register: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys", "process_tick", "conditions_check"],
-	    refresh_expiration: true,
-	    code: lua$2["register.lua"]
-	  },
-	  free: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys", "process_tick"],
-	    refresh_expiration: false,
-	    code: lua$2["free.lua"]
-	  },
-	  current_reservoir: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys", "process_tick"],
-	    refresh_expiration: false,
-	    code: lua$2["current_reservoir.lua"]
-	  },
-	  increment_reservoir: {
-	    keys: defaultKeys,
-	    headers: ["validate_keys", "process_tick"],
-	    refresh_expiration: true,
-	    code: lua$2["increment_reservoir.lua"]
-	  }
-	};
-	var names = Object.keys(templates);
+	    group_check: {
+	      keys: function keys(id) {
+	        return ["b_".concat(id, "_settings")];
+	      },
+	      headers: [],
+	      refresh_expiration: false,
+	      code: lua["group_check.lua"]
+	    },
+	    register_client: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys"],
+	      refresh_expiration: false,
+	      code: lua["register_client.lua"]
+	    },
+	    heartbeat: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys", "process_tick"],
+	      refresh_expiration: false,
+	      code: lua["heartbeat.lua"]
+	    },
+	    update_settings: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys", "process_tick"],
+	      refresh_expiration: true,
+	      code: lua["update_settings.lua"]
+	    },
+	    running: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys", "process_tick"],
+	      refresh_expiration: false,
+	      code: lua["running.lua"]
+	    },
+	    done: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys", "process_tick"],
+	      refresh_expiration: false,
+	      code: lua["done.lua"]
+	    },
+	    check: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys", "process_tick", "conditions_check"],
+	      refresh_expiration: false,
+	      code: lua["check.lua"]
+	    },
+	    submit: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys", "process_tick", "conditions_check"],
+	      refresh_expiration: true,
+	      code: lua["submit.lua"]
+	    },
+	    register: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys", "process_tick", "conditions_check"],
+	      refresh_expiration: true,
+	      code: lua["register.lua"]
+	    },
+	    free: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys", "process_tick"],
+	      refresh_expiration: false,
+	      code: lua["free.lua"]
+	    },
+	    current_reservoir: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys", "process_tick"],
+	      refresh_expiration: false,
+	      code: lua["current_reservoir.lua"]
+	    },
+	    increment_reservoir: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys", "process_tick"],
+	      refresh_expiration: true,
+	      code: lua["increment_reservoir.lua"]
+	    }
+	  };
+	  exports.names = Object.keys(templates);
 
-	var keys = function keys(name, id) {
-	  return templates[name].keys(id);
-	};
+	  exports.keys = function (name, id) {
+	    return templates[name].keys(id);
+	  };
 
-	var payload = function payload(name) {
-	  var template;
-	  template = templates[name];
-	  return Array.prototype.concat(headers.refs, template.headers.map(function (h) {
-	    return headers[h];
-	  }), template.refresh_expiration ? headers.refresh_expiration : "", template.code).join("\n");
-	};
-
-	var Scripts = {
-	  names: names,
-	  keys: keys,
-	  payload: payload
-	};
+	  exports.payload = function (name) {
+	    var template;
+	    template = templates[name];
+	    return Array.prototype.concat(headers.refs, template.headers.map(function (h) {
+	      return headers[h];
+	    }), template.refresh_expiration ? headers.refresh_expiration : "", template.code).join("\n");
+	  };
+	});
+	var Scripts_1 = Scripts.allKeys;
+	var Scripts_2 = Scripts.names;
+	var Scripts_3 = Scripts.keys;
+	var Scripts_4 = Scripts.payload;
 
 	var Events$2, RedisConnection, Scripts$1, parser$2;
 	parser$2 = parser;
@@ -2111,9 +2092,47 @@
 	        }));
 	      }
 	    }, {
+	      key: "__runCommand__",
+	      value: function () {
+	        var _runCommand__ = _asyncToGenerator(
+	        /*#__PURE__*/
+	        regeneratorRuntime.mark(function _callee(cmd) {
+	          var _this5 = this;
+
+	          return regeneratorRuntime.wrap(function _callee$(_context) {
+	            while (1) {
+	              switch (_context.prev = _context.next) {
+	                case 0:
+	                  _context.next = 2;
+	                  return this.ready;
+
+	                case 2:
+	                  return _context.abrupt("return", new this.Promise(function (resolve, reject) {
+	                    return _this5.client.multi([cmd]).exec_atomic(function (err, replies) {
+	                      if (err != null) {
+	                        return reject(err);
+	                      } else {
+	                        return resolve(replies[0]);
+	                      }
+	                    });
+	                  }));
+
+	                case 3:
+	                case "end":
+	                  return _context.stop();
+	              }
+	            }
+	          }, _callee, this);
+	        }));
+
+	        return function __runCommand__(_x) {
+	          return _runCommand__.apply(this, arguments);
+	        };
+	      }()
+	    }, {
 	      key: "__addLimiter__",
 	      value: function __addLimiter__(instance) {
-	        var _this5 = this;
+	        var _this6 = this;
 
 	        var channel;
 	        channel = instance.channel();
@@ -2122,16 +2141,16 @@
 
 	          _handler = function handler(chan) {
 	            if (chan === channel) {
-	              _this5.subscriber.removeListener("subscribe", _handler);
+	              _this6.subscriber.removeListener("subscribe", _handler);
 
-	              _this5.limiters[channel] = instance;
+	              _this6.limiters[channel] = instance;
 	              return resolve();
 	            }
 	          };
 
-	          _this5.subscriber.on("subscribe", _handler);
+	          _this6.subscriber.on("subscribe", _handler);
 
-	          return _this5.subscriber.subscribe(channel);
+	          return _this6.subscriber.subscribe(channel);
 	        });
 	      }
 	    }, {
@@ -2139,24 +2158,24 @@
 	      value: function () {
 	        var _removeLimiter__ = _asyncToGenerator(
 	        /*#__PURE__*/
-	        regeneratorRuntime.mark(function _callee(instance) {
-	          var _this6 = this;
+	        regeneratorRuntime.mark(function _callee2(instance) {
+	          var _this7 = this;
 
 	          var channel;
-	          return regeneratorRuntime.wrap(function _callee$(_context) {
+	          return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	            while (1) {
-	              switch (_context.prev = _context.next) {
+	              switch (_context2.prev = _context2.next) {
 	                case 0:
 	                  channel = instance.channel();
 
 	                  if (this.terminated) {
-	                    _context.next = 4;
+	                    _context2.next = 4;
 	                    break;
 	                  }
 
-	                  _context.next = 4;
+	                  _context2.next = 4;
 	                  return new this.Promise(function (resolve, reject) {
-	                    return _this6.subscriber.unsubscribe(channel, function (err, chan) {
+	                    return _this7.subscriber.unsubscribe(channel, function (err, chan) {
 	                      if (err != null) {
 	                        return reject(err);
 	                      }
@@ -2168,17 +2187,17 @@
 	                  });
 
 	                case 4:
-	                  return _context.abrupt("return", delete this.limiters[channel]);
+	                  return _context2.abrupt("return", delete this.limiters[channel]);
 
 	                case 5:
 	                case "end":
-	                  return _context.stop();
+	                  return _context2.stop();
 	              }
 	            }
-	          }, _callee, this);
+	          }, _callee2, this);
 	        }));
 
-	        return function __removeLimiter__(_x) {
+	        return function __removeLimiter__(_x2) {
 	          return _removeLimiter__.apply(this, arguments);
 	        };
 	      }()
@@ -2314,6 +2333,45 @@
 	        });
 	      }
 	    }, {
+	      key: "__runCommand__",
+	      value: function () {
+	        var _runCommand__ = _asyncToGenerator(
+	        /*#__PURE__*/
+	        regeneratorRuntime.mark(function _callee(cmd) {
+	          var _, deleted, _ref, _ref2, _ref2$;
+
+	          return regeneratorRuntime.wrap(function _callee$(_context) {
+	            while (1) {
+	              switch (_context.prev = _context.next) {
+	                case 0:
+	                  _context.next = 2;
+	                  return this.ready;
+
+	                case 2:
+	                  _context.next = 4;
+	                  return this.client.pipeline([cmd]).exec();
+
+	                case 4:
+	                  _ref = _context.sent;
+	                  _ref2 = _slicedToArray(_ref, 1);
+	                  _ref2$ = _slicedToArray(_ref2[0], 2);
+	                  _ = _ref2$[0];
+	                  deleted = _ref2$[1];
+	                  return _context.abrupt("return", deleted);
+
+	                case 10:
+	                case "end":
+	                  return _context.stop();
+	              }
+	            }
+	          }, _callee, this);
+	        }));
+
+	        return function __runCommand__(_x) {
+	          return _runCommand__.apply(this, arguments);
+	        };
+	      }()
+	    }, {
 	      key: "__addLimiter__",
 	      value: function __addLimiter__(instance) {
 	        var _this4 = this;
@@ -2332,34 +2390,34 @@
 	      value: function () {
 	        var _removeLimiter__ = _asyncToGenerator(
 	        /*#__PURE__*/
-	        regeneratorRuntime.mark(function _callee(instance) {
+	        regeneratorRuntime.mark(function _callee2(instance) {
 	          var channel;
-	          return regeneratorRuntime.wrap(function _callee$(_context) {
+	          return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	            while (1) {
-	              switch (_context.prev = _context.next) {
+	              switch (_context2.prev = _context2.next) {
 	                case 0:
 	                  channel = instance.channel();
 
 	                  if (this.terminated) {
-	                    _context.next = 4;
+	                    _context2.next = 4;
 	                    break;
 	                  }
 
-	                  _context.next = 4;
+	                  _context2.next = 4;
 	                  return this.subscriber.unsubscribe(channel);
 
 	                case 4:
-	                  return _context.abrupt("return", delete this.limiters[channel]);
+	                  return _context2.abrupt("return", delete this.limiters[channel]);
 
 	                case 5:
 	                case "end":
-	                  return _context.stop();
+	                  return _context2.stop();
 	              }
 	            }
-	          }, _callee, this);
+	          }, _callee2, this);
 	        }));
 
-	        return function __removeLimiter__(_x) {
+	        return function __removeLimiter__(_x2) {
 	          return _removeLimiter__.apply(this, arguments);
 	        };
 	      }()
@@ -2705,34 +2763,6 @@
 	      };
 	    }()
 	  }, {
-	    key: "__groupDeleteKey__",
-	    value: function () {
-	      var _groupDeleteKey__ = _asyncToGenerator(
-	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee5() {
-	        return regeneratorRuntime.wrap(function _callee5$(_context5) {
-	          while (1) {
-	            switch (_context5.prev = _context5.next) {
-	              case 0:
-	                _context5.next = 2;
-	                return this.runScript("group_delete_key", []);
-
-	              case 2:
-	                return _context5.abrupt("return", _context5.sent);
-
-	              case 3:
-	              case "end":
-	                return _context5.stop();
-	            }
-	          }
-	        }, _callee5, this);
-	      }));
-
-	      return function __groupDeleteKey__() {
-	        return _groupDeleteKey__.apply(this, arguments);
-	      };
-	    }()
-	  }, {
 	    key: "__incrementReservoir__",
 	    value: function __incrementReservoir__(incr) {
 	      return this.runScript("increment_reservoir", [incr]);
@@ -2747,25 +2777,25 @@
 	    value: function () {
 	      var _check__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee6(weight) {
-	        return regeneratorRuntime.wrap(function _callee6$(_context6) {
+	      regeneratorRuntime.mark(function _callee5(weight) {
+	        return regeneratorRuntime.wrap(function _callee5$(_context5) {
 	          while (1) {
-	            switch (_context6.prev = _context6.next) {
+	            switch (_context5.prev = _context5.next) {
 	              case 0:
-	                _context6.t0 = this;
-	                _context6.next = 3;
+	                _context5.t0 = this;
+	                _context5.next = 3;
 	                return this.runScript("check", this.prepareArray([weight]));
 
 	              case 3:
-	                _context6.t1 = _context6.sent;
-	                return _context6.abrupt("return", _context6.t0.convertBool.call(_context6.t0, _context6.t1));
+	                _context5.t1 = _context5.sent;
+	                return _context5.abrupt("return", _context5.t0.convertBool.call(_context5.t0, _context5.t1));
 
 	              case 5:
 	              case "end":
-	                return _context6.stop();
+	                return _context5.stop();
 	            }
 	          }
-	        }, _callee6, this);
+	        }, _callee5, this);
 	      }));
 
 	      return function __check__(_x5) {
@@ -2777,23 +2807,23 @@
 	    value: function () {
 	      var _register__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee7(index, weight, expiration) {
+	      regeneratorRuntime.mark(function _callee6(index, weight, expiration) {
 	        var reservoir, success, wait, _ref3, _ref4;
 
-	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
+	        return regeneratorRuntime.wrap(function _callee6$(_context6) {
 	          while (1) {
-	            switch (_context7.prev = _context7.next) {
+	            switch (_context6.prev = _context6.next) {
 	              case 0:
-	                _context7.next = 2;
+	                _context6.next = 2;
 	                return this.runScript("register", this.prepareArray([index, weight, expiration]));
 
 	              case 2:
-	                _ref3 = _context7.sent;
+	                _ref3 = _context6.sent;
 	                _ref4 = _slicedToArray(_ref3, 3);
 	                success = _ref4[0];
 	                wait = _ref4[1];
 	                reservoir = _ref4[2];
-	                return _context7.abrupt("return", {
+	                return _context6.abrupt("return", {
 	                  success: this.convertBool(success),
 	                  wait: wait,
 	                  reservoir: reservoir
@@ -2801,10 +2831,10 @@
 
 	              case 8:
 	              case "end":
-	                return _context7.stop();
+	                return _context6.stop();
 	            }
 	          }
-	        }, _callee7, this);
+	        }, _callee6, this);
 	      }));
 
 	      return function __register__(_x6, _x7, _x8) {
@@ -2816,36 +2846,36 @@
 	    value: function () {
 	      var _submit__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee8(queueLength, weight) {
+	      regeneratorRuntime.mark(function _callee7(queueLength, weight) {
 	        var blocked, e, maxConcurrent, overweight, reachedHWM, strategy, _ref5, _ref6, _e$message$split, _e$message$split2;
 
-	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
+	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
 	          while (1) {
-	            switch (_context8.prev = _context8.next) {
+	            switch (_context7.prev = _context7.next) {
 	              case 0:
-	                _context8.prev = 0;
-	                _context8.next = 3;
+	                _context7.prev = 0;
+	                _context7.next = 3;
 	                return this.runScript("submit", this.prepareArray([queueLength, weight]));
 
 	              case 3:
-	                _ref5 = _context8.sent;
+	                _ref5 = _context7.sent;
 	                _ref6 = _slicedToArray(_ref5, 3);
 	                reachedHWM = _ref6[0];
 	                blocked = _ref6[1];
 	                strategy = _ref6[2];
-	                return _context8.abrupt("return", {
+	                return _context7.abrupt("return", {
 	                  reachedHWM: this.convertBool(reachedHWM),
 	                  blocked: this.convertBool(blocked),
 	                  strategy: strategy
 	                });
 
 	              case 11:
-	                _context8.prev = 11;
-	                _context8.t0 = _context8["catch"](0);
-	                e = _context8.t0;
+	                _context7.prev = 11;
+	                _context7.t0 = _context7["catch"](0);
+	                e = _context7.t0;
 
 	                if (!(e.message.indexOf("OVERWEIGHT") === 0)) {
-	                  _context8.next = 23;
+	                  _context7.next = 23;
 	                  break;
 	                }
 
@@ -2861,10 +2891,10 @@
 
 	              case 24:
 	              case "end":
-	                return _context8.stop();
+	                return _context7.stop();
 	            }
 	          }
-	        }, _callee8, this, [[0, 11]]);
+	        }, _callee7, this, [[0, 11]]);
 	      }));
 
 	      return function __submit__(_x9, _x10) {
@@ -2876,27 +2906,27 @@
 	    value: function () {
 	      var _free__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee9(index, weight) {
+	      regeneratorRuntime.mark(function _callee8(index, weight) {
 	        var running;
-	        return regeneratorRuntime.wrap(function _callee9$(_context9) {
+	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
 	          while (1) {
-	            switch (_context9.prev = _context9.next) {
+	            switch (_context8.prev = _context8.next) {
 	              case 0:
-	                _context9.next = 2;
+	                _context8.next = 2;
 	                return this.runScript("free", this.prepareArray([index]));
 
 	              case 2:
-	                running = _context9.sent;
-	                return _context9.abrupt("return", {
+	                running = _context8.sent;
+	                return _context8.abrupt("return", {
 	                  running: running
 	                });
 
 	              case 4:
 	              case "end":
-	                return _context9.stop();
+	                return _context8.stop();
 	            }
 	          }
-	        }, _callee9, this);
+	        }, _callee8, this);
 	      }));
 
 	      return function __free__(_x11, _x12) {
@@ -3220,11 +3250,12 @@
 		default: _package
 	});
 
-	var Events$4, Group, IORedisConnection$2, RedisConnection$2, parser$5;
+	var Events$4, Group, IORedisConnection$2, RedisConnection$2, Scripts$3, parser$5;
 	parser$5 = parser;
 	Events$4 = Events_1;
 	RedisConnection$2 = RedisConnection_1;
 	IORedisConnection$2 = IORedisConnection_1;
+	Scripts$3 = Scripts;
 
 	Group = function () {
 	  var Group =
@@ -3288,6 +3319,7 @@
 	        /*#__PURE__*/
 	        regeneratorRuntime.mark(function _callee() {
 	          var key,
+	              deleted,
 	              instance,
 	              _args = arguments;
 	          return regeneratorRuntime.wrap(function _callee$(_context) {
@@ -3297,23 +3329,31 @@
 	                  key = _args.length > 0 && _args[0] !== undefined ? _args[0] : "";
 	                  instance = this.instances[key];
 
+	                  if (!this.connection) {
+	                    _context.next = 6;
+	                    break;
+	                  }
+
+	                  _context.next = 5;
+	                  return this.connection.__runCommand__(['del'].concat(_toConsumableArray(Scripts$3.allKeys("".concat(this.id, "-").concat(key)))));
+
+	                case 5:
+	                  deleted = _context.sent;
+
+	                case 6:
 	                  if (!(instance != null)) {
-	                    _context.next = 8;
+	                    _context.next = 10;
 	                    break;
 	                  }
 
 	                  delete this.instances[key];
-	                  _context.next = 6;
-	                  return instance._store.__groupDeleteKey__();
-
-	                case 6:
-	                  _context.next = 8;
+	                  _context.next = 10;
 	                  return instance.disconnect();
 
-	                case 8:
-	                  return _context.abrupt("return", instance != null);
+	                case 10:
+	                  return _context.abrupt("return", instance != null || deleted > 0);
 
-	                case 9:
+	                case 11:
 	                case "end":
 	                  return _context.stop();
 	              }

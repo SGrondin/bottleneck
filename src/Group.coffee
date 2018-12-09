@@ -2,6 +2,7 @@ parser = require "./parser"
 Events = require "./Events"
 RedisConnection = require "./RedisConnection"
 IORedisConnection = require "./IORedisConnection"
+Scripts = require "./Scripts"
 
 class Group
   defaults:
@@ -34,11 +35,12 @@ class Group
 
   deleteKey: (key="") =>
     instance = @instances[key]
+    if @connection
+      deleted = await @connection.__runCommand__ ['del', Scripts.allKeys("#{@id}-#{key}")...]
     if instance?
       delete @instances[key]
-      await instance._store.__groupDeleteKey__()
       await instance.disconnect()
-    instance?
+    instance? or deleted > 0
 
   limiters: -> { key: k, limiter: v } for k, v of @instances
 
