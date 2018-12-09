@@ -150,6 +150,11 @@ group.updateSettings({ timeout: 5, maxConcurrent: null, reservoir: null });
 let keys: string[] = group.keys();
 assert(keys.length == 3);
 
+group.clusterKeys()
+.then(function (allKeys: string[]) {
+  let count = allKeys.length;
+})
+
 let queued: number = limiter.chain(group.key("pizza")).queued();
 
 limiter.stop({

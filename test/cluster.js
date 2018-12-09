@@ -1050,5 +1050,44 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
+    it('Should returns all Group keys in the cluster', async function () {
+      c = makeTest()
+      var group1 = new Bottleneck.Group({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'same',
+        timeout: 3000
+      })
+      var group2 = new Bottleneck.Group({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'same',
+        timeout: 3000
+      })
+      var keys1 = ['lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur']
+      var keys2 = ['adipiscing', 'elit']
+      var both = keys1.concat(keys2)
+
+      await Promise.all(keys1.map((k) => group1.key(k).ready()))
+      await Promise.all(keys2.map((k) => group2.key(k).ready()))
+
+      c.mustEqual(group1.keys().sort(), keys1.sort())
+      c.mustEqual(group2.keys().sort(), keys2.sort())
+      c.mustEqual(
+        (await group1.clusterKeys()).sort(),
+        both.sort()
+      )
+      c.mustEqual(
+        (await group1.clusterKeys()).sort(),
+        both.sort()
+      )
+
+      var group3 = new Bottleneck.Group({ datastore: 'local' })
+      c.mustEqual(await group3.clusterKeys(), [])
+
+      await group1.disconnect(false)
+      await group2.disconnect(false)
+    })
+
   })
 }

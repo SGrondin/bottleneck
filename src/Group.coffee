@@ -8,6 +8,7 @@ class Group
   defaults:
     timeout: 1000 * 60 * 5
     connection: null
+    Promise: Promise
     id: "group-key"
 
   constructor: (@limiterOptions={}) ->
@@ -45,6 +46,18 @@ class Group
   limiters: -> { key: k, limiter: v } for k, v of @instances
 
   keys: -> Object.keys @instances
+
+  clusterKeys: ->
+    if !@connection? then return @Promise.resolve @keys()
+    keys = []
+    cursor = null
+    start = "b_#{@id}-".length
+    end = "_settings".length
+    until cursor == 0
+      [next, found] = await @connection.__runCommand__ ["scan", (cursor ? 0), "match", "b_#{@id}-*_settings", "count", 10000]
+      cursor = ~~next
+      keys.push(k.slice(start, -end)) for k in found
+    keys
 
   _startAutoCleanup: ->
     clearInterval @interval

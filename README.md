@@ -527,6 +527,10 @@ __keys()__
 
 Returns an array containing all the keys in the Group.
 
+__clusterKeys()__
+
+Same as `group.keys()`, but returns all keys in this Group ID across the Cluster.
+
 __limiters()__
 
 ```js

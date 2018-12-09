@@ -3388,6 +3388,70 @@
 	        return Object.keys(this.instances);
 	      }
 	    }, {
+	      key: "clusterKeys",
+	      value: function () {
+	        var _clusterKeys = _asyncToGenerator(
+	        /*#__PURE__*/
+	        regeneratorRuntime.mark(function _callee2() {
+	          var cursor, end, found, i, k, keys, len, next, start, _ref, _ref2;
+
+	          return regeneratorRuntime.wrap(function _callee2$(_context2) {
+	            while (1) {
+	              switch (_context2.prev = _context2.next) {
+	                case 0:
+	                  if (!(this.connection == null)) {
+	                    _context2.next = 2;
+	                    break;
+	                  }
+
+	                  return _context2.abrupt("return", this.Promise.resolve(this.keys()));
+
+	                case 2:
+	                  keys = [];
+	                  cursor = null;
+	                  start = "b_".concat(this.id, "-").length;
+	                  end = "_settings".length;
+
+	                case 6:
+	                  if (!(cursor !== 0)) {
+	                    _context2.next = 17;
+	                    break;
+	                  }
+
+	                  _context2.next = 9;
+	                  return this.connection.__runCommand__(["scan", cursor != null ? cursor : 0, "match", "b_".concat(this.id, "-*_settings"), "count", 10000]);
+
+	                case 9:
+	                  _ref = _context2.sent;
+	                  _ref2 = _slicedToArray(_ref, 2);
+	                  next = _ref2[0];
+	                  found = _ref2[1];
+	                  cursor = ~~next;
+
+	                  for (i = 0, len = found.length; i < len; i++) {
+	                    k = found[i];
+	                    keys.push(k.slice(start, -end));
+	                  }
+
+	                  _context2.next = 6;
+	                  break;
+
+	                case 17:
+	                  return _context2.abrupt("return", keys);
+
+	                case 18:
+	                case "end":
+	                  return _context2.stop();
+	              }
+	            }
+	          }, _callee2, this);
+	        }));
+
+	        return function clusterKeys() {
+	          return _clusterKeys.apply(this, arguments);
+	        };
+	      }()
+	    }, {
 	      key: "_startAutoCleanup",
 	      value: function _startAutoCleanup() {
 	        var _this2 = this;
@@ -3398,65 +3462,65 @@
 	        /*#__PURE__*/
 	        _asyncToGenerator(
 	        /*#__PURE__*/
-	        regeneratorRuntime.mark(function _callee2() {
+	        regeneratorRuntime.mark(function _callee3() {
 	          var e, k, ref, results, time, v;
-	          return regeneratorRuntime.wrap(function _callee2$(_context2) {
+	          return regeneratorRuntime.wrap(function _callee3$(_context3) {
 	            while (1) {
-	              switch (_context2.prev = _context2.next) {
+	              switch (_context3.prev = _context3.next) {
 	                case 0:
 	                  time = Date.now();
 	                  ref = _this2.instances;
 	                  results = [];
-	                  _context2.t0 = regeneratorRuntime.keys(ref);
+	                  _context3.t0 = regeneratorRuntime.keys(ref);
 
 	                case 4:
-	                  if ((_context2.t1 = _context2.t0()).done) {
-	                    _context2.next = 23;
+	                  if ((_context3.t1 = _context3.t0()).done) {
+	                    _context3.next = 23;
 	                    break;
 	                  }
 
-	                  k = _context2.t1.value;
+	                  k = _context3.t1.value;
 	                  v = ref[k];
-	                  _context2.prev = 7;
-	                  _context2.next = 10;
+	                  _context3.prev = 7;
+	                  _context3.next = 10;
 	                  return v._store.__groupCheck__(time);
 
 	                case 10:
-	                  if (!_context2.sent) {
-	                    _context2.next = 14;
+	                  if (!_context3.sent) {
+	                    _context3.next = 14;
 	                    break;
 	                  }
 
 	                  results.push(_this2.deleteKey(k));
-	                  _context2.next = 15;
+	                  _context3.next = 15;
 	                  break;
 
 	                case 14:
 	                  results.push(void 0);
 
 	                case 15:
-	                  _context2.next = 21;
+	                  _context3.next = 21;
 	                  break;
 
 	                case 17:
-	                  _context2.prev = 17;
-	                  _context2.t2 = _context2["catch"](7);
-	                  e = _context2.t2;
+	                  _context3.prev = 17;
+	                  _context3.t2 = _context3["catch"](7);
+	                  e = _context3.t2;
 	                  results.push(v.Events.trigger("error", [e]));
 
 	                case 21:
-	                  _context2.next = 4;
+	                  _context3.next = 4;
 	                  break;
 
 	                case 23:
-	                  return _context2.abrupt("return", results);
+	                  return _context3.abrupt("return", results);
 
 	                case 24:
 	                case "end":
-	                  return _context2.stop();
+	                  return _context3.stop();
 	              }
 	            }
-	          }, _callee2, this, [[7, 17]]);
+	          }, _callee3, this, [[7, 17]]);
 	        })), this.timeout / 2)).unref === "function" ? base.unref() : void 0;
 	      }
 	    }, {
@@ -3487,6 +3551,7 @@
 	  Group.prototype.defaults = {
 	    timeout: 1000 * 60 * 5,
 	    connection: null,
+	    Promise: Promise,
 	    id: "group-key"
 	  };
 	  return Group;

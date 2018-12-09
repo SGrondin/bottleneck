@@ -320,9 +320,14 @@ declare module "bottleneck" {
             limiters(): Bottleneck.GroupLimiterPair[];
 
             /**
-             * Returns all the keys in the Cluster
+             * Returns all Group keys in the local instance
              */
             keys(): string[];
+
+            /**
+             * Returns all Group keys in the Cluster
+             */
+            clusterKeys(): Promise<string[]>;
         }
     }
 
