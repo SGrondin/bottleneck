@@ -19,6 +19,11 @@ describe('General', function () {
     }
   })
 
+  it('Should allow null capacity', function () {
+    c = makeTest({ id: 'null', minTime: 0 })
+    return c.limiter.updateSettings({ minTime: 10 })
+  })
+
   describe('Counts and statuses', function () {
     it('Should check() and return the queued count with and without a priority value', function () {
       c = makeTest({maxConcurrent: 1, minTime: 100})
