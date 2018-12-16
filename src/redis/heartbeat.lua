@@ -1,1 +1,1 @@
-process_tick(now, false)
+process_tick(now, true)

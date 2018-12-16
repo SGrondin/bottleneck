@@ -31,7 +31,7 @@ class RedisConnection
       client.on "error", (e) => @Events.trigger "error", [e]
       if sub
         client.on "message", (channel, message) =>
-          @limiters[channel]?._store.onMessage message
+          @limiters[channel]?._store.onMessage channel, message
       if client.ready then resolve()
       else client.once "ready", resolve
 
@@ -52,24 +52,24 @@ class RedisConnection
         if err? then reject(err) else resolve(replies[0])
 
   __addLimiter__: (instance) ->
-    channel = instance.channel()
-    new @Promise (resolve, reject) =>
-      handler = (chan) =>
-        if chan == channel
-          @subscriber.removeListener "subscribe", handler
-          @limiters[channel] = instance
-          resolve()
-      @subscriber.on "subscribe", handler
-      @subscriber.subscribe channel
+    @Promise.all [instance.channel(), instance.channel_client()].map (channel) =>
+      new @Promise (resolve, reject) =>
+        handler = (chan) =>
+          if chan == channel
+            @subscriber.removeListener "subscribe", handler
+            @limiters[channel] = instance
+            resolve()
+        @subscriber.on "subscribe", handler
+        @subscriber.subscribe channel
 
   __removeLimiter__: (instance) ->
-    channel = instance.channel()
-    unless @terminated
-      await new @Promise (resolve, reject) =>
-        @subscriber.unsubscribe channel, (err, chan) ->
-          if err? then return reject err
-          if chan == channel then return resolve()
-    delete @limiters[channel]
+    @Promise.all [instance.channel(), instance.channel_client()].map (channel) =>
+      unless @terminated
+        await new @Promise (resolve, reject) =>
+          @subscriber.unsubscribe channel, (err, chan) ->
+            if err? then return reject err
+            if chan == channel then return resolve()
+      delete @limiters[channel]
 
   __scriptArgs__: (name, id, args, cb) ->
     keys = Scripts.keys name, id

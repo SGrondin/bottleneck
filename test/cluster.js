@@ -407,7 +407,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
-    it('Should remove lost jobs', function () {
+    it('Should remove track job data and remove lost jobs', function () {
       c = makeTest({
         id: 'lost',
         errorEventsExpected: true
@@ -420,20 +420,25 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           heartbeatInterval: 150
         })
       var getData = function (limiter) {
-        c.mustEqual(limiterKeys(limiter).length, 6) // Asserting, to remember to edit this test when keys change
+        c.mustEqual(limiterKeys(limiter).length, 7) // Asserting, to remember to edit this test when keys change
         var [
           settings_key,
           job_weights_key,
           job_expirations_key,
           job_clients_key,
-          client_running_key
+          client_running_key,
+          client_num_queued_key,
+          client_last_registered_key
         ] = limiterKeys(limiter)
+
         return Promise.all([
           runCommand(limiter1, 'hmget', [settings_key, 'running', 'done']),
           runCommand(limiter1, 'hgetall', [job_weights_key]),
           runCommand(limiter1, 'zcard', [job_expirations_key]),
           runCommand(limiter1, 'hvals', [job_clients_key]),
-          runCommand(limiter1, 'zrange', [client_running_key, '0', '-1', 'withscores'])
+          runCommand(limiter1, 'zrange', [client_running_key, '0', '-1', 'withscores']),
+          runCommand(limiter1, 'hvals', [client_num_queued_key]),
+          runCommand(limiter1, 'zrange', [client_last_registered_key, '0', '-1', 'withscores'])
         ])
       }
       var sumWeights = function (weights) {
@@ -466,26 +471,50 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       .then(function () {
         return getData(c.limiter)
       })
-      .then(function ([settings, job_weights, job_expirations, job_clients, client_running]) {
+      .then(function ([
+          settings,
+          job_weights,
+          job_expirations,
+          job_clients,
+          client_running,
+          client_num_queued,
+          client_last_registered
+      ]) {
         c.mustEqual(settings, ['15', '0'])
         c.mustEqual(sumWeights(job_weights), 15)
         c.mustEqual(job_expirations, 4)
         c.mustEqual(job_clients.length, 5)
         job_clients.forEach((id) => c.mustEqual(id, clientId))
         c.mustEqual(sumWeights(client_running), 15)
+        c.mustEqual(client_num_queued, ['0', '0'])
+        c.mustEqual(client_last_registered[1], '0')
+        var passed = Date.now() - parseFloat(client_last_registered[3])
+        assert(passed > 0 && passed < 20)
 
         return c.wait(170)
       })
       .then(function () {
         return getData(c.limiter)
       })
-      .then(function ([settings, job_weights, job_expirations, job_clients, client_running]) {
+      .then(function ([
+        settings,
+        job_weights,
+        job_expirations,
+        job_clients,
+        client_running,
+        client_num_queued,
+        client_last_registered
+      ]) {
         c.mustEqual(settings, ['1', '14'])
         c.mustEqual(sumWeights(job_weights), 1)
         c.mustEqual(job_expirations, 0)
         c.mustEqual(job_clients.length, 1)
         job_clients.forEach((id) => c.mustEqual(id, clientId))
         c.mustEqual(sumWeights(client_running), 1)
+        c.mustEqual(client_num_queued, ['0', '0'])
+        c.mustEqual(client_last_registered[1], '0')
+        var passed = Date.now() - parseFloat(client_last_registered[3])
+        assert(passed > 170 && passed < 200)
       })
       .then(function () {
         return Promise.all([
@@ -640,7 +669,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return deleteKeys(limiter)
       })
       .then(function (deleted) {
-        c.mustEqual(deleted, 1)
+        c.mustEqual(deleted, 4)
         return limiter.disconnect(false)
       })
     })
@@ -655,7 +684,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return deleteKeys(limiter)
       })
       .then(function (deleted) {
-        c.mustEqual(deleted, 1) // Should be 1, since 1 key should have been deleted
+        c.mustEqual(deleted, 4)
         return countKeys(limiter)
       })
       .then(function (count) {
@@ -889,7 +918,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return Promise.all([countKeys(limiter1), countKeys(limiter2), countKeys(limiter3)])
       })
       .then(function (counts) {
-        c.mustEqual(counts, [1, 1, 1])
+        c.mustEqual(counts, [4, 4, 4])
         return Promise.all([
           limiter1.schedule(job, 'a'),
           limiter1.schedule(job, 'b'),
@@ -1087,6 +1116,185 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
       await group1.disconnect(false)
       await group2.disconnect(false)
+    })
+
+    it('Should queue up the least busy limiter', async function () {
+      c = makeTest()
+      var limiter1 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'busy',
+        timeout: 3000,
+        maxConcurrent: 3,
+        trackDoneStatus: true
+      })
+      var limiter2 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'busy',
+        timeout: 3000,
+        maxConcurrent: 3,
+        trackDoneStatus: true
+      })
+      var limiter3 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'busy',
+        timeout: 3000,
+        maxConcurrent: 3,
+        trackDoneStatus: true
+      })
+      var limiter4 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'busy',
+        timeout: 3000,
+        maxConcurrent: 3,
+        trackDoneStatus: true
+      })
+      var runningOrExecuting = function (limiter) {
+        var counts = limiter.counts()
+        return counts.RUNNING + counts.EXECUTING
+      }
+
+      var resolve1, resolve2, resolve3, resolve4, resolve5, resolve6, resolve7
+      var p1 = new Promise(function (resolve, reject) {
+        resolve1 = function (err, n) { resolve(n) }
+      })
+      var p2 = new Promise(function (resolve, reject) {
+        resolve2 = function (err, n) { resolve(n) }
+      })
+      var p3 = new Promise(function (resolve, reject) {
+        resolve3 = function (err, n) { resolve(n) }
+      })
+      var p4 = new Promise(function (resolve, reject) {
+        resolve4 = function (err, n) { resolve(n) }
+      })
+      var p5 = new Promise(function (resolve, reject) {
+        resolve5 = function (err, n) { resolve(n) }
+      })
+      var p6 = new Promise(function (resolve, reject) {
+        resolve6 = function (err, n) { resolve(n) }
+      })
+      var p7 = new Promise(function (resolve, reject) {
+        resolve7 = function (err, n) { resolve(n) }
+      })
+
+      await limiter1.schedule({id: '1'}, c.promise, null, 'A')
+      await limiter2.schedule({id: '2'}, c.promise, null, 'B')
+      await limiter3.schedule({id: '3'}, c.promise, null, 'C')
+      await limiter4.schedule({id: '4'}, c.promise, null, 'D')
+
+      await limiter1.submit({id: 'A'}, c.slowJob, 50, null, 1, resolve1)
+      await limiter1.submit({id: 'B'}, c.slowJob, 500, null, 2, resolve2)
+      await limiter2.submit({id: 'C'}, c.slowJob, 550, null, 3, resolve3)
+
+      c.mustEqual(runningOrExecuting(limiter1), 2)
+      c.mustEqual(runningOrExecuting(limiter2), 1)
+
+      await limiter3.submit({id: 'D'}, c.slowJob, 50, null, 4, resolve4)
+      await limiter4.submit({id: 'E'}, c.slowJob, 50, null, 5, resolve5)
+      await limiter3.submit({id: 'F'}, c.slowJob, 50, null, 6, resolve6)
+      await limiter4.submit({id: 'G'}, c.slowJob, 50, null, 7, resolve7)
+
+      c.mustEqual(limiter3.counts().QUEUED, 2)
+      c.mustEqual(limiter4.counts().QUEUED, 2)
+
+      await Promise.all([p1, p2, p3, p4, p5, p6, p7])
+
+      c.checkResultsOrder([['A'],['B'],['C'],['D'],[1],[4],[5],[6],[7],[2],[3]])
+
+      await limiter1.disconnect(false)
+      await limiter2.disconnect(false)
+      await limiter3.disconnect(false)
+      await limiter4.disconnect(false)
+    })
+
+    it('Should pass the remaining capacity to other limiters', async function () {
+      c = makeTest()
+      var limiter1 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'busy',
+        timeout: 3000,
+        maxConcurrent: 3,
+        trackDoneStatus: true
+      })
+      var limiter2 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'busy',
+        timeout: 3000,
+        maxConcurrent: 3,
+        trackDoneStatus: true
+      })
+      var limiter3 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'busy',
+        timeout: 3000,
+        maxConcurrent: 3,
+        trackDoneStatus: true
+      })
+      var limiter4 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'busy',
+        timeout: 3000,
+        maxConcurrent: 3,
+        trackDoneStatus: true
+      })
+      var runningOrExecuting = function (limiter) {
+        var counts = limiter.counts()
+        return counts.RUNNING + counts.EXECUTING
+      }
+      var t3, t4
+
+      var resolve1, resolve2, resolve3, resolve4, resolve5
+      var p1 = new Promise(function (resolve, reject) {
+        resolve1 = function (err, n) { resolve(n) }
+      })
+      var p2 = new Promise(function (resolve, reject) {
+        resolve2 = function (err, n) { resolve(n) }
+      })
+      var p3 = new Promise(function (resolve, reject) {
+        resolve3 = function (err, n) { t3 = Date.now(); resolve(n) }
+      })
+      var p4 = new Promise(function (resolve, reject) {
+        resolve4 = function (err, n) { t4 = Date.now(); resolve(n) }
+      })
+      var p5 = new Promise(function (resolve, reject) {
+        resolve5 = function (err, n) { resolve(n) }
+      })
+
+      await limiter1.schedule({id: '1'}, c.promise, null, 'A')
+      await limiter2.schedule({id: '2'}, c.promise, null, 'B')
+      await limiter3.schedule({id: '3'}, c.promise, null, 'C')
+      await limiter4.schedule({id: '4'}, c.promise, null, 'D')
+
+      await limiter1.submit({id: 'A', weight: 2}, c.slowJob, 50, null, 1, resolve1)
+      await limiter2.submit({id: 'C'}, c.slowJob, 550, null, 2, resolve2)
+
+      c.mustEqual(runningOrExecuting(limiter1), 1)
+      c.mustEqual(runningOrExecuting(limiter2), 1)
+
+      await limiter3.submit({id: 'D'}, c.slowJob, 50, null, 3, resolve3)
+      await limiter4.submit({id: 'E'}, c.slowJob, 50, null, 4, resolve4)
+      await limiter4.submit({id: 'G'}, c.slowJob, 50, null, 5, resolve5)
+
+      c.mustEqual(limiter3.counts().QUEUED, 1)
+      c.mustEqual(limiter4.counts().QUEUED, 2)
+
+      await Promise.all([p1, p2, p3, p4, p5])
+
+      c.checkResultsOrder([['A'],['B'],['C'],['D'],[1],[3],[4],[5],[2]])
+
+      assert(Math.abs(t3 - t4) < 15)
+
+      await limiter1.disconnect(false)
+      await limiter2.disconnect(false)
+      await limiter3.disconnect(false)
+      await limiter4.disconnect(false)
     })
 
   })

@@ -91,6 +91,8 @@ class Bottleneck
 
   channel: -> "b_#{@id}"
 
+  channel_client: -> "b_#{@id}_#{@_store.clientId}"
+
   publish: (message) -> @_store.__publish__ message
 
   disconnect: (flush=true) -> @_store.__disconnect__ flush

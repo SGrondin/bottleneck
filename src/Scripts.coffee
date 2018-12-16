@@ -43,6 +43,12 @@ exports.allKeys = (id) -> [
   client -> num queued
   ###
   "b_#{id}_client_num_queued"
+
+  ###
+  ZSET
+  client -> last job registered
+  ###
+  "b_#{id}_client_last_registered"
 ]
 
 templates =

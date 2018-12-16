@@ -3,6 +3,7 @@ BottleneckError = require "./BottleneckError"
 
 class LocalDatastore
   constructor: (@instance, @storeOptions, storeInstanceOptions) ->
+    @clientId = @instance._randomIndex()
     parser.load storeInstanceOptions, storeInstanceOptions, @
     @_nextRequest = @_lastReservoirRefresh = Date.now()
     @_running = 0

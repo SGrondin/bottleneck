@@ -20,7 +20,7 @@ class RedisDatastore
     @ready = @connection.ready
     .then (@clients) => @runScript "init", @prepareInitSettings @clearDatastore
     .then => @connection.__addLimiter__ @instance
-    .then => @runScript "register_client", []
+    .then => @runScript "register_client", [@instance.queued()]
     .then =>
       (@heartbeat = setInterval =>
         @runScript "heartbeat", []
@@ -32,11 +32,13 @@ class RedisDatastore
     { client } = await @ready
     client.publish(@instance.channel(), "message:#{message.toString()}")
 
-  onMessage: (message) ->
+  onMessage: (channel, message) ->
     pos = message.indexOf(":")
     [type, data] = [message.slice(0, pos), message.slice(pos+1)]
     if type == "capacity"
-      @instance._drainAll(if data.length > 0 then ~~data)
+      await @instance._drainAll(if data.length > 0 then ~~data)
+      if channel == @instance.channel_client()
+        await @clients.client.publish(@instance.channel(), "capacity:")
     else if type == "message"
       @instance.Events.trigger "message", [data]
     else if type == "blocked"

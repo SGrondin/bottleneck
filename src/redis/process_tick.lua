@@ -103,14 +103,53 @@ local process_tick = function (now, always_publish)
   --
   local final_capacity = compute_capacity(maxConcurrent, running, reservoir)
 
-  if always_publish or (
-    -- was not unlimited, now unlimited
-    initial_capacity ~= nil and final_capacity == nil
-  ) or (
-    -- capacity was increased
-    initial_capacity ~= nil and final_capacity ~= nil and final_capacity > initial_capacity
-  ) then
+  if always_publish or (initial_capacity ~= nil and final_capacity == nil) then
+    -- always_publish or was not unlimited, now unlimited
     redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))
+
+  elseif initial_capacity ~= nil and final_capacity ~= nil and final_capacity > initial_capacity then
+    -- capacity was increased
+
+    local lowest_concurrency_value = nil
+    local lowest_concurrency_clients = {}
+    local lowest_concurrency_last_registered = {}
+    local client_concurrencies = redis.call('zrange', client_running_key, 0, -1, 'withscores')
+
+    for i = 1, #client_concurrencies, 2 do
+      local client = client_concurrencies[i]
+      local concurrency = tonumber(client_concurrencies[i+1])
+
+      if (
+        lowest_concurrency_value == nil or lowest_concurrency_value == concurrency
+      ) and (
+        tonumber(redis.call('hget', client_num_queued_key, client)) > 0
+      ) and (
+        tonumber(redis.call('pubsub', 'numsub', 'b_'..id..'_'..client)[2]) > 0
+      ) then
+        lowest_concurrency_value = concurrency
+        table.insert(lowest_concurrency_clients, client)
+        local last_registered = tonumber(redis.call('zscore', client_last_registered_key, client))
+        table.insert(lowest_concurrency_last_registered, last_registered)
+      end
+    end
+
+    if #lowest_concurrency_clients > 0 then
+      local position = 1
+      local earliest = lowest_concurrency_last_registered[1]
+
+      for i,v in ipairs(lowest_concurrency_last_registered) do
+        if v < earliest then
+          position = i
+          earliest = v
+        end
+      end
+
+      local next_client = lowest_concurrency_clients[position]
+      redis.call('publish', 'b_'..id..'_'..next_client, 'capacity:'..(final_capacity or ''))
+    else
+      redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))
+    end
+
   end
 
   return {final_capacity, running, reservoir}

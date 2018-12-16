@@ -36,7 +36,7 @@ class IORedisConnection
       client.on "error", (e) => @Events.trigger "error", [e]
       if sub
         client.on "message", (channel, message) =>
-          @limiters[channel]?._store.onMessage message
+          @limiters[channel]?._store.onMessage channel, message
       if client.status == "ready" then resolve()
       else client.once "ready", resolve
 
@@ -48,16 +48,16 @@ class IORedisConnection
     deleted
 
   __addLimiter__: (instance) ->
-    channel = instance.channel()
-    new @Promise (resolve, reject) =>
-      @subscriber.subscribe channel, =>
-        @limiters[channel] = instance
-        resolve()
+    @Promise.all [instance.channel(), instance.channel_client()].map (channel) =>
+      new @Promise (resolve, reject) =>
+        @subscriber.subscribe channel, =>
+          @limiters[channel] = instance
+          resolve()
 
   __removeLimiter__: (instance) ->
-    channel = instance.channel()
-    await @subscriber.unsubscribe channel unless @terminated
-    delete @limiters[channel]
+    [instance.channel(), instance.channel_client()].forEach (channel) =>
+      await @subscriber.unsubscribe channel unless @terminated
+      delete @limiters[channel]
 
   __scriptArgs__: (name, id, args, cb) ->
     keys = Scripts.keys name, id
