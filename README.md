@@ -28,7 +28,6 @@ var Bottleneck = require("bottleneck/es5");
 
 ## Quick Start
 
-
 ### Step 1 of 3
 
 Most APIs have a rate limit. For example, to execute 3 requests per second:
@@ -129,6 +128,14 @@ Bottleneck builds a queue of jobs and executes them as soon as possible. By defa
 Instead of throttling maybe [you want to batch up requests](#batching) into fewer calls?
 
 #### Gotchas
+
+* If you're passing an object's method as a job, you'll probably need to `bind()` the object:
+```js
+// instead of this:
+limiter.schedule(() => object.doSomething(arg1, arg2));
+// do this:
+limiter.schedule(() => object.doSomething.bind(object)(arg1, arg2));
+```
 
 * Bottleneck requires Node 6+ to function. However, an ES5 build is included: `import Bottleneck from "bottleneck/es5";`.
 

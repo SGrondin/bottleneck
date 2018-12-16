@@ -59,7 +59,7 @@ class RedisDatastore
       arr = @connection.__scriptArgs__ name, @originalId, args_ts, (err, replies) ->
         if err? then return reject err
         return resolve replies
-      @connection.__scriptFn__(name).apply {}, arr
+      @connection.__scriptFn__(name) arr...
     .catch (e) =>
       if e.message == "SETTINGS_KEY_NOT_FOUND" and name != "heartbeat"
         @runScript("init", @prepareInitSettings(false))

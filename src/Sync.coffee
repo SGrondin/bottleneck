@@ -8,20 +8,20 @@ class Sync
     if (@_running < 1) and @_queue.length > 0
       @_running++
       next = @_queue.shift()
-      next.task.apply {}, next.args.concat (args...) =>
+      next.task next.args..., (args...) =>
         @_running--
         @_tryToRun()
-        next.cb?.apply {}, args
+        next.cb? args...
   submit: (task, args..., cb) =>
     @_queue.push {task, args, cb}
     @_tryToRun()
   schedule: (task, args...) ->
     wrapped = (args..., cb) ->
-      (task.apply {}, args)
-      .then (args...) -> cb.apply {}, Array::concat null, args
-      .catch (args...) -> cb.apply {}, args
+      (task args...)
+      .then (args...) -> cb null, args...
+      .catch (args...) -> cb args...
     new @Promise (resolve, reject) =>
-      @submit.apply {}, Array::concat wrapped, args, (args...) ->
-        (if args[0]? then reject else args.shift(); resolve).apply {}, args
+      @submit wrapped, args..., (args...) ->
+        (if args[0]? then reject else args.shift(); resolve) args...
 
 module.exports = Sync

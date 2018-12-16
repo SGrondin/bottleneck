@@ -2688,7 +2688,7 @@
 
 	                    return resolve(replies);
 	                  });
-	                  return _this2.connection.__scriptFn__(name).apply({}, arr);
+	                  return _this2.connection.__scriptFn__(name).apply(void 0, _toConsumableArray(arr));
 	                }).catch(function (e) {
 	                  if (e.message === "SETTINGS_KEY_NOT_FOUND" && name !== "heartbeat") {
 	                    return _this2.runScript("init", _this2.prepareInitSettings(false)).then(function () {
@@ -3137,20 +3137,19 @@
 	      var next;
 
 	      if (this._running < 1 && this._queue.length > 0) {
+	        var _next;
+
 	        this._running++;
 	        next = this._queue.shift();
-	        return next.task.apply({}, next.args.concat(function () {
-	          var ref;
+	        return (_next = next).task.apply(_next, _toConsumableArray(next.args).concat([function () {
+	          var _next2;
+
 	          _this._running--;
 
 	          _this._tryToRun();
 
-	          for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
-	            args[_key] = arguments[_key];
-	          }
-
-	          return (ref = next.cb) != null ? ref.apply({}, args) : void 0;
-	        }));
+	          return typeof next.cb === "function" ? (_next2 = next).cb.apply(_next2, arguments) : void 0;
+	        }]));
 	      }
 	    }
 	  }, {
@@ -3158,8 +3157,8 @@
 	    value: function submit(task) {
 	      var _ref, _ref2, _splice$call, _splice$call2;
 
-	      for (var _len2 = arguments.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
-	        args[_key2 - 1] = arguments[_key2];
+	      for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+	        args[_key - 1] = arguments[_key];
 	      }
 
 	      var cb, ref;
@@ -3178,8 +3177,8 @@
 	    value: function schedule(task) {
 	      var _this2 = this;
 
-	      for (var _len3 = arguments.length, args = new Array(_len3 > 1 ? _len3 - 1 : 0), _key3 = 1; _key3 < _len3; _key3++) {
-	        args[_key3 - 1] = arguments[_key3];
+	      for (var _len2 = arguments.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
+	        args[_key2 - 1] = arguments[_key2];
 	      }
 
 	      var wrapped;
@@ -3187,35 +3186,31 @@
 	      wrapped = function wrapped() {
 	        var _ref3, _ref4, _splice$call3, _splice$call4;
 
-	        for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
-	          args[_key4] = arguments[_key4];
+	        for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+	          args[_key3] = arguments[_key3];
 	        }
 
 	        var cb, ref;
 	        ref = args, (_ref3 = ref, _ref4 = _toArray(_ref3), args = _ref4.slice(0), _ref3), (_splice$call3 = splice.call(args, -1), _splice$call4 = _slicedToArray(_splice$call3, 1), cb = _splice$call4[0], _splice$call3);
-	        return task.apply({}, args).then(function () {
-	          for (var _len5 = arguments.length, args = new Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
-	            args[_key5] = arguments[_key5];
+	        return task.apply(void 0, _toConsumableArray(args)).then(function () {
+	          for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+	            args[_key4] = arguments[_key4];
 	          }
 
-	          return cb.apply({}, Array.prototype.concat(null, args));
+	          return cb.apply(void 0, [null].concat(args));
 	        }).catch(function () {
-	          for (var _len6 = arguments.length, args = new Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
-	            args[_key6] = arguments[_key6];
-	          }
-
-	          return cb.apply({}, args);
+	          return cb.apply(void 0, arguments);
 	        });
 	      };
 
 	      return new this.Promise(function (resolve, reject) {
-	        return _this2.submit.apply({}, Array.prototype.concat(wrapped, args, function () {
-	          for (var _len7 = arguments.length, args = new Array(_len7), _key7 = 0; _key7 < _len7; _key7++) {
-	            args[_key7] = arguments[_key7];
+	        return _this2.submit.apply(_this2, [wrapped].concat(args, [function () {
+	          for (var _len5 = arguments.length, args = new Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
+	            args[_key5] = arguments[_key5];
 	          }
 
-	          return (args[0] != null ? reject : (args.shift(), resolve)).apply({}, args);
-	        }));
+	          return (args[0] != null ? reject : (args.shift(), resolve)).apply(void 0, args);
+	        }]));
 	      });
 	    }
 	  }]);
@@ -3905,12 +3900,8 @@
 	          /*#__PURE__*/
 	          regeneratorRuntime.mark(function _callee() {
 	            var e,
-	                ref,
 	                running,
 	                _ref2,
-	                _len2,
-	                args,
-	                _key2,
 	                _args = arguments;
 
 	            return regeneratorRuntime.wrap(function _callee$(_context) {
@@ -3918,7 +3909,7 @@
 	                switch (_context.prev = _context.next) {
 	                  case 0:
 	                    if (done) {
-	                      _context.next = 22;
+	                      _context.next = 21;
 	                      break;
 	                    }
 
@@ -3957,24 +3948,20 @@
 	                      _this2.Events.trigger("idle", []);
 	                    }
 
-	                    for (_len2 = _args.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-	                      args[_key2] = _args[_key2];
-	                    }
+	                    return _context.abrupt("return", typeof next.cb === "function" ? next.cb.apply(next, _args) : void 0);
 
-	                    return _context.abrupt("return", (ref = next.cb) != null ? ref.apply({}, args) : void 0);
-
-	                  case 18:
-	                    _context.prev = 18;
+	                  case 17:
+	                    _context.prev = 17;
 	                    _context.t0 = _context["catch"](1);
 	                    e = _context.t0;
 	                    return _context.abrupt("return", _this2.Events.trigger("error", [e]));
 
-	                  case 22:
+	                  case 21:
 	                  case "end":
 	                    return _context.stop();
 	                }
 	              }
-	            }, _callee, this, [[1, 18]]);
+	            }, _callee, this, [[1, 17]]);
 	          }));
 
 	          return function completed() {
@@ -3996,9 +3983,11 @@
 
 
 	            if (_this2._limiter != null) {
-	              return _this2._limiter.submit.apply(_this2._limiter, Array.prototype.concat(next.options, next.task, next.args, completed));
+	              var _this2$_limiter;
+
+	              return (_this2$_limiter = _this2._limiter).submit.apply(_this2$_limiter, [next.options, next.task].concat(_toConsumableArray(next.args), [completed]));
 	            } else {
-	              return next.task.apply({}, next.args.concat(completed));
+	              return next.task.apply(next, _toConsumableArray(next.args).concat([completed]));
 	            }
 	          }, wait),
 	          expiration: next.options.expiration != null ? setTimeout(function () {
@@ -4086,12 +4075,11 @@
 	      key: "_drop",
 	      value: function _drop(job) {
 	        var message = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "This job has been dropped by Bottleneck";
-	        var ref;
 
 	        if (this._states.remove(job.options.id)) {
 	          if (this.rejectOnDrop) {
-	            if ((ref = job.cb) != null) {
-	              ref.apply({}, [new Bottleneck.prototype.BottleneckError(message)]);
+	            if (typeof job.cb === "function") {
+	              job.cb(new Bottleneck.prototype.BottleneckError(message));
 	            }
 	          }
 
@@ -4174,13 +4162,13 @@
 	        this.submit = function () {
 	          var _ref4, _ref5, _splice$call, _splice$call2;
 
-	          for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
-	            args[_key3] = arguments[_key3];
+	          for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+	            args[_key2] = arguments[_key2];
 	          }
 
 	          var cb, ref;
 	          ref = args, (_ref4 = ref, _ref5 = _toArray(_ref4), args = _ref5.slice(0), _ref4), (_splice$call = splice$1.call(args, -1), _splice$call2 = _slicedToArray(_splice$call, 1), cb = _splice$call2[0], _splice$call);
-	          return cb != null ? cb.apply({}, [new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage)]) : void 0;
+	          return typeof cb === "function" ? cb(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage)) : void 0;
 	        };
 
 	        this.stop = function () {
@@ -4194,11 +4182,11 @@
 	      value: function submit() {
 	        var _this7 = this;
 
-	        for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
-	          args[_key4] = arguments[_key4];
+	        for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+	          args[_key3] = arguments[_key3];
 	        }
 
-	        var cb, job, options, ref, ref1, ref2, task;
+	        var cb, job, options, ref, ref1, task;
 
 	        if (typeof args[0] === "function") {
 	          var _ref6, _ref7, _splice$call3, _splice$call4;
@@ -4225,8 +4213,8 @@
 	        }
 
 	        if (this.jobStatus(options.id) != null) {
-	          if ((ref2 = job.cb) != null) {
-	            ref2.apply({}, [new Bottleneck.prototype.BottleneckError("A job with the same id already exists (id=".concat(options.id, ")"))]);
+	          if (typeof job.cb === "function") {
+	            job.cb(new Bottleneck.prototype.BottleneckError("A job with the same id already exists (id=".concat(options.id, ")")));
 	          }
 
 	          return false;
@@ -4244,7 +4232,7 @@
 	        _asyncToGenerator(
 	        /*#__PURE__*/
 	        regeneratorRuntime.mark(function _callee2() {
-	          var blocked, e, reachedHWM, ref3, shifted, strategy, _ref11;
+	          var blocked, e, reachedHWM, shifted, strategy, _ref11;
 
 	          return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	            while (1) {
@@ -4283,8 +4271,8 @@
 	                    error: e
 	                  }]);
 
-	                  if ((ref3 = job.cb) != null) {
-	                    ref3.apply({}, [e]);
+	                  if (typeof job.cb === "function") {
+	                    job.cb(e);
 	                  }
 
 	                  return _context2.abrupt("return", false);
@@ -4347,8 +4335,8 @@
 	      value: function schedule() {
 	        var _this8 = this;
 
-	        for (var _len5 = arguments.length, args = new Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
-	          args[_key5] = arguments[_key5];
+	        for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+	          args[_key4] = arguments[_key4];
 	        }
 
 	        var options, task, wrapped;
@@ -4375,36 +4363,32 @@
 	        wrapped = function wrapped() {
 	          var _ref12, _ref13, _splice$call7, _splice$call8;
 
-	          for (var _len6 = arguments.length, args = new Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
-	            args[_key6] = arguments[_key6];
+	          for (var _len5 = arguments.length, args = new Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
+	            args[_key5] = arguments[_key5];
 	          }
 
 	          var cb, ref, returned;
 	          ref = args, (_ref12 = ref, _ref13 = _toArray(_ref12), args = _ref13.slice(0), _ref12), (_splice$call7 = splice$1.call(args, -1), _splice$call8 = _slicedToArray(_splice$call7, 1), cb = _splice$call8[0], _splice$call7);
-	          returned = task.apply({}, args);
+	          returned = task.apply(void 0, _toConsumableArray(args));
 	          return (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function") ? _this8.Promise.resolve(returned) : returned).then(function () {
-	            for (var _len7 = arguments.length, args = new Array(_len7), _key7 = 0; _key7 < _len7; _key7++) {
-	              args[_key7] = arguments[_key7];
+	            for (var _len6 = arguments.length, args = new Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
+	              args[_key6] = arguments[_key6];
 	            }
 
-	            return cb.apply({}, Array.prototype.concat(null, args));
+	            return cb.apply(void 0, [null].concat(args));
 	          }).catch(function () {
-	            for (var _len8 = arguments.length, args = new Array(_len8), _key8 = 0; _key8 < _len8; _key8++) {
-	              args[_key8] = arguments[_key8];
-	            }
-
-	            return cb.apply({}, args);
+	            return cb.apply(void 0, arguments);
 	          });
 	        };
 
 	        return new this.Promise(function (resolve, reject) {
-	          return _this8.submit.apply({}, Array.prototype.concat(options, wrapped, args, function () {
-	            for (var _len9 = arguments.length, args = new Array(_len9), _key9 = 0; _key9 < _len9; _key9++) {
-	              args[_key9] = arguments[_key9];
+	          return _this8.submit.apply(_this8, [options, wrapped].concat(_toConsumableArray(args), [function () {
+	            for (var _len7 = arguments.length, args = new Array(_len7), _key7 = 0; _key7 < _len7; _key7++) {
+	              args[_key7] = arguments[_key7];
 	            }
 
-	            return (args[0] != null ? reject : (args.shift(), resolve)).apply({}, args);
-	          })).catch(function (e) {
+	            return (args[0] != null ? reject : (args.shift(), resolve)).apply(void 0, args);
+	          }])).catch(function (e) {
 	            return _this8.Events.trigger("error", [e]);
 	          });
 	        });
@@ -4417,19 +4401,19 @@
 	        var wrapped;
 
 	        wrapped = function wrapped() {
-	          for (var _len10 = arguments.length, args = new Array(_len10), _key10 = 0; _key10 < _len10; _key10++) {
-	            args[_key10] = arguments[_key10];
+	          for (var _len8 = arguments.length, args = new Array(_len8), _key8 = 0; _key8 < _len8; _key8++) {
+	            args[_key8] = arguments[_key8];
 	          }
 
-	          return _this9.schedule.apply({}, Array.prototype.concat(fn, args));
+	          return _this9.schedule.apply(_this9, [fn].concat(args));
 	        };
 
 	        wrapped.withOptions = function (options) {
-	          for (var _len11 = arguments.length, args = new Array(_len11 > 1 ? _len11 - 1 : 0), _key11 = 1; _key11 < _len11; _key11++) {
-	            args[_key11 - 1] = arguments[_key11];
+	          for (var _len9 = arguments.length, args = new Array(_len9 > 1 ? _len9 - 1 : 0), _key9 = 1; _key9 < _len9; _key9++) {
+	            args[_key9 - 1] = arguments[_key9];
 	          }
 
-	          return _this9.schedule.apply({}, Array.prototype.concat(options, fn, args));
+	          return _this9.schedule.apply(_this9, [options, fn].concat(args));
 	        };
 
 	        return wrapped;

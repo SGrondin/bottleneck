@@ -136,7 +136,7 @@ class Bottleneck
           { running } = await @_store.__free__ index, next.options.weight
           @Events.trigger "debug", ["Freed #{next.options.id}", { args: next.args, options: next.options }]
           if running == 0 and @empty() then @Events.trigger "idle", []
-          next.cb?.apply {}, args
+          next.cb? args...
         catch e
           @Events.trigger "error", [e]
     @_states.next next.options.id # RUNNING
@@ -144,8 +144,8 @@ class Bottleneck
       timeout: setTimeout =>
         @Events.trigger "debug", ["Executing #{next.options.id}", { args: next.args, options: next.options }]
         @_states.next next.options.id # EXECUTING
-        if @_limiter? then @_limiter.submit.apply @_limiter, Array::concat next.options, next.task, next.args, completed
-        else next.task.apply {}, next.args.concat completed
+        if @_limiter? then @_limiter.submit next.options, next.task, next.args..., completed
+        else next.task next.args..., completed
       , wait
       expiration: if next.options.expiration? then setTimeout =>
         completed new Bottleneck::BottleneckError "This job timed out after #{next.options.expiration} ms."
@@ -180,7 +180,7 @@ class Bottleneck
 
   _drop: (job, message="This job has been dropped by Bottleneck") ->
     if @_states.remove job.options.id
-      if @rejectOnDrop then job.cb?.apply {}, [new Bottleneck::BottleneckError message]
+      if @rejectOnDrop then job.cb? new Bottleneck::BottleneckError message
       @Events.trigger "dropped", [job]
 
   _dropAllQueued: (message) ->
@@ -212,7 +212,7 @@ class Bottleneck
         waitForExecuting(0)
     else
       @schedule { priority: NUM_PRIORITIES - 1, weight: 0 }, => waitForExecuting(1)
-    @submit = (args..., cb) => cb?.apply {}, [new Bottleneck::BottleneckError options.enqueueErrorMessage]
+    @submit = (args..., cb) => cb? new Bottleneck::BottleneckError options.enqueueErrorMessage
     @stop = => @Promise.reject new Bottleneck::BottleneckError "stop() has already been called"
     done
 
@@ -228,7 +228,7 @@ class Bottleneck
     if options.id == @jobDefaults.id then options.id = "#{options.id}-#{@_randomIndex()}"
 
     if @jobStatus(options.id)?
-      job.cb?.apply {}, [new Bottleneck::BottleneckError "A job with the same id already exists (id=#{options.id})"]
+      job.cb? new Bottleneck::BottleneckError "A job with the same id already exists (id=#{options.id})"
       return false
 
     @_states.start options.id # RECEIVED
@@ -241,7 +241,7 @@ class Bottleneck
       catch e
         @_states.remove options.id
         @Events.trigger "debug", ["Could not queue #{options.id}", { args, options, error: e }]
-        job.cb?.apply {}, [e]
+        job.cb? e
         return false
 
       if blocked
@@ -269,18 +269,18 @@ class Bottleneck
       [options, task, args...] = args
       options = parser.load options, @jobDefaults
     wrapped = (args..., cb) =>
-      returned = task.apply {}, args
+      returned = task args...
       (unless returned?.then? and typeof returned.then == "function" then @Promise.resolve(returned) else returned)
-      .then (args...) -> cb.apply {}, Array::concat null, args
-      .catch (args...) -> cb.apply {}, args
+      .then (args...) -> cb null, args...
+      .catch (args...) -> cb args...
     new @Promise (resolve, reject) =>
-      @submit.apply {}, Array::concat options, wrapped, args, (args...) ->
-        (if args[0]? then reject else args.shift(); resolve).apply {}, args
+      @submit options, wrapped, args..., (args...) ->
+        (if args[0]? then reject else args.shift(); resolve) args...
       .catch (e) => @Events.trigger "error", [e]
 
   wrap: (fn) ->
-    wrapped = (args...) => @schedule.apply {}, Array::concat fn, args
-    wrapped.withOptions = (options, args...) => @schedule.apply {}, Array::concat options, fn, args
+    wrapped = (args...) => @schedule fn, args...
+    wrapped.withOptions = (options, args...) => @schedule options, fn, args...
     wrapped
 
   updateSettings: (options={}) =>
