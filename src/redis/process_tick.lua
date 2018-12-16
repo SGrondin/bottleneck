@@ -109,6 +109,8 @@ local process_tick = function (now, always_publish)
 
   elseif initial_capacity ~= nil and final_capacity ~= nil and final_capacity > initial_capacity then
     -- capacity was increased
+    -- send the capacity message to the limiter having the lowest number of running jobs
+    -- the tiebreaker is the limiter having not registered a job in the longest time
 
     local lowest_concurrency_value = nil
     local lowest_concurrency_clients = {}
