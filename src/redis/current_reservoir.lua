@@ -1,1 +1,1 @@
-return process_tick(now, false)[3]
+return process_tick(now, false)['reservoir']

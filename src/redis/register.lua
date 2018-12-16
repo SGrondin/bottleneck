@@ -3,8 +3,8 @@ local weight = tonumber(ARGV[4])
 local expiration = tonumber(ARGV[5])
 
 local state = process_tick(now, false)
-local capacity = state[1]
-local reservoir = state[3]
+local capacity = state['capacity']
+local reservoir = state['reservoir']
 
 local settings = redis.call('hmget', settings_key,
   'nextRequest',

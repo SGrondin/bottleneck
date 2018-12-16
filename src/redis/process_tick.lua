@@ -151,8 +151,11 @@ local process_tick = function (now, always_publish)
     else
       redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))
     end
-
   end
 
-  return {final_capacity, running, reservoir}
+  return {
+    ['capacity'] = final_capacity,
+    ['running'] = running,
+    ['reservoir'] = reservoir
+  }
 end

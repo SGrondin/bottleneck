@@ -1,7 +1,7 @@
 local queueLength = tonumber(ARGV[3])
 local weight = tonumber(ARGV[4])
 
-local capacity = process_tick(now, false)[1]
+local capacity = process_tick(now, false)['capacity']
 
 local settings = redis.call('hmget', settings_key,
   'id',

@@ -1,1 +1,1 @@
-return process_tick(now, false)[2]
+return process_tick(now, false)['running']
