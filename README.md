@@ -22,7 +22,7 @@ npm install --save bottleneck
 ```js
 import Bottleneck from "bottleneck";
 
-Note: To support older browsers and Node <6.0, you must import the ES5 bundle.
+// Note: To support older browsers and Node <6.0, you must import the ES5 bundle.
 var Bottleneck = require("bottleneck/es5");
 ```
 
@@ -575,6 +575,8 @@ Batching doesn't throttle requests, it only groups them up optimally according t
 
 Clustering lets many limiters access the same shared state, stored in Redis. Changes to the state are Atomic, Consistent and Isolated (and fully [ACID](https://en.wikipedia.org/wiki/ACID) with the right [Durability](https://redis.io/topics/persistence) configuration), to eliminate any chances of race conditions or state corruption. Your settings, such as `maxConcurrent`, `minTime`, etc., are shared across the whole cluster, which means —for example— that `{ maxConcurrent: 5 }` guarantees no more than 5 jobs can ever run at a time in the entire cluster of limiters. 100% of Bottleneck's features are supported in Clustering mode. Enabling Clustering is as simple as changing a few settings. It's also a convenient way to store or export state for later use.
 
+Bottleneck will attempt to spread load evenly across limiters.
+
 ### Enabling Clustering
 
 First, add `redis` or `ioredis` to your application's dependencies:
@@ -621,7 +623,7 @@ const limiter = new Bottleneck({
 
 The first limiter connecting to Redis will store its [constructor options](#constructor) on Redis and all subsequent limiters will be using those settings. You can alter the constructor options used by all the connected limiters by calling `updateSettings()`. The `clearDatastore` option instructs a new limiter to wipe any previous Bottleneck data (for that `id`), including previously stored settings.
 
-Queued jobs are **NOT** stored on Redis. They are local to each limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run a job across a different Node.js process than the one it originated on. Bottleneck doesn't keep track of the queue contents of the limiters on a cluster for performance and reliability reasons. You can use something like [`BeeQueue`](https://github.com/bee-queue/bee-queue) to get around this limitation.
+Queued jobs are **NOT** stored on Redis. They are local to each limiter. Exiting the Node.js process will lose those jobs. This is because Bottleneck has no way to propagate the JS code to run a job across a different Node.js process than the one it originated on. Bottleneck doesn't keep track of the queue contents of the limiters on a cluster for performance and reliability reasons. You can use something like [`BeeQueue`](https://github.com/bee-queue/bee-queue) in addition to Bottleneck to get around this limitation.
 
 Due to the above, functionality relying on the queue length happens purely locally:
 - Priorities are local. A higher priority job will run before a lower priority job **on the same limiter**. Another limiter on the cluster might run a lower priority job before our higher priority one.
@@ -638,27 +640,9 @@ It is **strongly recommended** that you give an `id` to every limiter and Group 
 
 It is **strongly recommended** that you set an `expiration` (See [Job Options](#job-options)) *on every job*, since that lets the cluster recover from crashed or disconnected clients. Otherwise, a client crashing while executing a job would not be able to tell the cluster to decrease its number of "running" jobs. By using expirations, those lost jobs are automatically cleared after the specified time has passed. Using expirations is essential to keeping a cluster reliable in the face of unpredictable application bugs, network hiccups, and so on.
 
-Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience. Keeping the clients' OS time consistent will also help.
+Network latency between Node.js and Redis is not taken into account when calculating timings (such as `minTime`). To minimize the impact of latency, Bottleneck performs the absolute minimum number of state accesses. Keeping the Redis server close to your limiters will help you get a more consistent experience. Keeping the system time consistent across all clients will also help.
 
 It is **strongly recommended** to [set up an `"error"` listener](#events) on all your limiters and on your Groups.
-
-Bottleneck does not guarantee that the concurrency will be spread evenly across limiters. With `{ maxConcurrent: 5 }`, it's absolutely possible for a single limiter to end up running 5 jobs simultaneously while the other limiters in the cluster sit idle. To spread the load, use the `.chain()` method:
-
-```js
-const clusterLimiter = new Bottleneck({ maxConcurrent: 5, datastore: 'redis' });
-const limiter = new Bottleneck({ maxConcurrent: 1 });
-
-limiter.chain(clusterLimiter);
-
-clusterLimiter.ready()
-.then(() => {
-  // Any Node process can only run one job at a time.
-  // Across the whole cluster, up to 5 jobs can run simultaneously.
-
-  limiter.schedule( /* ... */ )
-})
-.catch((error) => { /* ... */ });
-```
 
 ### Clustering Methods
 
