@@ -14,7 +14,7 @@ clean() {
 
 makeLib10() {
   echo '[B] Compiling Bottleneck to Node 10+...'
-  node_modules/coffeescript/bin/coffee --compile --bare --no-header src/*.coffee
+  npx coffee --compile --bare --no-header src/*.coffee
   node scripts/assemble_lua.js > lib/lua.json
   mv src/*.js lib/
 }
@@ -22,7 +22,7 @@ makeLib10() {
 makeLib6() {
   echo '[B] Compiling Bottleneck to Node 6+...'
   ln -s .babelrc.lib .babelrc
-  node_modules/coffeescript/bin/coffee --compile --bare --no-header --transpile src/*.coffee
+  npx coffee --compile --bare --no-header --transpile src/*.coffee
   node scripts/assemble_lua.js > lib/lua.json
   mv src/*.js lib/
 }
@@ -30,18 +30,18 @@ makeLib6() {
 makeBundle() {
   echo '[B] Compiling Bottleneck to ES5...'
   ln -s .babelrc.bundle .babelrc
-  node_modules/coffeescript/bin/coffee --compile --bare --no-header src/*.coffee
+  npx coffee --compile --bare --no-header src/*.coffee
   node scripts/assemble_lua.js > lib/lua.json
   mv src/*.js lib/
 
   echo '[B] Assembling ES5 bundle...'
-  node_modules/rollup/bin/rollup -c rollup.config.js
+  npx rollup -c rollup.config.js
 }
 
 makeTypings() {
   echo '[B] Compiling and testing TS typings...'
-  node_modules/ejs-cli/bin/ejs-cli bottleneck.d.ts.ejs > bottleneck.d.ts
-  node_modules/typescript/bin/tsc --noEmit --strict test.ts
+  npx ejs-cli bottleneck.d.ts.ejs > bottleneck.d.ts
+  npx tsc --noEmit --strict test.ts
 }
 
 if [ "$1" = 'dev' ]; then
