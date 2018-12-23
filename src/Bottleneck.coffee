@@ -8,12 +8,11 @@ RedisDatastore = require "./RedisDatastore"
 Events = require "./Events"
 States = require "./States"
 Sync = require "./Sync"
-packagejson = require "../package.json"
 
 class Bottleneck
   Bottleneck.default = Bottleneck
-  Bottleneck.version = Bottleneck::version = packagejson.version
   Bottleneck.Events = Events
+  Bottleneck.version = Bottleneck::version = require("./version.json").version
   Bottleneck.strategy = Bottleneck::strategy = { LEAK:1, OVERFLOW:2, OVERFLOW_PRIORITY:4, BLOCK:3 }
   Bottleneck.BottleneckError = Bottleneck::BottleneckError = require "./BottleneckError"
   Bottleneck.Group = Bottleneck::Group = require "./Group"

@@ -7,15 +7,17 @@ if [ ! -d node_modules ]; then
 	exit 1
 fi
 
+
 clean() {
   rm -f .babelrc
   rm -rf lib/*
+  node scripts/version.js > lib/version.json
+  node scripts/assemble_lua.js > lib/lua.json
 }
 
 makeLib10() {
   echo '[B] Compiling Bottleneck to Node 10+...'
   npx coffee --compile --bare --no-header src/*.coffee
-  node scripts/assemble_lua.js > lib/lua.json
   mv src/*.js lib/
 }
 
@@ -23,7 +25,6 @@ makeLib6() {
   echo '[B] Compiling Bottleneck to Node 6+...'
   ln -s .babelrc.lib .babelrc
   npx coffee --compile --bare --no-header --transpile src/*.coffee
-  node scripts/assemble_lua.js > lib/lua.json
   mv src/*.js lib/
 }
 
@@ -31,11 +32,17 @@ makeBundle() {
   echo '[B] Compiling Bottleneck to ES5...'
   ln -s .babelrc.bundle .babelrc
   npx coffee --compile --bare --no-header src/*.coffee
-  node scripts/assemble_lua.js > lib/lua.json
   mv src/*.js lib/
 
   echo '[B] Assembling ES5 bundle...'
-  npx rollup -c rollup.config.js
+  npx rollup -c rollup.config.bundle.js
+}
+
+makeLight() {
+  makeLib10
+
+  echo '[B] Assembling light bundle...'
+  npx rollup -c rollup.config.light.js
 }
 
 makeTypings() {
@@ -50,11 +57,18 @@ if [ "$1" = 'dev' ]; then
 elif [ "$1" = 'bundle' ]; then
   clean
   makeBundle
+elif [ "$1" = 'light' ]; then
+  clean
+  makeLight
 elif [ "$1" = 'typings' ]; then
   makeTypings
 else
   clean
   makeBundle
+
+  clean
+  makeLight
+
   clean
   makeLib6
   makeTypings

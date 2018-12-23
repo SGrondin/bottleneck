@@ -1,3 +1,10 @@
+/**
+  * This file contains the full Bottleneck library (MIT) compiled to ES5.
+  * https://github.com/SGrondin/bottleneck
+  * It also contains the regenerator-runtime (MIT), necessary for Babel-generated ES5 code to execute promise and async/await code.
+  * See the following link for Copyright and License information:
+  * https://github.com/facebook/regenerator/blob/master/packages/regenerator-runtime/runtime.js
+  */
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
 	typeof define === 'function' && define.amd ? define(factory) :
@@ -3225,91 +3232,14 @@
 
 	var Sync_1 = Sync;
 
-	var name = "bottleneck";
 	var version = "2.14.0";
-	var description = "Distributed task scheduler and rate limiter";
-	var main = "lib/index.js";
-	var typings = "bottleneck.d.ts";
-	var scripts = {
-		test: "./node_modules/mocha/bin/mocha test",
-		"test-all": "DATASTORE=ioredis npm test && DATASTORE=redis npm test && BUILD=bundle npm test && npm test"
-	};
-	var repository = {
-		type: "git",
-		url: "https://github.com/SGrondin/bottleneck"
-	};
-	var keywords = [
-		"async rate limiter",
-		"rate limiter",
-		"rate limiting",
-		"async",
-		"rate",
-		"limiting",
-		"limiter",
-		"throttle",
-		"throttling",
-		"throttler",
-		"load",
-		"clustering"
-	];
-	var author = {
-		name: "Simon Grondin"
-	};
-	var license = "MIT";
-	var bugs = {
-		url: "https://github.com/SGrondin/bottleneck/issues"
-	};
-	var devDependencies = {
-		"@babel/core": "^7.1.2",
-		"@babel/preset-env": "7.1.x",
-		"@types/es6-promise": "0.0.33",
-		assert: "1.4.x",
-		coffeescript: "2.3.x",
-		"ejs-cli": "2.0.1",
-		ioredis: "^4.0.0",
-		mocha: "4.x",
-		redis: "^2.8.0",
-		"regenerator-runtime": "^0.12.1",
-		rollup: "^0.66.6",
-		"rollup-plugin-babel": "4.0.x",
-		"rollup-plugin-commonjs": "^9.2.0",
-		"rollup-plugin-json": "^3.1.0",
-		"rollup-plugin-node-resolve": "^3.4.0",
-		typescript: "^2.6.2"
-	};
-	var dependencies = {
-	};
-	var _package = {
-		name: name,
-		version: version,
-		description: description,
-		main: main,
-		typings: typings,
-		scripts: scripts,
-		repository: repository,
-		keywords: keywords,
-		author: author,
-		license: license,
-		bugs: bugs,
-		devDependencies: devDependencies,
-		dependencies: dependencies
+	var version$1 = {
+		version: version
 	};
 
-	var _package$1 = /*#__PURE__*/Object.freeze({
-		name: name,
+	var version$2 = /*#__PURE__*/Object.freeze({
 		version: version,
-		description: description,
-		main: main,
-		typings: typings,
-		scripts: scripts,
-		repository: repository,
-		keywords: keywords,
-		author: author,
-		license: license,
-		bugs: bugs,
-		devDependencies: devDependencies,
-		dependencies: dependencies,
-		default: _package
+		default: version$1
 	});
 
 	var Events$4, Group, IORedisConnection$2, RedisConnection$2, Scripts$3, parser$5;
@@ -3700,7 +3630,7 @@
 
 	var Batcher_1 = Batcher;
 
-	var require$$7 = getCjsExportFromNamespace(_package$1);
+	var require$$7 = getCjsExportFromNamespace(version$2);
 
 	var Bottleneck,
 	    DEFAULT_PRIORITY,
@@ -3711,7 +3641,6 @@
 	    RedisDatastore$1,
 	    States$1,
 	    Sync$1,
-	    packagejson,
 	    parser$7,
 	    splice$1 = [].splice;
 	NUM_PRIORITIES = 10;
@@ -3723,7 +3652,6 @@
 	Events$6 = Events_1;
 	States$1 = States_1;
 	Sync$1 = Sync_1;
-	packagejson = require$$7;
 
 	Bottleneck = function () {
 	  var Bottleneck =
@@ -4471,8 +4399,8 @@
 	    return Bottleneck;
 	  }();
 	  Bottleneck.default = Bottleneck;
-	  Bottleneck.version = Bottleneck.prototype.version = packagejson.version;
 	  Bottleneck.Events = Events$6;
+	  Bottleneck.version = Bottleneck.prototype.version = require$$7.version;
 	  Bottleneck.strategy = Bottleneck.prototype.strategy = {
 	    LEAK: 1,
 	    OVERFLOW: 2,

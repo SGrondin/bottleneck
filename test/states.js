@@ -94,7 +94,7 @@ describe('States', function () {
     try {
       states.statusJobs('Z')
     } catch (err) {
-      if (process.env.BUILD !== 'bundle') {
+      if (process.env.BUILD !== 'bundle' && process.env.BUILD !== 'light') {
         assert(err instanceof Bottleneck.BottleneckError)
       }
       done()
