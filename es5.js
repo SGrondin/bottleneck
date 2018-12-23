@@ -1125,6 +1125,10 @@
 	    this.instance = instance;
 	    this._events = {};
 
+	    if (this.instance.on != null || this.instance.once != null || this.instance.removeAllListeners != null) {
+	      throw new Error("An Emitter already exists for this object");
+	    }
+
 	    this.instance.on = function (name, cb) {
 	      return _this._addListener(name, "many", cb);
 	    };

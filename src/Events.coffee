@@ -1,6 +1,8 @@
 class Events
   constructor: (@instance) ->
     @_events = {}
+    if @instance.on? or @instance.once? or @instance.removeAllListeners?
+      throw new Error "An Emitter already exists for this object"
     @instance.on = (name, cb) => @_addListener name, "many", cb
     @instance.once = (name, cb) => @_addListener name, "once", cb
     @instance.removeAllListeners = (name=null) =>
