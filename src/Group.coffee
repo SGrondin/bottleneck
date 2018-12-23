@@ -31,7 +31,7 @@ class Group
       @timeout,
       @connection
     }
-    @Events.trigger "created", [limiter, key]
+    @Events.trigger "created", limiter, key
     limiter
 
   deleteKey: (key="") =>
@@ -65,7 +65,7 @@ class Group
       time = Date.now()
       for k, v of @instances
         try if await v._store.__groupCheck__(time) then @deleteKey k
-        catch e then v.Events.trigger "error", [e]
+        catch e then v.Events.trigger "error", e
     , (@timeout / 2)).unref?()
 
   updateSettings: (options={}) =>

@@ -33,7 +33,7 @@ class IORedisConnection
   _setup: (client, sub) ->
     client.setMaxListeners 0
     new @Promise (resolve, reject) =>
-      client.on "error", (e) => @Events.trigger "error", [e]
+      client.on "error", (e) => @Events.trigger "error", e
       if sub
         client.on "message", (channel, message) =>
           @limiters[channel]?._store.onMessage channel, message

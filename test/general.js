@@ -41,6 +41,28 @@ describe('General', function () {
     c.mustEqual(7, await c.limiter.wrap(job.action.bind(job))(2))
   })
 
+  it('Should expose the Events library', function (cb) {
+    c = makeTest()
+
+    class Hello {
+      constructor() {
+        this.emitter = new Bottleneck.Events(this)
+      }
+
+      doSomething() {
+        this.emitter.trigger('info', 'hello', 'world', 123)
+        return 5
+      }
+    }
+
+    const myObject = new Hello();
+    myObject.on('info', (...args) => {
+      c.mustEqual(args, ['hello', 'world', 123])
+      cb()
+    })
+    myObject.doSomething()
+  })
+
   describe('Counts and statuses', function () {
     it('Should check() and return the queued count with and without a priority value', function () {
       c = makeTest({maxConcurrent: 1, minTime: 100})

@@ -1162,11 +1162,15 @@
 	    }
 	  }, {
 	    key: "trigger",
-	    value: function trigger(name, args) {
+	    value: function trigger(name) {
 	      var _this2 = this;
 
+	      for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+	        args[_key - 1] = arguments[_key];
+	      }
+
 	      if (name !== "debug") {
-	        this.trigger("debug", ["Event triggered: ".concat(name), args]);
+	        this.trigger("debug", "Event triggered: ".concat(name), args);
 	      }
 
 	      if (this._events[name] == null) {
@@ -1188,18 +1192,15 @@
 	        }
 
 	        try {
-	          ret = listener.cb.apply({}, args);
-
-	          if (typeof (ret != null ? ret.then : void 0) === "function") {
-	            return ret.then(function () {}).catch(function (e) {
-	              return _this2.trigger("error", [e]);
-	            });
-	          }
+	          ret = typeof listener.cb === "function" ? listener.cb.apply(listener, args) : void 0;
+	          return ret != null ? typeof ret.then === "function" ? ret.then(function () {}).catch(function (e) {
+	            return _this2.trigger("error", e);
+	          }) : void 0 : void 0;
 	        } catch (error) {
 	          e = error;
 
 	          {
-	            return _this2.trigger("error", [e]);
+	            return _this2.trigger("error", e);
 	          }
 	        }
 	      });
@@ -1371,7 +1372,7 @@
 	                return this.yieldLoop();
 
 	              case 2:
-	                return _context.abrupt("return", this.instance.Events.trigger("message", [message.toString()]));
+	                return _context.abrupt("return", this.instance.Events.trigger("message", message.toString()));
 
 	              case 3:
 	              case "end":
@@ -2053,7 +2054,7 @@
 	        client.setMaxListeners(0);
 	        return new this.Promise(function (resolve, reject) {
 	          client.on("error", function (e) {
-	            return _this2.Events.trigger("error", [e]);
+	            return _this2.Events.trigger("error", e);
 	          });
 
 	          if (sub) {
@@ -2311,7 +2312,7 @@
 	        client.setMaxListeners(0);
 	        return new this.Promise(function (resolve, reject) {
 	          client.on("error", function (e) {
-	            return _this2.Events.trigger("error", [e]);
+	            return _this2.Events.trigger("error", e);
 	          });
 
 	          if (sub) {
@@ -2532,7 +2533,7 @@
 
 	      if (typeof (base = _this.heartbeat = setInterval(function () {
 	        return _this.runScript("heartbeat", []).catch(function (e) {
-	          return _this.instance.Events.trigger("error", [e]);
+	          return _this.instance.Events.trigger("error", e);
 	        });
 	      }, _this.heartbeatInterval)).unref === "function") {
 	        base.unref();
@@ -2621,7 +2622,7 @@
 	                  break;
 	                }
 
-	                return _context2.abrupt("return", this.instance.Events.trigger("message", [data]));
+	                return _context2.abrupt("return", this.instance.Events.trigger("message", data));
 
 	              case 17:
 	                if (!(type === "blocked")) {
@@ -2679,7 +2680,7 @@
 	                  var args_ts, arr;
 	                  args_ts = [Date.now(), _this2.clientId].concat(args);
 
-	                  _this2.instance.Events.trigger("debug", ["Calling Redis script: ".concat(name, ".lua"), args_ts]);
+	                  _this2.instance.Events.trigger("debug", "Calling Redis script: ".concat(name, ".lua"), args_ts);
 
 	                  arr = _this2.connection.__scriptArgs__(name, _this2.originalId, args_ts, function (err, replies) {
 	                    if (err != null) {
@@ -3364,7 +3365,7 @@
 	            connection: _this.connection
 	          }));
 
-	          _this.Events.trigger("created", [limiter, _key]);
+	          _this.Events.trigger("created", limiter, _key);
 
 	          return limiter;
 	        }();
@@ -3563,7 +3564,7 @@
 	                  _context3.prev = 17;
 	                  _context3.t2 = _context3["catch"](7);
 	                  e = _context3.t2;
-	                  results.push(v.Events.trigger("error", [e]));
+	                  results.push(v.Events.trigger("error", e));
 
 	                case 21:
 	                  _context3.next = 4;
@@ -3656,7 +3657,7 @@
 
 	        this._resolve();
 
-	        this.Events.trigger("batch", [this._arr]);
+	        this.Events.trigger("batch", this._arr);
 	        this._arr = [];
 	        return this._resetPromise();
 	      }
@@ -3887,10 +3888,10 @@
 	        var _this2 = this;
 
 	        var completed, done;
-	        this.Events.trigger("debug", ["Scheduling ".concat(next.options.id), {
+	        this.Events.trigger("debug", "Scheduling ".concat(next.options.id), {
 	          args: next.args,
 	          options: next.options
-	        }]);
+	        });
 	        done = false;
 
 	        completed =
@@ -3922,15 +3923,15 @@
 	                    clearTimeout(_this2._scheduled[index].expiration);
 	                    delete _this2._scheduled[index];
 
-	                    _this2.Events.trigger("debug", ["Completed ".concat(next.options.id), {
+	                    _this2.Events.trigger("debug", "Completed ".concat(next.options.id), {
 	                      args: next.args,
 	                      options: next.options
-	                    }]);
+	                    });
 
-	                    _this2.Events.trigger("done", ["Completed ".concat(next.options.id), {
+	                    _this2.Events.trigger("done", "Completed ".concat(next.options.id), {
 	                      args: next.args,
 	                      options: next.options
-	                    }]);
+	                    });
 
 	                    _context.next = 10;
 	                    return _this2._store.__free__(index, next.options.weight);
@@ -3939,13 +3940,13 @@
 	                    _ref2 = _context.sent;
 	                    running = _ref2.running;
 
-	                    _this2.Events.trigger("debug", ["Freed ".concat(next.options.id), {
+	                    _this2.Events.trigger("debug", "Freed ".concat(next.options.id), {
 	                      args: next.args,
 	                      options: next.options
-	                    }]);
+	                    });
 
 	                    if (running === 0 && _this2.empty()) {
-	                      _this2.Events.trigger("idle", []);
+	                      _this2.Events.trigger("idle");
 	                    }
 
 	                    return _context.abrupt("return", typeof next.cb === "function" ? next.cb.apply(next, _args) : void 0);
@@ -3954,7 +3955,7 @@
 	                    _context.prev = 17;
 	                    _context.t0 = _context["catch"](1);
 	                    e = _context.t0;
-	                    return _context.abrupt("return", _this2.Events.trigger("error", [e]));
+	                    return _context.abrupt("return", _this2.Events.trigger("error", e));
 
 	                  case 21:
 	                  case "end":
@@ -3974,10 +3975,10 @@
 
 	        return this._scheduled[index] = {
 	          timeout: setTimeout(function () {
-	            _this2.Events.trigger("debug", ["Executing ".concat(next.options.id), {
+	            _this2.Events.trigger("debug", "Executing ".concat(next.options.id), {
 	              args: next.args,
 	              options: next.options
-	            }]);
+	            });
 
 	            _this2._states.next(next.options.id); // EXECUTING
 
@@ -4019,10 +4020,10 @@
 	            return _this3.Promise.resolve(false);
 	          }
 
-	          _this3.Events.trigger("debug", ["Draining ".concat(options.id), {
+	          _this3.Events.trigger("debug", "Draining ".concat(options.id), {
 	            args: args,
 	            options: options
-	          }]);
+	          });
 
 	          index = _this3._randomIndex();
 	          return _this3._store.__register__(index, options.weight, options.expiration).then(function (_ref3) {
@@ -4031,22 +4032,22 @@
 	                reservoir = _ref3.reservoir;
 	            var empty;
 
-	            _this3.Events.trigger("debug", ["Drained ".concat(options.id), {
+	            _this3.Events.trigger("debug", "Drained ".concat(options.id), {
 	              success: success,
 	              args: args,
 	              options: options
-	            }]);
+	            });
 
 	            if (success) {
 	              queue.shift();
 	              empty = _this3.empty();
 
 	              if (empty) {
-	                _this3.Events.trigger("empty", []);
+	                _this3.Events.trigger("empty");
 	              }
 
 	              if (reservoir === 0) {
-	                _this3.Events.trigger("depleted", [empty]);
+	                _this3.Events.trigger("depleted", empty);
 	              }
 
 	              _this3._run(next, wait, index);
@@ -4068,7 +4069,7 @@
 	            return _this4.Promise.resolve(success);
 	          }
 	        }).catch(function (e) {
-	          return _this4.Events.trigger("error", [e]);
+	          return _this4.Events.trigger("error", e);
 	        });
 	      }
 	    }, {
@@ -4083,7 +4084,7 @@
 	            }
 	          }
 
-	          return this.Events.trigger("dropped", [job]);
+	          return this.Events.trigger("dropped", job);
 	        }
 	      }
 	    }, {
@@ -4223,10 +4224,10 @@
 	        this._states.start(options.id); // RECEIVED
 
 
-	        this.Events.trigger("debug", ["Queueing ".concat(options.id), {
+	        this.Events.trigger("debug", "Queueing ".concat(options.id), {
 	          args: args,
 	          options: options
-	        }]);
+	        });
 	        return this._submitLock.schedule(
 	        /*#__PURE__*/
 	        _asyncToGenerator(
@@ -4248,12 +4249,12 @@
 	                  blocked = _ref11.blocked;
 	                  strategy = _ref11.strategy;
 
-	                  _this7.Events.trigger("debug", ["Queued ".concat(options.id), {
+	                  _this7.Events.trigger("debug", "Queued ".concat(options.id), {
 	                    args: args,
 	                    options: options,
 	                    reachedHWM: reachedHWM,
 	                    blocked: blocked
-	                  }]);
+	                  });
 
 	                  _context2.next = 17;
 	                  break;
@@ -4265,11 +4266,11 @@
 
 	                  _this7._states.remove(options.id);
 
-	                  _this7.Events.trigger("debug", ["Could not queue ".concat(options.id), {
+	                  _this7.Events.trigger("debug", "Could not queue ".concat(options.id), {
 	                    args: args,
 	                    options: options,
 	                    error: e
-	                  }]);
+	                  });
 
 	                  if (typeof job.cb === "function") {
 	                    job.cb(e);
@@ -4389,7 +4390,7 @@
 
 	            return (args[0] != null ? reject : (args.shift(), resolve)).apply(void 0, args);
 	          }])).catch(function (e) {
-	            return _this8.Events.trigger("error", [e]);
+	            return _this8.Events.trigger("error", e);
 	          });
 	        });
 	      }
@@ -4467,6 +4468,7 @@
 	  }();
 	  Bottleneck.default = Bottleneck;
 	  Bottleneck.version = Bottleneck.prototype.version = packagejson.version;
+	  Bottleneck.Events = Events$6;
 	  Bottleneck.strategy = Bottleneck.prototype.strategy = {
 	    LEAK: 1,
 	    OVERFLOW: 2,

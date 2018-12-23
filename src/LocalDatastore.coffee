@@ -22,7 +22,7 @@ class LocalDatastore
 
   __publish__: (message) ->
     await @yieldLoop()
-    @instance.Events.trigger "message", [message.toString()]
+    @instance.Events.trigger "message", message.toString()
 
   __disconnect__: (flush) ->
     await @yieldLoop()

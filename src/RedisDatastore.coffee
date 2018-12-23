@@ -24,7 +24,7 @@ class RedisDatastore
     .then =>
       (@heartbeat = setInterval =>
         @runScript "heartbeat", []
-        .catch (e) => @instance.Events.trigger "error", [e]
+        .catch (e) => @instance.Events.trigger "error", e
       , @heartbeatInterval).unref?()
       @clients
 
@@ -40,7 +40,7 @@ class RedisDatastore
       if channel == @instance.channel_client()
         await @clients.client.publish(@instance.channel(), "capacity:")
     else if type == "message"
-      @instance.Events.trigger "message", [data]
+      @instance.Events.trigger "message", data
     else if type == "blocked"
       @instance._dropAllQueued()
 
@@ -55,7 +55,7 @@ class RedisDatastore
     await @ready unless name == "init" or name == "heartbeat" or name == "register_client"
     new @Promise (resolve, reject) =>
       args_ts = [Date.now(), @clientId].concat args
-      @instance.Events.trigger "debug", ["Calling Redis script: #{name}.lua", args_ts]
+      @instance.Events.trigger "debug", "Calling Redis script: #{name}.lua", args_ts
       arr = @connection.__scriptArgs__ name, @originalId, args_ts, (err, replies) ->
         if err? then return reject err
         return resolve replies

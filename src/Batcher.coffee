@@ -21,7 +21,7 @@ class Batcher
     clearTimeout @_timeout
     @_lastFlush = Date.now()
     @_resolve()
-    @Events.trigger "batch", [@_arr]
+    @Events.trigger "batch", @_arr
     @_arr = []
     @_resetPromise()
 
