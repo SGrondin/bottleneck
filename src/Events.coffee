@@ -11,17 +11,28 @@ class Events
     @_events[name] ?= []
     @_events[name].push {cb, status}
     @instance
+  listenerCount: (name) ->
+    if @_events[name]? then @_events[name].length else 0
   trigger: (name, args...) ->
-    if name != "debug" then @trigger "debug", "Event triggered: #{name}", args
-    return unless @_events[name]?
-    @_events[name] = @_events[name].filter (listener) -> listener.status != "none"
-    @_events[name].forEach (listener) =>
-      return if listener.status == "none"
-      if listener.status == "once" then listener.status = "none"
-      try
-        ret = listener.cb?(args...)
-        ret?.then?(->).catch((e) => @trigger "error", e)
-      catch e
-        if "name" != "error" then @trigger "error", e
+    try
+      if name != "debug" then @trigger "debug", "Event triggered: #{name}", args
+      return unless @_events[name]?
+      @_events[name] = @_events[name].filter (listener) -> listener.status != "none"
+      promises = @_events[name].map (listener) =>
+        return if listener.status == "none"
+        if listener.status == "once" then listener.status = "none"
+        try
+          returned = listener.cb?(args...)
+          if returned?.then? and typeof returned.then == "function"
+            await returned
+          else
+            returned
+        catch e
+          if "name" != "error" then @trigger "error", e
+          null
+      (await Promise.all promises).find (x) -> x?
+    catch e
+      if "name" != "error" then @trigger "error", e
+      null
 
 module.exports = Events

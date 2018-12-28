@@ -5,8 +5,8 @@
   "main": "lib/index.js",
   "typings": "bottleneck.d.ts",
   "scripts": {
-    "test": "./node_modules/mocha/bin/mocha test",
-    "test-all": "DATASTORE=ioredis npm test && DATASTORE=redis npm test && BUILD=bundle npm test && npm test"
+    "test": "mocha test",
+    "test-all": "./scripts/test_all.sh"
   },
   "repository": {
     "type": "git",

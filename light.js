@@ -145,36 +145,59 @@
 	    return this.instance;
 	  }
 
-	  trigger(name, ...args) {
-	    if (name !== "debug") {
-	      this.trigger("debug", `Event triggered: ${name}`, args);
+	  listenerCount(name) {
+	    if (this._events[name] != null) {
+	      return this._events[name].length;
+	    } else {
+	      return 0;
 	    }
-	    if (this._events[name] == null) {
-	      return;
-	    }
-	    this._events[name] = this._events[name].filter(function(listener) {
-	      return listener.status !== "none";
-	    });
-	    return this._events[name].forEach((listener) => {
-	      var e, ret;
-	      if (listener.status === "none") {
+	  }
+
+	  async trigger(name, ...args) {
+	    var e, promises;
+	    try {
+	      if (name !== "debug") {
+	        this.trigger("debug", `Event triggered: ${name}`, args);
+	      }
+	      if (this._events[name] == null) {
 	        return;
 	      }
-	      if (listener.status === "once") {
-	        listener.status = "none";
-	      }
-	      try {
-	        ret = typeof listener.cb === "function" ? listener.cb(...args) : void 0;
-	        return ret != null ? typeof ret.then === "function" ? ret.then(function() {}).catch((e) => {
-	          return this.trigger("error", e);
-	        }) : void 0 : void 0;
-	      } catch (error) {
-	        e = error;
-	        {
-	          return this.trigger("error", e);
+	      this._events[name] = this._events[name].filter(function(listener) {
+	        return listener.status !== "none";
+	      });
+	      promises = this._events[name].map(async(listener) => {
+	        var e, returned;
+	        if (listener.status === "none") {
+	          return;
 	        }
+	        if (listener.status === "once") {
+	          listener.status = "none";
+	        }
+	        try {
+	          returned = typeof listener.cb === "function" ? listener.cb(...args) : void 0;
+	          if (((returned != null ? returned.then : void 0) != null) && typeof returned.then === "function") {
+	            return (await returned);
+	          } else {
+	            return returned;
+	          }
+	        } catch (error) {
+	          e = error;
+	          {
+	            this.trigger("error", e);
+	          }
+	          return null;
+	        }
+	      });
+	      return ((await Promise.all(promises))).find(function(x) {
+	        return x != null;
+	      });
+	    } catch (error) {
+	      e = error;
+	      {
+	        this.trigger("error", e);
 	      }
-	    });
+	      return null;
+	    }
 	  }
 
 	};
@@ -960,7 +983,7 @@
 	      return this._store.__check__(weight);
 	    }
 
-	    _run(next, wait, index) {
+	    _run(next, wait, index, retryCount) {
 	      var completed, done;
 	      this.Events.trigger("debug", `Scheduling ${next.options.id}`, {
 	        args: next.args,
@@ -968,44 +991,52 @@
 	      });
 	      done = false;
 	      completed = async(...args) => {
-	        var e, running;
+	        var e, error, eventInfo, retry, retryAfter, running;
 	        if (!done) {
 	          try {
 	            done = true;
-	            this._states.next(next.options.id); // DONE
 	            clearTimeout(this._scheduled[index].expiration);
 	            delete this._scheduled[index];
-	            this.Events.trigger("debug", `Completed ${next.options.id}`, {
+	            eventInfo = {
 	              args: next.args,
-	              options: next.options
-	            });
-	            this.Events.trigger("done", `Completed ${next.options.id}`, {
-	              args: next.args,
-	              options: next.options
-	            });
+	              options: next.options,
+	              retryCount
+	            };
+	            if ((error = args[0]) != null) {
+	              retry = (await this.Events.trigger("failed", error, eventInfo));
+	              if (retry != null) {
+	                retryAfter = ~~retry;
+	                this.Events.trigger("retry", `Retrying ${next.options.id} after ${retryAfter} ms`, eventInfo);
+	                return this._run(next, retryAfter, index, retryCount + 1);
+	              }
+	            }
+	            this._states.next(next.options.id); // DONE
+	            this.Events.trigger("debug", `Completed ${next.options.id}`, eventInfo);
+	            this.Events.trigger("done", `Completed ${next.options.id}`, eventInfo);
 	            ({running} = (await this._store.__free__(index, next.options.weight)));
-	            this.Events.trigger("debug", `Freed ${next.options.id}`, {
-	              args: next.args,
-	              options: next.options
-	            });
+	            this.Events.trigger("debug", `Freed ${next.options.id}`, eventInfo);
 	            if (running === 0 && this.empty()) {
 	              this.Events.trigger("idle");
 	            }
 	            return typeof next.cb === "function" ? next.cb(...args) : void 0;
-	          } catch (error) {
-	            e = error;
+	          } catch (error1) {
+	            e = error1;
 	            return this.Events.trigger("error", e);
 	          }
 	        }
 	      };
-	      this._states.next(next.options.id); // RUNNING
+	      if (retryCount === 0) { // RUNNING
+	        this._states.next(next.options.id);
+	      }
 	      return this._scheduled[index] = {
 	        timeout: setTimeout(() => {
 	          this.Events.trigger("debug", `Executing ${next.options.id}`, {
 	            args: next.args,
 	            options: next.options
 	          });
-	          this._states.next(next.options.id); // EXECUTING
+	          if (retryCount === 0) { // EXECUTING
+	            this._states.next(next.options.id);
+	          }
 	          if (this._limiter != null) {
 	            return this._limiter.submit(next.options, next.task, ...next.args, completed);
 	          } else {
@@ -1044,7 +1075,7 @@
 	            if (reservoir === 0) {
 	              this.Events.trigger("depleted", empty);
 	            }
-	            this._run(next, wait, index);
+	            this._run(next, wait, index, 0);
 	          }
 	          return this.Promise.resolve(success);
 	        });
@@ -1166,8 +1197,8 @@
 	        try {
 	          ({reachedHWM, blocked, strategy} = (await this._store.__submit__(this.queued(), options.weight)));
 	          this.Events.trigger("debug", `Queued ${options.id}`, {args, options, reachedHWM, blocked});
-	        } catch (error) {
-	          e = error;
+	        } catch (error1) {
+	          e = error1;
 	          this._states.remove(options.id);
 	          this.Events.trigger("debug", `Could not queue ${options.id}`, {
 	            args,

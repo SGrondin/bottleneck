@@ -121,29 +121,38 @@ class Bottleneck
 
   check: (weight=1) -> @_store.__check__ weight
 
-  _run: (next, wait, index) ->
+  _run: (next, wait, index, retryCount) ->
     @Events.trigger "debug", "Scheduling #{next.options.id}", { args: next.args, options: next.options }
     done = false
     completed = (args...) =>
       if not done
         try
           done = true
-          @_states.next next.options.id # DONE
           clearTimeout @_scheduled[index].expiration
           delete @_scheduled[index]
-          @Events.trigger "debug", "Completed #{next.options.id}", { args: next.args, options: next.options }
-          @Events.trigger "done", "Completed #{next.options.id}", { args: next.args, options: next.options }
+          eventInfo = { args: next.args, options: next.options, retryCount }
+
+          if (error = args[0])?
+            retry = await @Events.trigger "failed", error, eventInfo
+            if retry?
+              retryAfter = ~~retry
+              @Events.trigger "retry", "Retrying #{next.options.id} after #{retryAfter} ms", eventInfo
+              return @_run next, retryAfter, index, retryCount + 1
+
+          @_states.next next.options.id # DONE
+          @Events.trigger "debug", "Completed #{next.options.id}", eventInfo
+          @Events.trigger "done", "Completed #{next.options.id}", eventInfo
           { running } = await @_store.__free__ index, next.options.weight
-          @Events.trigger "debug", "Freed #{next.options.id}", { args: next.args, options: next.options }
+          @Events.trigger "debug", "Freed #{next.options.id}", eventInfo
           if running == 0 and @empty() then @Events.trigger "idle"
           next.cb? args...
         catch e
           @Events.trigger "error", e
-    @_states.next next.options.id # RUNNING
+    @_states.next next.options.id if retryCount == 0 # RUNNING
     @_scheduled[index] =
       timeout: setTimeout =>
         @Events.trigger "debug", "Executing #{next.options.id}", { args: next.args, options: next.options }
-        @_states.next next.options.id # EXECUTING
+        @_states.next next.options.id if retryCount == 0 # EXECUTING
         if @_limiter? then @_limiter.submit next.options, next.task, next.args..., completed
         else next.task next.args..., completed
       , wait
@@ -168,7 +177,7 @@ class Bottleneck
           empty = @empty()
           if empty then @Events.trigger "empty"
           if reservoir == 0 then @Events.trigger "depleted", empty
-          @_run next, wait, index
+          @_run next, wait, index, 0
         @Promise.resolve success
 
   _drainAll: (capacity) ->

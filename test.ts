@@ -238,3 +238,10 @@ batcher.on("error", (err: Bottleneck.BottleneckError) => {
 batcher.add("abc")
 batcher.add({ xyz: 5 })
 .then(() => console.log("Flushed!"))
+
+const object = {}
+const emitter = new Bottleneck.Events(object)
+const listenerCount: number = emitter.listenerCount('info')
+emitter.trigger('info', 'hello', 'world', 123).then(function (result) {
+  console.log(result)
+})

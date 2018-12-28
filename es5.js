@@ -1172,50 +1172,154 @@
 	      return this.instance;
 	    }
 	  }, {
-	    key: "trigger",
-	    value: function trigger(name) {
-	      var _this2 = this;
-
-	      for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-	        args[_key - 1] = arguments[_key];
+	    key: "listenerCount",
+	    value: function listenerCount(name) {
+	      if (this._events[name] != null) {
+	        return this._events[name].length;
+	      } else {
+	        return 0;
 	      }
-
-	      if (name !== "debug") {
-	        this.trigger("debug", "Event triggered: ".concat(name), args);
-	      }
-
-	      if (this._events[name] == null) {
-	        return;
-	      }
-
-	      this._events[name] = this._events[name].filter(function (listener) {
-	        return listener.status !== "none";
-	      });
-	      return this._events[name].forEach(function (listener) {
-	        var e, ret;
-
-	        if (listener.status === "none") {
-	          return;
-	        }
-
-	        if (listener.status === "once") {
-	          listener.status = "none";
-	        }
-
-	        try {
-	          ret = typeof listener.cb === "function" ? listener.cb.apply(listener, args) : void 0;
-	          return ret != null ? typeof ret.then === "function" ? ret.then(function () {}).catch(function (e) {
-	            return _this2.trigger("error", e);
-	          }) : void 0 : void 0;
-	        } catch (error) {
-	          e = error;
-
-	          {
-	            return _this2.trigger("error", e);
-	          }
-	        }
-	      });
 	    }
+	  }, {
+	    key: "trigger",
+	    value: function () {
+	      var _trigger = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee2(name) {
+	        var _this2 = this;
+
+	        var _len,
+	            args,
+	            _key,
+	            e,
+	            promises,
+	            _args2 = arguments;
+
+	        return regeneratorRuntime.wrap(function _callee2$(_context2) {
+	          while (1) {
+	            switch (_context2.prev = _context2.next) {
+	              case 0:
+	                for (_len = _args2.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+	                  args[_key - 1] = _args2[_key];
+	                }
+
+	                _context2.prev = 1;
+
+	                if (name !== "debug") {
+	                  this.trigger("debug", "Event triggered: ".concat(name), args);
+	                }
+
+	                if (!(this._events[name] == null)) {
+	                  _context2.next = 5;
+	                  break;
+	                }
+
+	                return _context2.abrupt("return");
+
+	              case 5:
+	                this._events[name] = this._events[name].filter(function (listener) {
+	                  return listener.status !== "none";
+	                });
+	                promises = this._events[name].map(
+	                /*#__PURE__*/
+	                function () {
+	                  var _ref = _asyncToGenerator(
+	                  /*#__PURE__*/
+	                  regeneratorRuntime.mark(function _callee(listener) {
+	                    var e, returned;
+	                    return regeneratorRuntime.wrap(function _callee$(_context) {
+	                      while (1) {
+	                        switch (_context.prev = _context.next) {
+	                          case 0:
+	                            if (!(listener.status === "none")) {
+	                              _context.next = 2;
+	                              break;
+	                            }
+
+	                            return _context.abrupt("return");
+
+	                          case 2:
+	                            if (listener.status === "once") {
+	                              listener.status = "none";
+	                            }
+
+	                            _context.prev = 3;
+	                            returned = typeof listener.cb === "function" ? listener.cb.apply(listener, args) : void 0;
+
+	                            if (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function")) {
+	                              _context.next = 11;
+	                              break;
+	                            }
+
+	                            _context.next = 8;
+	                            return returned;
+
+	                          case 8:
+	                            return _context.abrupt("return", _context.sent);
+
+	                          case 11:
+	                            return _context.abrupt("return", returned);
+
+	                          case 12:
+	                            _context.next = 19;
+	                            break;
+
+	                          case 14:
+	                            _context.prev = 14;
+	                            _context.t0 = _context["catch"](3);
+	                            e = _context.t0;
+
+	                            {
+	                              _this2.trigger("error", e);
+	                            }
+
+	                            return _context.abrupt("return", null);
+
+	                          case 19:
+	                          case "end":
+	                            return _context.stop();
+	                        }
+	                      }
+	                    }, _callee, this, [[3, 14]]);
+	                  }));
+
+	                  return function (_x2) {
+	                    return _ref.apply(this, arguments);
+	                  };
+	                }());
+	                _context2.next = 9;
+	                return Promise.all(promises);
+
+	              case 9:
+	                _context2.t0 = function (x) {
+	                  return x != null;
+	                };
+
+	                return _context2.abrupt("return", _context2.sent.find(_context2.t0));
+
+	              case 13:
+	                _context2.prev = 13;
+	                _context2.t1 = _context2["catch"](1);
+	                e = _context2.t1;
+
+	                {
+	                  this.trigger("error", e);
+	                }
+
+	                return _context2.abrupt("return", null);
+
+	              case 18:
+	              case "end":
+	                return _context2.stop();
+	            }
+	          }
+	        }, _callee2, this, [[1, 13]]);
+	      }));
+
+	      return function trigger(_x) {
+	        return _trigger.apply(this, arguments);
+	      };
+	    }()
 	  }]);
 
 	  return Events;
@@ -3816,7 +3920,7 @@
 	      }
 	    }, {
 	      key: "_run",
-	      value: function _run(next, wait, index) {
+	      value: function _run(next, wait, index, retryCount) {
 	        var _this2 = this;
 
 	        var completed, done;
@@ -3833,6 +3937,10 @@
 	          /*#__PURE__*/
 	          regeneratorRuntime.mark(function _callee() {
 	            var e,
+	                error,
+	                eventInfo,
+	                retry,
+	                retryAfter,
 	                running,
 	                _ref2,
 	                _args = arguments;
@@ -3842,40 +3950,58 @@
 	                switch (_context.prev = _context.next) {
 	                  case 0:
 	                    if (done) {
-	                      _context.next = 21;
+	                      _context.next = 30;
 	                      break;
 	                    }
 
 	                    _context.prev = 1;
 	                    done = true;
+	                    clearTimeout(_this2._scheduled[index].expiration);
+	                    delete _this2._scheduled[index];
+	                    eventInfo = {
+	                      args: next.args,
+	                      options: next.options,
+	                      retryCount: retryCount
+	                    };
 
+	                    if (!((error = _args.length <= 0 ? undefined : _args[0]) != null)) {
+	                      _context.next = 14;
+	                      break;
+	                    }
+
+	                    _context.next = 9;
+	                    return _this2.Events.trigger("failed", error, eventInfo);
+
+	                  case 9:
+	                    retry = _context.sent;
+
+	                    if (!(retry != null)) {
+	                      _context.next = 14;
+	                      break;
+	                    }
+
+	                    retryAfter = ~~retry;
+
+	                    _this2.Events.trigger("retry", "Retrying ".concat(next.options.id, " after ").concat(retryAfter, " ms"), eventInfo);
+
+	                    return _context.abrupt("return", _this2._run(next, retryAfter, index, retryCount + 1));
+
+	                  case 14:
 	                    _this2._states.next(next.options.id); // DONE
 
 
-	                    clearTimeout(_this2._scheduled[index].expiration);
-	                    delete _this2._scheduled[index];
+	                    _this2.Events.trigger("debug", "Completed ".concat(next.options.id), eventInfo);
 
-	                    _this2.Events.trigger("debug", "Completed ".concat(next.options.id), {
-	                      args: next.args,
-	                      options: next.options
-	                    });
+	                    _this2.Events.trigger("done", "Completed ".concat(next.options.id), eventInfo);
 
-	                    _this2.Events.trigger("done", "Completed ".concat(next.options.id), {
-	                      args: next.args,
-	                      options: next.options
-	                    });
-
-	                    _context.next = 10;
+	                    _context.next = 19;
 	                    return _this2._store.__free__(index, next.options.weight);
 
-	                  case 10:
+	                  case 19:
 	                    _ref2 = _context.sent;
 	                    running = _ref2.running;
 
-	                    _this2.Events.trigger("debug", "Freed ".concat(next.options.id), {
-	                      args: next.args,
-	                      options: next.options
-	                    });
+	                    _this2.Events.trigger("debug", "Freed ".concat(next.options.id), eventInfo);
 
 	                    if (running === 0 && _this2.empty()) {
 	                      _this2.Events.trigger("idle");
@@ -3883,18 +4009,18 @@
 
 	                    return _context.abrupt("return", typeof next.cb === "function" ? next.cb.apply(next, _args) : void 0);
 
-	                  case 17:
-	                    _context.prev = 17;
+	                  case 26:
+	                    _context.prev = 26;
 	                    _context.t0 = _context["catch"](1);
 	                    e = _context.t0;
 	                    return _context.abrupt("return", _this2.Events.trigger("error", e));
 
-	                  case 21:
+	                  case 30:
 	                  case "end":
 	                    return _context.stop();
 	                }
 	              }
-	            }, _callee, this, [[1, 17]]);
+	            }, _callee, this, [[1, 26]]);
 	          }));
 
 	          return function completed() {
@@ -3902,8 +4028,10 @@
 	          };
 	        }();
 
-	        this._states.next(next.options.id); // RUNNING
-
+	        if (retryCount === 0) {
+	          // RUNNING
+	          this._states.next(next.options.id);
+	        }
 
 	        return this._scheduled[index] = {
 	          timeout: setTimeout(function () {
@@ -3912,8 +4040,10 @@
 	              options: next.options
 	            });
 
-	            _this2._states.next(next.options.id); // EXECUTING
-
+	            if (retryCount === 0) {
+	              // EXECUTING
+	              _this2._states.next(next.options.id);
+	            }
 
 	            if (_this2._limiter != null) {
 	              var _this2$_limiter;
@@ -3982,7 +4112,7 @@
 	                _this3.Events.trigger("depleted", empty);
 	              }
 
-	              _this3._run(next, wait, index);
+	              _this3._run(next, wait, index, 0);
 	            }
 
 	            return _this3.Promise.resolve(success);

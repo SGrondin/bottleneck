@@ -329,6 +329,23 @@ declare module "bottleneck" {
              */
             clusterKeys(): Promise<string[]>;
         }
+
+        class Events {
+            constructor(object: Object);
+
+            /**
+             * Returns the number of limiters for the event name
+             * @param name - The event name.
+             */
+            listenerCount(name: string): number;
+
+            /**
+             * Returns a promise with the first non-null/non-undefined result from a listener
+             * @param name - The event name.
+             * @param args - The arguments to pass to the event listeners.
+             */
+            trigger(name: string, ...args: any[]): Promise<any>;
+        }
     }
 
     class Bottleneck {
