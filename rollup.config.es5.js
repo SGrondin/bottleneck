@@ -13,7 +13,7 @@ const bannerLines = [
 const banner = `/**\n${bannerLines}\n  */`;
 
 export default {
-  input: 'lib/bundle.js',
+  input: 'lib/es5.js',
   output: {
     name: 'Bottleneck',
     file: 'es5.js',

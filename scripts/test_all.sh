@@ -9,7 +9,7 @@ echo 'NodeRedis tests'
 DATASTORE=redis npm test
 
 echo 'ES5 bundle tests'
-BUILD=bundle npm test
+BUILD=es5 npm test
 
 echo 'Light bundle tests'
 BUILD=light npm test

@@ -28,14 +28,14 @@ makeLib6() {
   mv src/*.js lib/
 }
 
-makeBundle() {
+makeES5() {
   echo '[B] Compiling Bottleneck to ES5...'
-  ln -s .babelrc.bundle .babelrc
+  ln -s .babelrc.es5 .babelrc
   npx coffee --compile --bare --no-header src/*.coffee
   mv src/*.js lib/
 
   echo '[B] Assembling ES5 bundle...'
-  npx rollup -c rollup.config.bundle.js
+  npx rollup -c rollup.config.es5.js
 }
 
 makeLight() {
@@ -54,9 +54,9 @@ makeTypings() {
 if [ "$1" = 'dev' ]; then
   clean
   makeLib10
-elif [ "$1" = 'bundle' ]; then
+elif [ "$1" = 'es5' ]; then
   clean
-  makeBundle
+  makeES5
 elif [ "$1" = 'light' ]; then
   clean
   makeLight
@@ -64,7 +64,7 @@ elif [ "$1" = 'typings' ]; then
   makeTypings
 else
   clean
-  makeBundle
+  makeES5
 
   clean
   makeLight

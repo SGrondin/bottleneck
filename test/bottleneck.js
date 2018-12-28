@@ -1,4 +1,4 @@
-if (process.env.BUILD === 'bundle') {
+if (process.env.BUILD === 'es5') {
   module.exports = require('../es5.js')
 } else if (process.env.BUILD === 'light') {
   module.exports = require('../light.js')

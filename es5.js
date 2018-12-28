@@ -4590,8 +4590,8 @@
 
 	var Bottleneck_1 = Bottleneck;
 
-	var bundle = Bottleneck_1;
+	var es5 = Bottleneck_1;
 
-	return bundle;
+	return es5;
 
 })));
