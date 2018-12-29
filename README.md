@@ -13,6 +13,55 @@ It supports **Clustering**: it can rate limit jobs across multiple Node.js insta
 
 **[Upgrading from version 1?](#upgrading-to-v2)**
 
+<!-- toc -->
+
+- [Install](#install)
+- [Quick Start](#quick-start)
+  * [Gotchas](#gotchas)
+- [Constructor](#constructor)
+- [submit()](#submit)
+- [schedule()](#schedule)
+- [wrap()](#wrap)
+- [Job Options](#job-options)
+- [Jobs Lifecycle](#jobs-lifecycle)
+  * [counts()](#counts)
+  * [jobStatus()](#jobstatus)
+  * [jobs()](#jobs)
+  * [queued()](#queued)
+  * [empty()](#empty)
+  * [running()](#running)
+  * [done()](#done)
+  * [check()](#check)
+- [Events](#events)
+- [updateSettings()](#updatesettings)
+- [incrementReservoir()](#incrementreservoir)
+- [currentReservoir()](#currentreservoir)
+- [stop()](#stop)
+- [chain()](#chain)
+- [Group](#group)
+  * [key()](#key)
+  * [on("created")](#oncreated)
+  * [updateSettings()](#updatesettings)
+  * [deleteKey()](#deletekey)
+  * [keys()](#keys)
+  * [clusterKeys()](#clusterkeys)
+  * [limiters()](#limiters)
+- [Batching](#batching)
+- [Clustering](#clustering)
+  * [Enabling Clustering](#enabling-clustering)
+  * [Important Considerations When Clustering](#important-considerations-when-clustering)
+  * [Clustering Methods](#clustering-methods)
+    * [ready()](#ready)
+    * [publish(message)](#publishmessage)
+    * [clients()](#clients)
+  * [Additional Clustering Information](#additional-clustering-information)
+  * [Managing Redis Connections](#managing-redis-connections)
+- [Debugging Your Application](#debugging-your-application)
+- [Upgrading To v2](#upgrading-to-v2)
+- [Contributing](#contributing)
+
+<!-- tocstop -->
+
 ## Install
 
 ```
@@ -22,7 +71,7 @@ npm install --save bottleneck
 ```js
 import Bottleneck from "bottleneck";
 
-// Note: To support older browsers and Node <6.0, you must import the ES5 bundle.
+// Note: To support older browsers and Node <6.0, you must import the ES5 bundle instead.
 var Bottleneck = require("bottleneck/es5");
 ```
 
@@ -32,8 +81,6 @@ var Bottleneck = require("bottleneck/es5");
 
 Most APIs have a rate limit. For example, to execute 3 requests per second:
 ```js
-import Bottleneck from "bottleneck";
-
 const limiter = new Bottleneck({
   minTime: 333
 });
@@ -121,9 +168,9 @@ Remember...
 
 Bottleneck builds a queue of jobs and executes them as soon as possible. By default, the jobs will be executed in the order they were received.
 
-**Read the 'Gotchas' and you're good to go**. Or keep reading to learn about all the fine tuning and advanced options available. If your rate limits need to be enforced across a cluster of computers, read the [Clustering](#Clustering) docs.
+**Read the 'Gotchas' and you're good to go**. Or keep reading to learn about all the fine tuning and advanced options available. If your rate limits need to be enforced across a cluster of computers, read the [Clustering](#clustering) docs.
 
-[Need help debugging your application?](#debugging-your-application).
+[Need help debugging your application?](#debugging-your-application)
 
 Instead of throttling maybe [you want to batch up requests](#batching) into fewer calls?
 
@@ -137,7 +184,7 @@ limiter.schedule(() => object.doSomething(arg1, arg2));
 limiter.schedule(() => object.doSomething.bind(object)(arg1, arg2));
 ```
 
-* Bottleneck requires Node 6+ to function. However, an ES5 build is included: `import Bottleneck from "bottleneck/es5";`.
+* Bottleneck requires Node 6+ to function. However, an ES5 build is included: `var Bottleneck = require("bottleneck/es5");`.
 
 * Make sure you're catching `"error"` events emitted by your limiters!
 
@@ -495,7 +542,7 @@ The Group is then used with the `.key(str)` method:
 group.key("77.66.54.32").submit(someAsyncCall, arg1, arg2, cb);
 ```
 
-__key()__
+#### key()
 
 * `str` : The key to use. All jobs added with the same key will use the same underlying limiter. *Default: `""`*
 
@@ -503,7 +550,7 @@ The return value of `.key(str)` is a limiter. If it doesn't already exist, it is
 
 Limiters that have been idle for longer than 5 minutes are deleted to avoid memory leaks, this value can be changed by passing a different `timeout` option, in milliseconds.
 
-__on("created")__
+#### on("created")
 
 ```js
 group.on("created", (limiter, key) => {
@@ -518,7 +565,7 @@ group.on("created", (limiter, key) => {
 
 Listening for the `"created"` event is the recommended way to set up a new limiter. Your event handler is executed before `key()` returns the newly created limiter.
 
-__updateSettings()__
+#### updateSettings()
 
 ```js
 const group = new Bottleneck.Group({ maxConcurrent: 2, minTime: 250 });
@@ -527,21 +574,21 @@ group.updateSettings({ minTime: 500 });
 After executing the above commands, **new limiters** will be created with `{ maxConcurrent: 2, minTime: 500 }`.
 
 
-__deleteKey()__
+#### deleteKey()
 
 * `str`: The key for the limiter to delete.
 
 Manually deletes the limiter at the specified key. When using Clustering, the Redis data is immediately deleted and the other Groups in the Cluster will eventually delete their local key automatically, unless it is still being used.
 
-__keys()__
+#### keys()
 
 Returns an array containing all the keys in the Group.
 
-__clusterKeys()__
+#### clusterKeys()
 
 Same as `group.keys()`, but returns all keys in this Group ID across the Cluster.
 
-__limiters()__
+#### limiters()
 
 ```js
 const limiters = group.limiters();
