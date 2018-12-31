@@ -25,6 +25,7 @@ It supports **Clustering**: it can rate limit jobs across multiple Node.js insta
 - [Job Options](#job-options)
 - [Jobs Lifecycle](#jobs-lifecycle)
 - [Events](#events)
+- [Retries](#retries)
 - [`updateSettings()`](#updatesettings)
 - [`incrementReservoir()`](#incrementreservoir)
 - [`currentReservoir()`](#currentreservoir)
@@ -76,12 +77,16 @@ const limiter = new Bottleneck({
 const limiter = new Bottleneck({
   reservoir: 100, // initial value
   reservoirRefreshAmount: 100,
-  reservoirRefreshInterval: 60 * 1000 // must be divisible by 250
+  reservoirRefreshInterval: 60 * 1000, // must be divisible by 250
+
+  // also use maxConcurrent and/or minTime for safety
+  maxConcurrent: 1,
+  minTime: 333
 });
 ```
 `reservoir` is a counter decremented every time a job is launched, we set its initial value to 100. Then, every `reservoirRefreshInterval` (60000 ms), `reservoir` is automatically reset to `reservoirRefreshAmount` (100).
 
-**You should** still use `minTime` and/or `maxConcurrent` to spread out the load since running 100 requests in parallel might not be a good idea!
+**IMPORTANT:** For safety reasons, it's strongly recommended to also use `minTime` and/or `maxConcurrent` to spread out the load. For example, suppose a lot of jobs are queued up because the `reservoir` is 0. As soon as the reservoir refresh is triggered, 100 jobs will automatically be launched, all at the same time! To prevent that and keep your application running smoothly, use `minTime` and/or `maxConcurrent` to *stagger* the jobs.
 
 ### Step 2 of 3
 
@@ -384,32 +389,46 @@ Checks if a new job would be executed immediately if it was submitted now. Retur
 
 Event names: `"error"`, `"empty"`, `"idle"`, `"dropped"`, `"depleted"` and `"debug"`.
 
-__error__
+__'error'__
 ```js
 limiter.on("error", function (error) {
   /* handle errors here */
 });
 ```
 
-By far the most common source of errors is uncaught exceptions in your application code. If the jobs you add to Bottleneck don't catch their own exceptions, the limiter will emit an `"error"` event.
+The two main causes of error events are: uncaught exceptions in your event handlers, and network errors when Clustering is enabled.
 
-If using Clustering, errors thrown by the Redis client will emit an `"error"` event.
+__'failed'__
+```js
+limiter.on("failed", function (error, jobInfo) {
+  // This will be called every time a job fails.
+});
+```
 
-__empty__
+__'retry'__
+
+See [Retries](#retries) to learn how to automatically retry jobs.
+```js
+limiter.on("retry", function (error, jobInfo) {
+  // This will be called every time a job is retried.
+});
+```
+
+__'empty'__
 ```js
 limiter.on("empty", function () {
   // This will be called when `limiter.empty()` becomes true.
 });
 ```
 
-__idle__
+__'idle'__
 ```js
 limiter.on("idle", function () {
   // This will be called when `limiter.empty()` is `true` and `limiter.running()` is `0`.
 });
 ```
 
-__dropped__
+__'dropped'__
 ```js
 limiter.on("dropped", function (dropped) {
   // This will be called when a strategy was triggered.
@@ -417,7 +436,7 @@ limiter.on("dropped", function (dropped) {
 });
 ```
 
-__depleted__
+__'depleted'__
 ```js
 limiter.on("depleted", function (empty) {
   // This will be called every time the reservoir drops to 0.
@@ -425,7 +444,7 @@ limiter.on("depleted", function (empty) {
 });
 ```
 
-__debug__
+__'debug'__
 ```js
 limiter.on("debug", function (message, data) {
   // Useful to figure out what the limiter is doing in real time
@@ -436,6 +455,56 @@ limiter.on("debug", function (message, data) {
 Use `removeAllListeners()` with an optional event name as first argument to remove listeners.
 
 Use `.once()` instead of `.on()` to only receive a single event.
+
+
+# Retries
+
+The following example:
+```js
+const limiter = new Bottleneck();
+
+// Listen to the "failed" event
+limiter.on("failed", async (error, jobInfo) => {
+  const id = jobInfo.options.id;
+  console.warn(`Job ${id} failed: ${error}`);
+
+  if (jobInfo.retryCount === 0) { // Here we only retry once
+    console.log(`Retrying job ${id} in 25ms!`);
+    return 25;
+  }
+});
+
+// Listen to the "retry" event
+limiter.on("retry", (error, jobInfo) => console.log(`Now retrying ${jobInfo.options.id}`));
+
+const main = async function () {
+  let executions = 0;
+
+  // Schedule one job
+  const result = await limiter.schedule({ id: 'ABC123' }, async () => {
+    executions++;
+    if (executions === 1) {
+      throw new Error("Boom!");
+    } else {
+      return "Success!";
+    }
+  });
+
+  console.log(`Result: ${result}`);
+}
+
+main();
+```
+will output
+```
+Job ABC123 failed: Error: Boom!
+Retrying job ABC123 in 25ms!
+Now retrying ABC123
+Result: Success!
+```
+To re-run your job, simply return an integer from the `'failed'` event handler. The number returned is how many milliseconds to wait before retrying it. Return `0` to retry it immediately.
+
+**IMPORTANT:** When you ask the limiter to retry a job it will not send it back into the queue. It will stay in the `EXECUTING` [state](#jobs-lifecycle) until it succeeds or until you stop retrying it. **This means that it counts as a concurrent job for `maxConcurrent` even while it's just waiting to be retried.** The number of milliseconds to wait ignores your `minTime` settings.
 
 
 ### updateSettings()
