@@ -23,7 +23,7 @@ class Events
         if listener.status == "once" then listener.status = "none"
         try
           returned = listener.cb?(args...)
-          if returned?.then? and typeof returned.then == "function"
+          if typeof returned?.then == "function"
             await returned
           else
             returned

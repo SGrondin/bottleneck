@@ -175,7 +175,7 @@
 	        }
 	        try {
 	          returned = typeof listener.cb === "function" ? listener.cb(...args) : void 0;
-	          if (((returned != null ? returned.then : void 0) != null) && typeof returned.then === "function") {
+	          if (typeof (returned != null ? returned.then : void 0) === "function") {
 	            return (await returned);
 	          } else {
 	            return returned;

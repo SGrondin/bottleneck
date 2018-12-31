@@ -1246,7 +1246,7 @@
 	                            _context.prev = 3;
 	                            returned = typeof listener.cb === "function" ? listener.cb.apply(listener, args) : void 0;
 
-	                            if (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function")) {
+	                            if (!(typeof (returned != null ? returned.then : void 0) === "function")) {
 	                              _context.next = 11;
 	                              break;
 	                            }

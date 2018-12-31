@@ -63,6 +63,11 @@ describe('General', function () {
     myObject.doSomething()
     c.mustEqual(myObject.emitter.listenerCount('info'), 1)
     c.mustEqual(myObject.emitter.listenerCount('nothing'), 0)
+
+    myObject.on('blah', '')
+    myObject.on('blah', null)
+    myObject.on('blah')
+    return myObject.emitter.trigger('blah')
   })
 
   describe('Counts and statuses', function () {
