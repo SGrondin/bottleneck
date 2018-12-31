@@ -457,7 +457,7 @@ Use `removeAllListeners()` with an optional event name as first argument to remo
 Use `.once()` instead of `.on()` to only receive a single event.
 
 
-# Retries
+### Retries
 
 The following example:
 ```js
