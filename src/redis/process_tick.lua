@@ -125,8 +125,6 @@ local process_tick = function (now, always_publish)
         lowest_concurrency_value == nil or lowest_concurrency_value == concurrency
       ) and (
         tonumber(redis.call('hget', client_num_queued_key, client)) > 0
-      ) and (
-        tonumber(redis.call('pubsub', 'numsub', 'b_'..id..'_'..client)[2]) > 0
       ) then
         lowest_concurrency_value = concurrency
         table.insert(lowest_concurrency_clients, client)
@@ -147,7 +145,7 @@ local process_tick = function (now, always_publish)
       end
 
       local next_client = lowest_concurrency_clients[position]
-      redis.call('publish', 'b_'..id..'_'..next_client, 'capacity:'..(final_capacity or ''))
+      redis.call('publish', 'b_'..id, 'capacity-priority:'..(final_capacity or '')..':'..next_client)
     else
       redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))
     end

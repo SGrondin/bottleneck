@@ -37,8 +37,14 @@ class RedisDatastore
     [type, data] = [message.slice(0, pos), message.slice(pos+1)]
     if type == "capacity"
       await @instance._drainAll(if data.length > 0 then ~~data)
-      if channel == @instance.channel_client()
+    else if type == "capacity-priority"
+      [capacity, priorityClient] = data.split(":")
+      if priorityClient == @clientId
+        await @instance._drainAll(if capacity.length > 0 then ~~capacity)
         await @clients.client.publish(@instance.channel(), "capacity:")
+      else
+        await (new @Promise (resolve, reject) -> setTimeout resolve, 500)
+        await @instance._drainAll(if capacity.length > 0 then ~~capacity)
     else if type == "message"
       @instance.Events.trigger "message", data
     else if type == "blocked"
