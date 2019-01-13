@@ -235,7 +235,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         var settings_key = limiterKeys(c.limiter)[0]
         return Promise.all([
           runCommand(c.limiter, 'hset', [settings_key, 'version', '2.8.0']),
-          runCommand(c.limiter, 'hdel', [settings_key, 'done']),
+          runCommand(c.limiter, 'hdel', [settings_key, 'done', 'capacityPriorityCounter']),
           runCommand(c.limiter, 'hset', [settings_key, 'lastReservoirRefresh', ''])
         ])
       })
@@ -253,13 +253,14 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           'done',
           'reservoirRefreshInterval',
           'reservoirRefreshAmount',
+          'capacityPriorityCounter',
           'lastReservoirRefresh'
         ])
       })
       .then(function (values) {
         var lastReservoirRefresh = values[values.length - 1]
         assert(parseInt(lastReservoirRefresh) > Date.now() - 500)
-        c.mustEqual(values.slice(0, values.length - 1), ['2.14.0', '0', '', ''])
+        c.mustEqual(values.slice(0, values.length - 1), ['2.15.2', '0', '', '', '0'])
       })
       .then(function () {
         return limiter2.disconnect(false)
@@ -420,7 +421,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           heartbeatInterval: 150
         })
       var getData = function (limiter) {
-        c.mustEqual(limiterKeys(limiter).length, 7) // Asserting, to remember to edit this test when keys change
+        c.mustEqual(limiterKeys(limiter).length, 8) // Asserting, to remember to edit this test when keys change
         var [
           settings_key,
           job_weights_key,
@@ -428,7 +429,8 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           job_clients_key,
           client_running_key,
           client_num_queued_key,
-          client_last_registered_key
+          client_last_registered_key,
+          client_last_seen_key
         ] = limiterKeys(limiter)
 
         return Promise.all([
@@ -438,7 +440,8 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           runCommand(limiter1, 'hvals', [job_clients_key]),
           runCommand(limiter1, 'zrange', [client_running_key, '0', '-1', 'withscores']),
           runCommand(limiter1, 'hvals', [client_num_queued_key]),
-          runCommand(limiter1, 'zrange', [client_last_registered_key, '0', '-1', 'withscores'])
+          runCommand(limiter1, 'zrange', [client_last_registered_key, '0', '-1', 'withscores']),
+          runCommand(limiter1, 'zrange', [client_last_seen_key, '0', '-1', 'withscores'])
         ])
       }
       var sumWeights = function (weights) {
@@ -478,7 +481,8 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           job_clients,
           client_running,
           client_num_queued,
-          client_last_registered
+          client_last_registered,
+          client_last_seen
       ]) {
         c.mustEqual(settings, ['15', '0'])
         c.mustEqual(sumWeights(job_weights), 15)
@@ -488,6 +492,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         c.mustEqual(sumWeights(client_running), 15)
         c.mustEqual(client_num_queued, ['0', '0'])
         c.mustEqual(client_last_registered[1], '0')
+        assert(client_last_seen[1] > Date.now() - 1000)
         var passed = Date.now() - parseFloat(client_last_registered[3])
         assert(passed > 0 && passed < 20)
 
@@ -503,7 +508,8 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         job_clients,
         client_running,
         client_num_queued,
-        client_last_registered
+        client_last_registered,
+        client_last_seen
       ]) {
         c.mustEqual(settings, ['1', '14'])
         c.mustEqual(sumWeights(job_weights), 1)
@@ -513,6 +519,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         c.mustEqual(sumWeights(client_running), 1)
         c.mustEqual(client_num_queued, ['0', '0'])
         c.mustEqual(client_last_registered[1], '0')
+        assert(client_last_seen[1] > Date.now() - 1000)
         var passed = Date.now() - parseFloat(client_last_registered[3])
         assert(passed > 170 && passed < 200)
       })
@@ -669,7 +676,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return deleteKeys(limiter)
       })
       .then(function (deleted) {
-        c.mustEqual(deleted, 4)
+        c.mustEqual(deleted, 5)
         return limiter.disconnect(false)
       })
     })
@@ -684,7 +691,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return deleteKeys(limiter)
       })
       .then(function (deleted) {
-        c.mustEqual(deleted, 4)
+        c.mustEqual(deleted, 5)
         return countKeys(limiter)
       })
       .then(function (count) {
@@ -696,7 +703,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return countKeys(limiter)
       })
       .then(function (count) {
-        c.mustEqual(count, 1)
+        c.mustEqual(count, 2) // init and client_last_seen
         return limiter.disconnect(false)
       })
     })
@@ -918,7 +925,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         return Promise.all([countKeys(limiter1), countKeys(limiter2), countKeys(limiter3)])
       })
       .then(function (counts) {
-        c.mustEqual(counts, [4, 4, 4])
+        c.mustEqual(counts, [5, 5, 5])
         return Promise.all([
           limiter1.schedule(job, 'a'),
           limiter1.schedule(job, 'b'),
@@ -975,13 +982,13 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
       .then(function (done) {
         c.mustEqual(done, 1)
-        return c.wait(500)
+        return c.wait(400)
       })
       .then(function () {
         return countKeys(limiter)
       })
       .then(function (count) {
-        c.mustEqual(count, 0)
+        c.mustEqual(count, 1)
         return group.disconnect(false)
       })
     })
@@ -1295,6 +1302,62 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       await limiter2.disconnect(false)
       await limiter3.disconnect(false)
       await limiter4.disconnect(false)
+    })
+
+    it('Should take the capacity and blacklist if the priority limiter is not responding', async function () {
+      c = makeTest()
+      var limiter1 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'crash',
+        timeout: 3000,
+        maxConcurrent: 1,
+        trackDoneStatus: true
+      })
+      var limiter2 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'crash',
+        timeout: 3000,
+        maxConcurrent: 1,
+        trackDoneStatus: true
+      })
+      var limiter3 = new Bottleneck({
+        datastore: process.env.DATASTORE,
+        clearDatastore: true,
+        id: 'crash',
+        timeout: 3000,
+        maxConcurrent: 1,
+        trackDoneStatus: true
+      })
+
+      await limiter1.schedule({id: '1'}, c.promise, null, 'A')
+      await limiter2.schedule({id: '2'}, c.promise, null, 'B')
+      await limiter3.schedule({id: '3'}, c.promise, null, 'C')
+
+      var resolve1, resolve2, resolve3
+      var p1 = new Promise(function (resolve, reject) {
+        resolve1 = function (err, n) { resolve(n) }
+      })
+      var p2 = new Promise(function (resolve, reject) {
+        resolve2 = function (err, n) { resolve(n) }
+      })
+      var p3 = new Promise(function (resolve, reject) {
+        resolve3 = function (err, n) { resolve(n) }
+      })
+
+      await limiter1.submit({id: '4'}, c.slowJob, 100, null, 4, resolve1)
+      await limiter2.submit({id: '5'}, c.slowJob, 100, null, 5, resolve2)
+      await limiter3.submit({id: '6'}, c.slowJob, 100, null, 6, resolve3)
+      await limiter2.disconnect(false)
+
+      await Promise.all([p1, p3])
+      c.checkResultsOrder([['A'], ['B'], ['C'], [4], [6]])
+
+
+      await limiter1.disconnect(false)
+      await limiter2.disconnect(false)
+      await limiter3.disconnect(false)
     })
 
   })

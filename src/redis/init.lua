@@ -20,7 +20,8 @@ if redis.call('exists', settings_key) == 0 then
     'lastReservoirRefresh', now,
     'running', 0,
     'done', 0,
-    'unblockTime', 0
+    'unblockTime', 0,
+    'capacityPriorityCounter', 0
   )
 
 else
@@ -69,6 +70,12 @@ else
         redis.call('rename', old_executing_key, job_expirations_key)
       end
       redis.call('hset', settings_key, 'version', '2.14.0')
+    end
+
+    -- 2.15.2
+    if version_digits[2] < 15 and version_digits[3] < 2 then
+      redis.call('hsetnx', settings_key, 'capacityPriorityCounter', 0)
+      redis.call('hset', settings_key, 'version', '2.15.2')
     end
 
   end

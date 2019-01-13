@@ -1054,12 +1054,12 @@
 	      return this._registerLock.schedule(() => {
 	        var args, index, next, options, queue;
 	        if (this.queued() === 0) {
-	          return this.Promise.resolve(false);
+	          return this.Promise.resolve(null);
 	        }
 	        queue = this._queues.getFirst();
 	        ({options, args} = next = queue.first());
 	        if ((capacity != null) && options.weight > capacity) {
-	          return this.Promise.resolve(false);
+	          return this.Promise.resolve(null);
 	        }
 	        this.Events.trigger("debug", `Draining ${options.id}`, {args, options});
 	        index = this._randomIndex();
@@ -1076,18 +1076,22 @@
 	              this.Events.trigger("depleted", empty);
 	            }
 	            this._run(next, wait, index, 0);
+	            return this.Promise.resolve(options.weight);
+	          } else {
+	            return this.Promise.resolve(null);
 	          }
-	          return this.Promise.resolve(success);
 	        });
 	      });
 	    }
 
-	    _drainAll(capacity) {
-	      return this._drainOne(capacity).then((success) => {
-	        if (success) {
-	          return this._drainAll();
+	    _drainAll(capacity, total = 0) {
+	      return this._drainOne(capacity).then((drained) => {
+	        var newCapacity;
+	        if (drained != null) {
+	          newCapacity = capacity != null ? capacity - drained : capacity;
+	          return this._drainAll(newCapacity, total + drained);
 	        } else {
-	          return this.Promise.resolve(success);
+	          return this.Promise.resolve(total);
 	        }
 	      }).catch((e) => {
 	        return this.Events.trigger("error", e);
@@ -1137,7 +1141,7 @@
 	      done = options.dropWaitingJobs ? (this._run = (next) => {
 	        return this._drop(next, options.dropErrorMessage);
 	      }, this._drainOne = () => {
-	        return this.Promise.resolve(false);
+	        return this.Promise.resolve(null);
 	      }, this._registerLock.schedule(() => {
 	        return this._submitLock.schedule(() => {
 	          var k, ref, v;

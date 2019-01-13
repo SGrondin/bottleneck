@@ -1939,6 +1939,7 @@
 	var LocalDatastore_1 = LocalDatastore;
 
 	var lua = {
+		"blacklist_client.lua": "local blacklist = ARGV[3]\n\nredis.call('zadd', client_last_seen_key, 0, blacklist)\n\nreturn {}\n",
 		"check.lua": "local weight = tonumber(ARGV[3])\n\nlocal capacity = process_tick(now, false)['capacity']\nlocal nextRequest = tonumber(redis.call('hget', settings_key, 'nextRequest'))\n\nreturn conditions_check(capacity, weight) and nextRequest - now <= 0\n",
 		"conditions_check.lua": "local conditions_check = function (capacity, weight)\n  return capacity == nil or weight <= capacity\nend\n",
 		"current_reservoir.lua": "return process_tick(now, false)['reservoir']\n",
@@ -1948,10 +1949,10 @@
 		"group_check.lua": "return not (redis.call('exists', settings_key) == 1)\n",
 		"heartbeat.lua": "process_tick(now, true)\n",
 		"increment_reservoir.lua": "local incr = tonumber(ARGV[3])\n\nredis.call('hincrby', settings_key, 'reservoir', incr)\n\nlocal reservoir = process_tick(now, true)['reservoir']\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(0, 0, groupTimeout)\n\nreturn reservoir\n",
-		"init.lua": "local clear = tonumber(ARGV[3])\nlocal limiter_version = ARGV[4]\nlocal num_static_argv = 4\n\nif clear == 1 then\n  redis.call('del', unpack(KEYS))\nend\n\nif redis.call('exists', settings_key) == 0 then\n  -- Create\n  local args = {'hmset', settings_key}\n\n  for i = num_static_argv + 1, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\n  redis.call('hmset', settings_key,\n    'nextRequest', now,\n    'lastReservoirRefresh', now,\n    'running', 0,\n    'done', 0,\n    'unblockTime', 0\n  )\n\nelse\n  -- Apply migrations\n  local settings = redis.call('hmget', settings_key,\n    'id',\n    'version'\n  )\n  local id = settings[1]\n  local current_version = settings[2]\n\n  if current_version ~= limiter_version then\n    local version_digits = {}\n    for k, v in string.gmatch(current_version, \"([^.]+)\") do\n      table.insert(version_digits, tonumber(k))\n    end\n\n    -- 2.10.0\n    if version_digits[2] < 10 then\n      redis.call('hsetnx', settings_key, 'reservoirRefreshInterval', '')\n      redis.call('hsetnx', settings_key, 'reservoirRefreshAmount', '')\n      redis.call('hsetnx', settings_key, 'lastReservoirRefresh', '')\n      redis.call('hsetnx', settings_key, 'done', 0)\n      redis.call('hset', settings_key, 'version', '2.10.0')\n    end\n\n    -- 2.11.1\n    if version_digits[2] < 11 and version_digits[3] < 1 then\n      if redis.call('hstrlen', settings_key, 'lastReservoirRefresh') == 0 then\n        redis.call('hmset', settings_key,\n          'lastReservoirRefresh', now,\n          'version', '2.11.1'\n        )\n      end\n    end\n\n    -- 2.14.0\n    if version_digits[2] < 14 then\n      local old_running_key = 'b_'..id..'_running'\n      local old_executing_key = 'b_'..id..'_executing'\n\n      if redis.call('exists', old_running_key) == 1 then\n        redis.call('rename', old_running_key, job_weights_key)\n      end\n      if redis.call('exists', old_executing_key) == 1 then\n        redis.call('rename', old_executing_key, job_expirations_key)\n      end\n      redis.call('hset', settings_key, 'version', '2.14.0')\n    end\n\n  end\n\n  process_tick(now, false)\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(0, 0, groupTimeout)\n\nreturn {}\n",
-		"process_tick.lua": "local process_tick = function (now, always_publish)\n\n  local compute_capacity = function (maxConcurrent, running, reservoir)\n    if maxConcurrent ~= nil and reservoir ~= nil then\n      return math.min((maxConcurrent - running), reservoir)\n    elseif maxConcurrent ~= nil then\n      return maxConcurrent - running\n    elseif reservoir ~= nil then\n      return reservoir\n    else\n      return nil\n    end\n  end\n\n  local settings = redis.call('hmget', settings_key,\n    'id',\n    'maxConcurrent',\n    'running',\n    'reservoir',\n    'reservoirRefreshInterval',\n    'reservoirRefreshAmount',\n    'lastReservoirRefresh'\n  )\n  local id = settings[1]\n  local maxConcurrent = tonumber(settings[2])\n  local running = tonumber(settings[3])\n  local reservoir = tonumber(settings[4])\n  local reservoirRefreshInterval = tonumber(settings[5])\n  local reservoirRefreshAmount = tonumber(settings[6])\n  local lastReservoirRefresh = tonumber(settings[7])\n\n  local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)\n\n  --\n  -- Process 'running' changes\n  --\n  local expired = redis.call('zrangebyscore', job_expirations_key, '-inf', '('..now)\n\n  if #expired > 0 then\n    redis.call('zremrangebyscore', job_expirations_key, '-inf', '('..now)\n\n    local flush_batch = function (batch, acc)\n      local weights = redis.call('hmget', job_weights_key, unpack(batch))\n                      redis.call('hdel',  job_weights_key, unpack(batch))\n      local clients = redis.call('hmget', job_clients_key, unpack(batch))\n                      redis.call('hdel',  job_clients_key, unpack(batch))\n\n      -- Calculate sum of removed weights\n      for i = 1, #weights do\n        acc['total'] = acc['total'] + (tonumber(weights[i]) or 0)\n      end\n\n      -- Calculate sum of removed weights by client\n      local client_weights = {}\n      for i = 1, #clients do\n        if weights[i] ~= nil then\n          acc['client_weights'][clients[i]] = (acc['client_weights'][clients[i]] or 0) + tonumber(weights[i])\n        end\n      end\n    end\n\n    local acc = {\n      ['total'] = 0,\n      ['client_weights'] = {}\n    }\n    local batch_size = 1000\n\n    -- Compute changes to Zsets and apply changes to Hashes\n    for i = 1, #expired, batch_size do\n      local batch = {}\n      for j = i, math.min(i + batch_size - 1, #expired) do\n        table.insert(batch, expired[j])\n      end\n\n      flush_batch(batch, acc)\n    end\n\n    -- Apply changes to Zsets\n    if acc['total'] > 0 then\n      redis.call('hincrby', settings_key, 'done', acc['total'])\n      running = tonumber(redis.call('hincrby', settings_key, 'running', -acc['total']))\n    end\n\n    for client, weight in pairs(acc['client_weights']) do\n      redis.call('zincrby', client_running_key, -weight, client)\n    end\n  end\n\n  --\n  -- Process 'reservoir' changes\n  --\n  local reservoirRefreshActive = reservoirRefreshInterval ~= nil and reservoirRefreshAmount ~= nil\n  if reservoirRefreshActive and now >= lastReservoirRefresh + reservoirRefreshInterval then\n    reservoir = reservoirRefreshAmount\n    redis.call('hmset', settings_key,\n      'reservoir', reservoir,\n      'lastReservoirRefresh', now\n    )\n  end\n\n  --\n  -- Broadcast capacity changes\n  --\n  local final_capacity = compute_capacity(maxConcurrent, running, reservoir)\n\n  if always_publish or (initial_capacity ~= nil and final_capacity == nil) then\n    -- always_publish or was not unlimited, now unlimited\n    redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))\n\n  elseif initial_capacity ~= nil and final_capacity ~= nil and final_capacity > initial_capacity then\n    -- capacity was increased\n    -- send the capacity message to the limiter having the lowest number of running jobs\n    -- the tiebreaker is the limiter having not registered a job in the longest time\n\n    local lowest_concurrency_value = nil\n    local lowest_concurrency_clients = {}\n    local lowest_concurrency_last_registered = {}\n    local client_concurrencies = redis.call('zrange', client_running_key, 0, -1, 'withscores')\n\n    for i = 1, #client_concurrencies, 2 do\n      local client = client_concurrencies[i]\n      local concurrency = tonumber(client_concurrencies[i+1])\n\n      if (\n        lowest_concurrency_value == nil or lowest_concurrency_value == concurrency\n      ) and (\n        tonumber(redis.call('hget', client_num_queued_key, client)) > 0\n      ) then\n        lowest_concurrency_value = concurrency\n        table.insert(lowest_concurrency_clients, client)\n        local last_registered = tonumber(redis.call('zscore', client_last_registered_key, client))\n        table.insert(lowest_concurrency_last_registered, last_registered)\n      end\n    end\n\n    if #lowest_concurrency_clients > 0 then\n      local position = 1\n      local earliest = lowest_concurrency_last_registered[1]\n\n      for i,v in ipairs(lowest_concurrency_last_registered) do\n        if v < earliest then\n          position = i\n          earliest = v\n        end\n      end\n\n      local next_client = lowest_concurrency_clients[position]\n      redis.call('publish', 'b_'..id, 'capacity-priority:'..(final_capacity or '')..':'..next_client)\n    else\n      redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))\n    end\n  end\n\n  return {\n    ['capacity'] = final_capacity,\n    ['running'] = running,\n    ['reservoir'] = reservoir\n  }\nend\n",
+		"init.lua": "local clear = tonumber(ARGV[3])\nlocal limiter_version = ARGV[4]\nlocal num_static_argv = 4\n\nif clear == 1 then\n  redis.call('del', unpack(KEYS))\nend\n\nif redis.call('exists', settings_key) == 0 then\n  -- Create\n  local args = {'hmset', settings_key}\n\n  for i = num_static_argv + 1, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\n  redis.call('hmset', settings_key,\n    'nextRequest', now,\n    'lastReservoirRefresh', now,\n    'running', 0,\n    'done', 0,\n    'unblockTime', 0,\n    'capacityPriorityCounter', 0\n  )\n\nelse\n  -- Apply migrations\n  local settings = redis.call('hmget', settings_key,\n    'id',\n    'version'\n  )\n  local id = settings[1]\n  local current_version = settings[2]\n\n  if current_version ~= limiter_version then\n    local version_digits = {}\n    for k, v in string.gmatch(current_version, \"([^.]+)\") do\n      table.insert(version_digits, tonumber(k))\n    end\n\n    -- 2.10.0\n    if version_digits[2] < 10 then\n      redis.call('hsetnx', settings_key, 'reservoirRefreshInterval', '')\n      redis.call('hsetnx', settings_key, 'reservoirRefreshAmount', '')\n      redis.call('hsetnx', settings_key, 'lastReservoirRefresh', '')\n      redis.call('hsetnx', settings_key, 'done', 0)\n      redis.call('hset', settings_key, 'version', '2.10.0')\n    end\n\n    -- 2.11.1\n    if version_digits[2] < 11 and version_digits[3] < 1 then\n      if redis.call('hstrlen', settings_key, 'lastReservoirRefresh') == 0 then\n        redis.call('hmset', settings_key,\n          'lastReservoirRefresh', now,\n          'version', '2.11.1'\n        )\n      end\n    end\n\n    -- 2.14.0\n    if version_digits[2] < 14 then\n      local old_running_key = 'b_'..id..'_running'\n      local old_executing_key = 'b_'..id..'_executing'\n\n      if redis.call('exists', old_running_key) == 1 then\n        redis.call('rename', old_running_key, job_weights_key)\n      end\n      if redis.call('exists', old_executing_key) == 1 then\n        redis.call('rename', old_executing_key, job_expirations_key)\n      end\n      redis.call('hset', settings_key, 'version', '2.14.0')\n    end\n\n    -- 2.15.2\n    if version_digits[2] < 15 and version_digits[3] < 2 then\n      redis.call('hsetnx', settings_key, 'capacityPriorityCounter', 0)\n      redis.call('hset', settings_key, 'version', '2.15.2')\n    end\n\n  end\n\n  process_tick(now, false)\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(0, 0, groupTimeout)\n\nreturn {}\n",
+		"process_tick.lua": "local process_tick = function (now, always_publish)\n\n  local compute_capacity = function (maxConcurrent, running, reservoir)\n    if maxConcurrent ~= nil and reservoir ~= nil then\n      return math.min((maxConcurrent - running), reservoir)\n    elseif maxConcurrent ~= nil then\n      return maxConcurrent - running\n    elseif reservoir ~= nil then\n      return reservoir\n    else\n      return nil\n    end\n  end\n\n  local settings = redis.call('hmget', settings_key,\n    'id',\n    'maxConcurrent',\n    'running',\n    'reservoir',\n    'reservoirRefreshInterval',\n    'reservoirRefreshAmount',\n    'lastReservoirRefresh',\n    'capacityPriorityCounter'\n  )\n  local id = settings[1]\n  local maxConcurrent = tonumber(settings[2])\n  local running = tonumber(settings[3])\n  local reservoir = tonumber(settings[4])\n  local reservoirRefreshInterval = tonumber(settings[5])\n  local reservoirRefreshAmount = tonumber(settings[6])\n  local lastReservoirRefresh = tonumber(settings[7])\n  local capacityPriorityCounter = tonumber(settings[8])\n\n  local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)\n\n  --\n  -- Process 'running' changes\n  --\n  local expired = redis.call('zrangebyscore', job_expirations_key, '-inf', '('..now)\n\n  if #expired > 0 then\n    redis.call('zremrangebyscore', job_expirations_key, '-inf', '('..now)\n\n    local flush_batch = function (batch, acc)\n      local weights = redis.call('hmget', job_weights_key, unpack(batch))\n                      redis.call('hdel',  job_weights_key, unpack(batch))\n      local clients = redis.call('hmget', job_clients_key, unpack(batch))\n                      redis.call('hdel',  job_clients_key, unpack(batch))\n\n      -- Calculate sum of removed weights\n      for i = 1, #weights do\n        acc['total'] = acc['total'] + (tonumber(weights[i]) or 0)\n      end\n\n      -- Calculate sum of removed weights by client\n      local client_weights = {}\n      for i = 1, #clients do\n        if weights[i] ~= nil then\n          acc['client_weights'][clients[i]] = (acc['client_weights'][clients[i]] or 0) + tonumber(weights[i])\n        end\n      end\n    end\n\n    local acc = {\n      ['total'] = 0,\n      ['client_weights'] = {}\n    }\n    local batch_size = 1000\n\n    -- Compute changes to Zsets and apply changes to Hashes\n    for i = 1, #expired, batch_size do\n      local batch = {}\n      for j = i, math.min(i + batch_size - 1, #expired) do\n        table.insert(batch, expired[j])\n      end\n\n      flush_batch(batch, acc)\n    end\n\n    -- Apply changes to Zsets\n    if acc['total'] > 0 then\n      redis.call('hincrby', settings_key, 'done', acc['total'])\n      running = tonumber(redis.call('hincrby', settings_key, 'running', -acc['total']))\n    end\n\n    for client, weight in pairs(acc['client_weights']) do\n      redis.call('zincrby', client_running_key, -weight, client)\n    end\n  end\n\n  --\n  -- Process 'reservoir' changes\n  --\n  local reservoirRefreshActive = reservoirRefreshInterval ~= nil and reservoirRefreshAmount ~= nil\n  if reservoirRefreshActive and now >= lastReservoirRefresh + reservoirRefreshInterval then\n    reservoir = reservoirRefreshAmount\n    redis.call('hmset', settings_key,\n      'reservoir', reservoir,\n      'lastReservoirRefresh', now\n    )\n  end\n\n  --\n  -- Broadcast capacity changes\n  --\n  local final_capacity = compute_capacity(maxConcurrent, running, reservoir)\n\n  if always_publish or (initial_capacity ~= nil and final_capacity == nil) then\n    -- always_publish or was not unlimited, now unlimited\n    redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))\n\n  elseif initial_capacity ~= nil and final_capacity ~= nil and final_capacity > initial_capacity then\n    -- capacity was increased\n    -- send the capacity message to the limiter having the lowest number of running jobs\n    -- the tiebreaker is the limiter having not registered a job in the longest time\n\n    local lowest_concurrency_value = nil\n    local lowest_concurrency_clients = {}\n    local lowest_concurrency_last_registered = {}\n    local client_concurrencies = redis.call('zrange', client_running_key, 0, -1, 'withscores')\n    local valid_clients = redis.call('zrangebyscore', client_last_seen_key, (now - 10000), 'inf')\n    local valid_clients_lookup = {}\n    for i = 1, #valid_clients do\n      valid_clients_lookup[valid_clients[i]] = true\n    end\n\n    for i = 1, #client_concurrencies, 2 do\n      local client = client_concurrencies[i]\n      local concurrency = tonumber(client_concurrencies[i+1])\n\n      if (\n        lowest_concurrency_value == nil or lowest_concurrency_value == concurrency\n      ) and (\n        valid_clients_lookup[client]\n      ) and (\n        tonumber(redis.call('hget', client_num_queued_key, client)) > 0\n      ) then\n        lowest_concurrency_value = concurrency\n        table.insert(lowest_concurrency_clients, client)\n        local last_registered = tonumber(redis.call('zscore', client_last_registered_key, client))\n        table.insert(lowest_concurrency_last_registered, last_registered)\n      end\n    end\n\n    if #lowest_concurrency_clients > 0 then\n      local position = 1\n      local earliest = lowest_concurrency_last_registered[1]\n\n      for i,v in ipairs(lowest_concurrency_last_registered) do\n        if v < earliest then\n          position = i\n          earliest = v\n        end\n      end\n\n      local next_client = lowest_concurrency_clients[position]\n      redis.call('publish', 'b_'..id,\n        'capacity-priority:'..(final_capacity or '')..\n        ':'..next_client..\n        ':'..capacityPriorityCounter\n      )\n      redis.call('hincrby', settings_key, 'capacityPriorityCounter', '1')\n    else\n      redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))\n    end\n  end\n\n  return {\n    ['capacity'] = final_capacity,\n    ['running'] = running,\n    ['reservoir'] = reservoir\n  }\nend\n",
 		"refresh_expiration.lua": "local refresh_expiration = function (now, nextRequest, groupTimeout)\n\n  if groupTimeout ~= nil then\n    local ttl = (nextRequest + groupTimeout) - now\n\n    for i = 1, #KEYS do\n      redis.call('pexpire', KEYS[i], ttl)\n    end\n  end\n\nend\n",
-		"refs.lua": "local settings_key = KEYS[1]\nlocal job_weights_key = KEYS[2]\nlocal job_expirations_key = KEYS[3]\nlocal job_clients_key = KEYS[4]\nlocal client_running_key = KEYS[5]\nlocal client_num_queued_key = KEYS[6]\nlocal client_last_registered_key = KEYS[7]\n\nlocal now = tonumber(ARGV[1])\nlocal client = ARGV[2]\n",
+		"refs.lua": "local settings_key = KEYS[1]\nlocal job_weights_key = KEYS[2]\nlocal job_expirations_key = KEYS[3]\nlocal job_clients_key = KEYS[4]\nlocal client_running_key = KEYS[5]\nlocal client_num_queued_key = KEYS[6]\nlocal client_last_registered_key = KEYS[7]\nlocal client_last_seen_key = KEYS[8]\n\nlocal now = tonumber(ARGV[1])\nlocal client = ARGV[2]\n\nredis.call('zadd', client_last_seen_key, now, client)\n",
 		"register.lua": "local index = ARGV[3]\nlocal weight = tonumber(ARGV[4])\nlocal expiration = tonumber(ARGV[5])\n\nlocal state = process_tick(now, false)\nlocal capacity = state['capacity']\nlocal reservoir = state['reservoir']\n\nlocal settings = redis.call('hmget', settings_key,\n  'nextRequest',\n  'minTime',\n  'groupTimeout'\n)\nlocal nextRequest = tonumber(settings[1])\nlocal minTime = tonumber(settings[2])\nlocal groupTimeout = tonumber(settings[3])\n\nif conditions_check(capacity, weight) then\n\n  redis.call('hincrby', settings_key, 'running', weight)\n  redis.call('hset', job_weights_key, index, weight)\n  if expiration ~= nil then\n    redis.call('zadd', job_expirations_key, now + expiration, index)\n  end\n  redis.call('hset', job_clients_key, index, client)\n  redis.call('zincrby', client_running_key, weight, client)\n  redis.call('hincrby', client_num_queued_key, client, -1)\n  redis.call('zadd', client_last_registered_key, now, client)\n\n  local wait = math.max(nextRequest - now, 0)\n  local newNextRequest = now + wait + minTime\n\n  if reservoir == nil then\n    redis.call('hset', settings_key,\n      'nextRequest', newNextRequest\n    )\n  else\n    reservoir = reservoir - weight\n    redis.call('hmset', settings_key,\n      'reservoir', reservoir,\n      'nextRequest', newNextRequest\n    )\n  end\n\n  refresh_expiration(now, newNextRequest, groupTimeout)\n\n  return {true, wait, reservoir}\n\nelse\n  return {false}\nend\n",
 		"register_client.lua": "local queued = tonumber(ARGV[3])\n\nredis.call('zadd', client_running_key, 0, client)\nredis.call('hset', client_num_queued_key, client, queued)\nredis.call('zadd', client_last_registered_key, 0, client)\n\nreturn {}\n",
 		"running.lua": "return process_tick(now, false)['running']\n",
@@ -2013,7 +2014,12 @@
 	    ZSET
 	    client -> last job registered
 	    */
-	    "b_".concat(id, "_client_last_registered")];
+	    "b_".concat(id, "_client_last_registered"),
+	    /*
+	    ZSET
+	    client -> last seen
+	    */
+	    "b_".concat(id, "_client_last_seen")];
 	  };
 
 	  templates = {
@@ -2024,9 +2030,7 @@
 	      code: lua["init.lua"]
 	    },
 	    group_check: {
-	      keys: function keys(id) {
-	        return ["b_".concat(id, "_settings")];
-	      },
+	      keys: exports.allKeys,
 	      headers: [],
 	      refresh_expiration: false,
 	      code: lua["group_check.lua"]
@@ -2036,6 +2040,12 @@
 	      headers: ["validate_keys"],
 	      refresh_expiration: false,
 	      code: lua["register_client.lua"]
+	    },
+	    blacklist_client: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys"],
+	      refresh_expiration: false,
+	      code: lua["blacklist_client.lua"]
 	    },
 	    heartbeat: {
 	      keys: exports.allKeys,
@@ -2619,6 +2629,7 @@
 	    this.clientId = this.instance._randomIndex();
 	    parser$4.load(storeInstanceOptions, storeInstanceOptions, this);
 	    this.clients = {};
+	    this.capacityPriorityCounters = {};
 	    this.sharedConnection = this.connection != null;
 
 	    if (this.connection == null) {
@@ -2695,94 +2706,149 @@
 	    value: function () {
 	      var _onMessage = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee2(channel, message) {
-	        var capacity, data, pos, priorityClient, type, _ref2, _data$split, _data$split2;
+	      regeneratorRuntime.mark(function _callee3(channel, message) {
+	        var _this2 = this;
 
-	        return regeneratorRuntime.wrap(function _callee2$(_context2) {
+	        var capacity, counter, data, drained, e, newCapacity, pos, priorityClient, rawCapacity, type, _ref2, _data$split, _data$split2;
+
+	        return regeneratorRuntime.wrap(function _callee3$(_context3) {
 	          while (1) {
-	            switch (_context2.prev = _context2.next) {
+	            switch (_context3.prev = _context3.next) {
 	              case 0:
+	                _context3.prev = 0;
 	                pos = message.indexOf(":");
 	                _ref2 = [message.slice(0, pos), message.slice(pos + 1)];
 	                type = _ref2[0];
 	                data = _ref2[1];
 
 	                if (!(type === "capacity")) {
-	                  _context2.next = 10;
+	                  _context3.next = 11;
 	                  break;
 	                }
 
-	                _context2.next = 7;
+	                _context3.next = 8;
 	                return this.instance._drainAll(data.length > 0 ? ~~data : void 0);
 
-	              case 7:
-	                return _context2.abrupt("return", _context2.sent);
+	              case 8:
+	                return _context3.abrupt("return", _context3.sent);
 
-	              case 10:
+	              case 11:
 	                if (!(type === "capacity-priority")) {
-	                  _context2.next = 30;
+	                  _context3.next = 37;
 	                  break;
 	                }
 
 	                _data$split = data.split(":");
-	                _data$split2 = _slicedToArray(_data$split, 2);
-	                capacity = _data$split2[0];
+	                _data$split2 = _slicedToArray(_data$split, 3);
+	                rawCapacity = _data$split2[0];
 	                priorityClient = _data$split2[1];
+	                counter = _data$split2[2];
+	                capacity = rawCapacity.length > 0 ? ~~rawCapacity : void 0;
 
 	                if (!(priorityClient === this.clientId)) {
-	                  _context2.next = 23;
+	                  _context3.next = 28;
 	                  break;
 	                }
 
-	                _context2.next = 18;
-	                return this.instance._drainAll(capacity.length > 0 ? ~~capacity : void 0);
+	                _context3.next = 21;
+	                return this.instance._drainAll(capacity);
 
-	              case 18:
-	                _context2.next = 20;
-	                return this.clients.client.publish(this.instance.channel(), "capacity:");
-
-	              case 20:
-	                return _context2.abrupt("return", _context2.sent);
-
-	              case 23:
-	                _context2.next = 25;
-	                return new this.Promise(function (resolve, reject) {
-	                  return setTimeout(resolve, 500);
-	                });
+	              case 21:
+	                drained = _context3.sent;
+	                newCapacity = capacity != null ? capacity - (drained || 0) : "";
+	                _context3.next = 25;
+	                return this.clients.client.publish(this.instance.channel(), "capacity-priority:".concat(newCapacity, "::").concat(counter));
 
 	              case 25:
-	                _context2.next = 27;
-	                return this.instance._drainAll(capacity.length > 0 ? ~~capacity : void 0);
-
-	              case 27:
-	                return _context2.abrupt("return", _context2.sent);
+	                return _context3.abrupt("return", _context3.sent);
 
 	              case 28:
-	                _context2.next = 36;
-	                break;
-
-	              case 30:
-	                if (!(type === "message")) {
-	                  _context2.next = 34;
+	                if (!(priorityClient === "")) {
+	                  _context3.next = 34;
 	                  break;
 	                }
 
-	                return _context2.abrupt("return", this.instance.Events.trigger("message", data));
+	                clearTimeout(this.capacityPriorityCounters[counter]);
+	                delete this.capacityPriorityCounters[counter];
+	                return _context3.abrupt("return", this.instance._drainAll(capacity));
 
 	              case 34:
-	                if (!(type === "blocked")) {
-	                  _context2.next = 36;
+	                return _context3.abrupt("return", this.capacityPriorityCounters[counter] = setTimeout(
+	                /*#__PURE__*/
+	                _asyncToGenerator(
+	                /*#__PURE__*/
+	                regeneratorRuntime.mark(function _callee2() {
+	                  var e;
+	                  return regeneratorRuntime.wrap(function _callee2$(_context2) {
+	                    while (1) {
+	                      switch (_context2.prev = _context2.next) {
+	                        case 0:
+	                          _context2.prev = 0;
+	                          delete _this2.capacityPriorityCounters[counter];
+	                          _context2.next = 4;
+	                          return _this2.runScript("blacklist_client", [priorityClient]);
+
+	                        case 4:
+	                          _context2.next = 6;
+	                          return _this2.instance._drainAll(capacity);
+
+	                        case 6:
+	                          return _context2.abrupt("return", _context2.sent);
+
+	                        case 9:
+	                          _context2.prev = 9;
+	                          _context2.t0 = _context2["catch"](0);
+	                          e = _context2.t0;
+	                          return _context2.abrupt("return", _this2.instance.Events.trigger("error", e));
+
+	                        case 13:
+	                        case "end":
+	                          return _context2.stop();
+	                      }
+	                    }
+	                  }, _callee2, this, [[0, 9]]);
+	                })), 1000));
+
+	              case 35:
+	                _context3.next = 45;
+	                break;
+
+	              case 37:
+	                if (!(type === "message")) {
+	                  _context3.next = 41;
 	                  break;
 	                }
 
-	                return _context2.abrupt("return", this.instance._dropAllQueued());
+	                return _context3.abrupt("return", this.instance.Events.trigger("message", data));
 
-	              case 36:
+	              case 41:
+	                if (!(type === "blocked")) {
+	                  _context3.next = 45;
+	                  break;
+	                }
+
+	                _context3.next = 44;
+	                return this.instance._dropAllQueued();
+
+	              case 44:
+	                return _context3.abrupt("return", _context3.sent);
+
+	              case 45:
+	                _context3.next = 51;
+	                break;
+
+	              case 47:
+	                _context3.prev = 47;
+	                _context3.t0 = _context3["catch"](0);
+	                e = _context3.t0;
+	                return _context3.abrupt("return", this.instance.Events.trigger("error", e));
+
+	              case 51:
 	              case "end":
-	                return _context2.stop();
+	                return _context3.stop();
 	            }
 	          }
-	        }, _callee2, this);
+	        }, _callee3, this, [[0, 47]]);
 	      }));
 
 	      return function onMessage(_x2, _x3) {
@@ -2805,54 +2871,54 @@
 	    value: function () {
 	      var _runScript = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee3(name, args) {
-	        var _this2 = this;
+	      regeneratorRuntime.mark(function _callee4(name, args) {
+	        var _this3 = this;
 
-	        return regeneratorRuntime.wrap(function _callee3$(_context3) {
+	        return regeneratorRuntime.wrap(function _callee4$(_context4) {
 	          while (1) {
-	            switch (_context3.prev = _context3.next) {
+	            switch (_context4.prev = _context4.next) {
 	              case 0:
 	                if (name === "init" || name === "heartbeat" || name === "register_client") {
-	                  _context3.next = 3;
+	                  _context4.next = 3;
 	                  break;
 	                }
 
-	                _context3.next = 3;
+	                _context4.next = 3;
 	                return this.ready;
 
 	              case 3:
-	                return _context3.abrupt("return", new this.Promise(function (resolve, reject) {
+	                return _context4.abrupt("return", new this.Promise(function (resolve, reject) {
 	                  var args_ts, arr;
-	                  args_ts = [Date.now(), _this2.clientId].concat(args);
+	                  args_ts = [Date.now(), _this3.clientId].concat(args);
 
-	                  _this2.instance.Events.trigger("debug", "Calling Redis script: ".concat(name, ".lua"), args_ts);
+	                  _this3.instance.Events.trigger("debug", "Calling Redis script: ".concat(name, ".lua"), args_ts);
 
-	                  arr = _this2.connection.__scriptArgs__(name, _this2.originalId, args_ts, function (err, replies) {
+	                  arr = _this3.connection.__scriptArgs__(name, _this3.originalId, args_ts, function (err, replies) {
 	                    if (err != null) {
 	                      return reject(err);
 	                    }
 
 	                    return resolve(replies);
 	                  });
-	                  return _this2.connection.__scriptFn__(name).apply(void 0, _toConsumableArray(arr));
+	                  return _this3.connection.__scriptFn__(name).apply(void 0, _toConsumableArray(arr));
 	                }).catch(function (e) {
 	                  if (e.message === "SETTINGS_KEY_NOT_FOUND" && name !== "heartbeat") {
-	                    return _this2.runScript("init", _this2.prepareInitSettings(false)).then(function () {
-	                      return _this2.runScript(name, args);
+	                    return _this3.runScript("init", _this3.prepareInitSettings(false)).then(function () {
+	                      return _this3.runScript(name, args);
 	                    });
 	                  } else if (name === "heartbeat") {
-	                    return _this2.Promise.resolve();
+	                    return _this3.Promise.resolve();
 	                  } else {
-	                    return _this2.Promise.reject(e);
+	                    return _this3.Promise.reject(e);
 	                  }
 	                }));
 
 	              case 4:
 	              case "end":
-	                return _context3.stop();
+	                return _context4.stop();
 	            }
 	          }
-	        }, _callee3, this);
+	        }, _callee4, this);
 	      }));
 
 	      return function runScript(_x4, _x5) {
@@ -2907,23 +2973,23 @@
 	    value: function () {
 	      var _updateSettings__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee4(options) {
-	        return regeneratorRuntime.wrap(function _callee4$(_context4) {
+	      regeneratorRuntime.mark(function _callee5(options) {
+	        return regeneratorRuntime.wrap(function _callee5$(_context5) {
 	          while (1) {
-	            switch (_context4.prev = _context4.next) {
+	            switch (_context5.prev = _context5.next) {
 	              case 0:
-	                _context4.next = 2;
+	                _context5.next = 2;
 	                return this.runScript("update_settings", this.prepareObject(options));
 
 	              case 2:
-	                return _context4.abrupt("return", parser$4.overwrite(options, options, this.storeOptions));
+	                return _context5.abrupt("return", parser$4.overwrite(options, options, this.storeOptions));
 
 	              case 3:
 	              case "end":
-	                return _context4.stop();
+	                return _context5.stop();
 	            }
 	          }
-	        }, _callee4, this);
+	        }, _callee5, this);
 	      }));
 
 	      return function __updateSettings__(_x6) {
@@ -2945,25 +3011,25 @@
 	    value: function () {
 	      var _groupCheck__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee5() {
-	        return regeneratorRuntime.wrap(function _callee5$(_context5) {
+	      regeneratorRuntime.mark(function _callee6() {
+	        return regeneratorRuntime.wrap(function _callee6$(_context6) {
 	          while (1) {
-	            switch (_context5.prev = _context5.next) {
+	            switch (_context6.prev = _context6.next) {
 	              case 0:
-	                _context5.t0 = this;
-	                _context5.next = 3;
+	                _context6.t0 = this;
+	                _context6.next = 3;
 	                return this.runScript("group_check", []);
 
 	              case 3:
-	                _context5.t1 = _context5.sent;
-	                return _context5.abrupt("return", _context5.t0.convertBool.call(_context5.t0, _context5.t1));
+	                _context6.t1 = _context6.sent;
+	                return _context6.abrupt("return", _context6.t0.convertBool.call(_context6.t0, _context6.t1));
 
 	              case 5:
 	              case "end":
-	                return _context5.stop();
+	                return _context6.stop();
 	            }
 	          }
-	        }, _callee5, this);
+	        }, _callee6, this);
 	      }));
 
 	      return function __groupCheck__() {
@@ -2985,25 +3051,25 @@
 	    value: function () {
 	      var _check__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee6(weight) {
-	        return regeneratorRuntime.wrap(function _callee6$(_context6) {
+	      regeneratorRuntime.mark(function _callee7(weight) {
+	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
 	          while (1) {
-	            switch (_context6.prev = _context6.next) {
+	            switch (_context7.prev = _context7.next) {
 	              case 0:
-	                _context6.t0 = this;
-	                _context6.next = 3;
+	                _context7.t0 = this;
+	                _context7.next = 3;
 	                return this.runScript("check", this.prepareArray([weight]));
 
 	              case 3:
-	                _context6.t1 = _context6.sent;
-	                return _context6.abrupt("return", _context6.t0.convertBool.call(_context6.t0, _context6.t1));
+	                _context7.t1 = _context7.sent;
+	                return _context7.abrupt("return", _context7.t0.convertBool.call(_context7.t0, _context7.t1));
 
 	              case 5:
 	              case "end":
-	                return _context6.stop();
+	                return _context7.stop();
 	            }
 	          }
-	        }, _callee6, this);
+	        }, _callee7, this);
 	      }));
 
 	      return function __check__(_x7) {
@@ -3015,23 +3081,23 @@
 	    value: function () {
 	      var _register__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee7(index, weight, expiration) {
-	        var reservoir, success, wait, _ref3, _ref4;
+	      regeneratorRuntime.mark(function _callee8(index, weight, expiration) {
+	        var reservoir, success, wait, _ref4, _ref5;
 
-	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
+	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
 	          while (1) {
-	            switch (_context7.prev = _context7.next) {
+	            switch (_context8.prev = _context8.next) {
 	              case 0:
-	                _context7.next = 2;
+	                _context8.next = 2;
 	                return this.runScript("register", this.prepareArray([index, weight, expiration]));
 
 	              case 2:
-	                _ref3 = _context7.sent;
-	                _ref4 = _slicedToArray(_ref3, 3);
-	                success = _ref4[0];
-	                wait = _ref4[1];
-	                reservoir = _ref4[2];
-	                return _context7.abrupt("return", {
+	                _ref4 = _context8.sent;
+	                _ref5 = _slicedToArray(_ref4, 3);
+	                success = _ref5[0];
+	                wait = _ref5[1];
+	                reservoir = _ref5[2];
+	                return _context8.abrupt("return", {
 	                  success: this.convertBool(success),
 	                  wait: wait,
 	                  reservoir: reservoir
@@ -3039,10 +3105,10 @@
 
 	              case 8:
 	              case "end":
-	                return _context7.stop();
+	                return _context8.stop();
 	            }
 	          }
-	        }, _callee7, this);
+	        }, _callee8, this);
 	      }));
 
 	      return function __register__(_x8, _x9, _x10) {
@@ -3054,36 +3120,36 @@
 	    value: function () {
 	      var _submit__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee8(queueLength, weight) {
-	        var blocked, e, maxConcurrent, overweight, reachedHWM, strategy, _ref5, _ref6, _e$message$split, _e$message$split2;
+	      regeneratorRuntime.mark(function _callee9(queueLength, weight) {
+	        var blocked, e, maxConcurrent, overweight, reachedHWM, strategy, _ref6, _ref7, _e$message$split, _e$message$split2;
 
-	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
+	        return regeneratorRuntime.wrap(function _callee9$(_context9) {
 	          while (1) {
-	            switch (_context8.prev = _context8.next) {
+	            switch (_context9.prev = _context9.next) {
 	              case 0:
-	                _context8.prev = 0;
-	                _context8.next = 3;
+	                _context9.prev = 0;
+	                _context9.next = 3;
 	                return this.runScript("submit", this.prepareArray([queueLength, weight]));
 
 	              case 3:
-	                _ref5 = _context8.sent;
-	                _ref6 = _slicedToArray(_ref5, 3);
-	                reachedHWM = _ref6[0];
-	                blocked = _ref6[1];
-	                strategy = _ref6[2];
-	                return _context8.abrupt("return", {
+	                _ref6 = _context9.sent;
+	                _ref7 = _slicedToArray(_ref6, 3);
+	                reachedHWM = _ref7[0];
+	                blocked = _ref7[1];
+	                strategy = _ref7[2];
+	                return _context9.abrupt("return", {
 	                  reachedHWM: this.convertBool(reachedHWM),
 	                  blocked: this.convertBool(blocked),
 	                  strategy: strategy
 	                });
 
 	              case 11:
-	                _context8.prev = 11;
-	                _context8.t0 = _context8["catch"](0);
-	                e = _context8.t0;
+	                _context9.prev = 11;
+	                _context9.t0 = _context9["catch"](0);
+	                e = _context9.t0;
 
 	                if (!(e.message.indexOf("OVERWEIGHT") === 0)) {
-	                  _context8.next = 23;
+	                  _context9.next = 23;
 	                  break;
 	                }
 
@@ -3099,10 +3165,10 @@
 
 	              case 24:
 	              case "end":
-	                return _context8.stop();
+	                return _context9.stop();
 	            }
 	          }
-	        }, _callee8, this, [[0, 11]]);
+	        }, _callee9, this, [[0, 11]]);
 	      }));
 
 	      return function __submit__(_x11, _x12) {
@@ -3114,27 +3180,27 @@
 	    value: function () {
 	      var _free__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee9(index, weight) {
+	      regeneratorRuntime.mark(function _callee10(index, weight) {
 	        var running;
-	        return regeneratorRuntime.wrap(function _callee9$(_context9) {
+	        return regeneratorRuntime.wrap(function _callee10$(_context10) {
 	          while (1) {
-	            switch (_context9.prev = _context9.next) {
+	            switch (_context10.prev = _context10.next) {
 	              case 0:
-	                _context9.next = 2;
+	                _context10.next = 2;
 	                return this.runScript("free", this.prepareArray([index]));
 
 	              case 2:
-	                running = _context9.sent;
-	                return _context9.abrupt("return", {
+	                running = _context10.sent;
+	                return _context10.abrupt("return", {
 	                  running: running
 	                });
 
 	              case 4:
 	              case "end":
-	                return _context9.stop();
+	                return _context10.stop();
 	            }
 	          }
-	        }, _callee9, this);
+	        }, _callee10, this);
 	      }));
 
 	      return function __free__(_x13, _x14) {
@@ -4098,7 +4164,7 @@
 	          var args, index, next, options, queue;
 
 	          if (_this3.queued() === 0) {
-	            return _this3.Promise.resolve(false);
+	            return _this3.Promise.resolve(null);
 	          }
 
 	          queue = _this3._queues.getFirst();
@@ -4109,7 +4175,7 @@
 	          args = _next.args;
 
 	          if (capacity != null && options.weight > capacity) {
-	            return _this3.Promise.resolve(false);
+	            return _this3.Promise.resolve(null);
 	          }
 
 	          _this3.Events.trigger("debug", "Draining ".concat(options.id), {
@@ -4143,9 +4209,11 @@
 	              }
 
 	              _this3._run(next, wait, index, 0);
-	            }
 
-	            return _this3.Promise.resolve(success);
+	              return _this3.Promise.resolve(options.weight);
+	            } else {
+	              return _this3.Promise.resolve(null);
+	            }
 	          });
 	        });
 	      }
@@ -4154,11 +4222,15 @@
 	      value: function _drainAll(capacity) {
 	        var _this4 = this;
 
-	        return this._drainOne(capacity).then(function (success) {
-	          if (success) {
-	            return _this4._drainAll();
+	        var total = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+	        return this._drainOne(capacity).then(function (drained) {
+	          var newCapacity;
+
+	          if (drained != null) {
+	            newCapacity = capacity != null ? capacity - drained : capacity;
+	            return _this4._drainAll(newCapacity, total + drained);
 	          } else {
-	            return _this4.Promise.resolve(success);
+	            return _this4.Promise.resolve(total);
 	          }
 	        }).catch(function (e) {
 	          return _this4.Events.trigger("error", e);
@@ -4224,7 +4296,7 @@
 	        done = options.dropWaitingJobs ? (this._run = function (next) {
 	          return _this6._drop(next, options.dropErrorMessage);
 	        }, this._drainOne = function () {
-	          return _this6.Promise.resolve(false);
+	          return _this6.Promise.resolve(null);
 	        }, this._registerLock.schedule(function () {
 	          return _this6._submitLock.schedule(function () {
 	            var k, ref, v;

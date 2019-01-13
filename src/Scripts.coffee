@@ -49,6 +49,12 @@ exports.allKeys = (id) -> [
   client -> last job registered
   ###
   "b_#{id}_client_last_registered"
+
+  ###
+  ZSET
+  client -> last seen
+  ###
+  "b_#{id}_client_last_seen"
 ]
 
 templates =
@@ -58,7 +64,7 @@ templates =
     refresh_expiration: true
     code: lua["init.lua"]
   group_check:
-    keys: (id) -> ["b_#{id}_settings"]
+    keys: exports.allKeys
     headers: []
     refresh_expiration: false
     code: lua["group_check.lua"]
@@ -67,6 +73,11 @@ templates =
     headers: ["validate_keys"]
     refresh_expiration: false
     code: lua["register_client.lua"]
+  blacklist_client:
+    keys: exports.allKeys
+    headers: ["validate_keys"]
+    refresh_expiration: false
+    code: lua["blacklist_client.lua"]
   heartbeat:
     keys: exports.allKeys
     headers: ["validate_keys", "process_tick"]

@@ -9,6 +9,7 @@ class RedisDatastore
     @clientId = @instance._randomIndex()
     parser.load storeInstanceOptions, storeInstanceOptions, @
     @clients = {}
+    @capacityPriorityCounters = {}
     @sharedConnection = @connection?
 
     @connection ?= if @instance.datastore == "redis" then new RedisConnection { @clientOptions, @Promise, Events: @instance.Events }
@@ -33,22 +34,35 @@ class RedisDatastore
     client.publish(@instance.channel(), "message:#{message.toString()}")
 
   onMessage: (channel, message) ->
-    pos = message.indexOf(":")
-    [type, data] = [message.slice(0, pos), message.slice(pos+1)]
-    if type == "capacity"
-      await @instance._drainAll(if data.length > 0 then ~~data)
-    else if type == "capacity-priority"
-      [capacity, priorityClient] = data.split(":")
-      if priorityClient == @clientId
-        await @instance._drainAll(if capacity.length > 0 then ~~capacity)
-        await @clients.client.publish(@instance.channel(), "capacity:")
-      else
-        await (new @Promise (resolve, reject) -> setTimeout resolve, 500)
-        await @instance._drainAll(if capacity.length > 0 then ~~capacity)
-    else if type == "message"
-      @instance.Events.trigger "message", data
-    else if type == "blocked"
-      @instance._dropAllQueued()
+    try
+      pos = message.indexOf(":")
+      [type, data] = [message.slice(0, pos), message.slice(pos+1)]
+      if type == "capacity"
+        await @instance._drainAll(if data.length > 0 then ~~data)
+      else if type == "capacity-priority"
+        [rawCapacity, priorityClient, counter] = data.split(":")
+        capacity = if rawCapacity.length > 0 then ~~rawCapacity
+        if priorityClient == @clientId
+          drained = await @instance._drainAll(capacity)
+          newCapacity = if capacity? then capacity - (drained or 0) else ""
+          await @clients.client.publish(@instance.channel(), "capacity-priority:#{newCapacity}::#{counter}")
+        else if priorityClient == ""
+          clearTimeout @capacityPriorityCounters[counter]
+          delete @capacityPriorityCounters[counter]
+          @instance._drainAll(capacity)
+        else
+          @capacityPriorityCounters[counter] = setTimeout =>
+            try
+              delete @capacityPriorityCounters[counter]
+              await @runScript "blacklist_client", [priorityClient]
+              await @instance._drainAll(capacity)
+            catch e then @instance.Events.trigger "error", e
+          , 1000
+      else if type == "message"
+        @instance.Events.trigger "message", data
+      else if type == "blocked"
+        await @instance._dropAllQueued()
+    catch e then @instance.Events.trigger "error", e
 
   __disconnect__: (flush) ->
     clearInterval @heartbeat

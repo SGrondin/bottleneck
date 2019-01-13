@@ -163,10 +163,10 @@ class Bottleneck
 
   _drainOne: (capacity) =>
     @_registerLock.schedule =>
-      if @queued() == 0 then return @Promise.resolve false
+      if @queued() == 0 then return @Promise.resolve null
       queue = @_queues.getFirst()
       { options, args } = next = queue.first()
-      if capacity? and options.weight > capacity then return @Promise.resolve false
+      if capacity? and options.weight > capacity then return @Promise.resolve null
       @Events.trigger "debug", "Draining #{options.id}", { args, options }
       index = @_randomIndex()
       @_store.__register__ index, options.weight, options.expiration
@@ -178,13 +178,17 @@ class Bottleneck
           if empty then @Events.trigger "empty"
           if reservoir == 0 then @Events.trigger "depleted", empty
           @_run next, wait, index, 0
-        @Promise.resolve success
+          @Promise.resolve options.weight
+        else
+          @Promise.resolve null
 
-  _drainAll: (capacity) ->
+  _drainAll: (capacity, total=0) ->
     @_drainOne(capacity)
-    .then (success) =>
-      if success then @_drainAll()
-      else @Promise.resolve success
+    .then (drained) =>
+      if drained?
+        newCapacity = if capacity? then capacity - drained else capacity
+        @_drainAll(newCapacity, total + drained)
+      else @Promise.resolve total
     .catch (e) => @Events.trigger "error", e
 
   _drop: (job, message="This job has been dropped by Bottleneck") ->
@@ -210,7 +214,7 @@ class Bottleneck
               resolve()
     done = if options.dropWaitingJobs
       @_run = (next) => @_drop next, options.dropErrorMessage
-      @_drainOne = => @Promise.resolve false
+      @_drainOne = => @Promise.resolve null
       @_registerLock.schedule => @_submitLock.schedule =>
         for k, v of @_scheduled
           if @jobStatus(v.job.options.id) == "RUNNING"

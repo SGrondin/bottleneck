@@ -5,6 +5,9 @@ local job_clients_key = KEYS[4]
 local client_running_key = KEYS[5]
 local client_num_queued_key = KEYS[6]
 local client_last_registered_key = KEYS[7]
+local client_last_seen_key = KEYS[8]
 
 local now = tonumber(ARGV[1])
 local client = ARGV[2]
+
+redis.call('zadd', client_last_seen_key, now, client)

@@ -19,7 +19,8 @@ local process_tick = function (now, always_publish)
     'reservoir',
     'reservoirRefreshInterval',
     'reservoirRefreshAmount',
-    'lastReservoirRefresh'
+    'lastReservoirRefresh',
+    'capacityPriorityCounter'
   )
   local id = settings[1]
   local maxConcurrent = tonumber(settings[2])
@@ -28,6 +29,7 @@ local process_tick = function (now, always_publish)
   local reservoirRefreshInterval = tonumber(settings[5])
   local reservoirRefreshAmount = tonumber(settings[6])
   local lastReservoirRefresh = tonumber(settings[7])
+  local capacityPriorityCounter = tonumber(settings[8])
 
   local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)
 
@@ -116,6 +118,11 @@ local process_tick = function (now, always_publish)
     local lowest_concurrency_clients = {}
     local lowest_concurrency_last_registered = {}
     local client_concurrencies = redis.call('zrange', client_running_key, 0, -1, 'withscores')
+    local valid_clients = redis.call('zrangebyscore', client_last_seen_key, (now - 10000), 'inf')
+    local valid_clients_lookup = {}
+    for i = 1, #valid_clients do
+      valid_clients_lookup[valid_clients[i]] = true
+    end
 
     for i = 1, #client_concurrencies, 2 do
       local client = client_concurrencies[i]
@@ -123,6 +130,8 @@ local process_tick = function (now, always_publish)
 
       if (
         lowest_concurrency_value == nil or lowest_concurrency_value == concurrency
+      ) and (
+        valid_clients_lookup[client]
       ) and (
         tonumber(redis.call('hget', client_num_queued_key, client)) > 0
       ) then
@@ -145,7 +154,12 @@ local process_tick = function (now, always_publish)
       end
 
       local next_client = lowest_concurrency_clients[position]
-      redis.call('publish', 'b_'..id, 'capacity-priority:'..(final_capacity or '')..':'..next_client)
+      redis.call('publish', 'b_'..id,
+        'capacity-priority:'..(final_capacity or '')..
+        ':'..next_client..
+        ':'..capacityPriorityCounter
+      )
+      redis.call('hincrby', settings_key, 'capacityPriorityCounter', '1')
     else
       redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))
     end
