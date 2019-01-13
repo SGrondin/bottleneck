@@ -3432,7 +3432,7 @@
 
 	var Sync_1 = Sync;
 
-	var version = "2.15.1";
+	var version = "2.15.2";
 	var version$1 = {
 		version: version
 	};
