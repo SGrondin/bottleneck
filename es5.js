@@ -1442,11 +1442,8 @@
 	/*#__PURE__*/
 	function () {
 	  function LocalDatastore(instance, storeOptions, storeInstanceOptions) {
-	    var _this = this;
-
 	    _classCallCheck(this, LocalDatastore);
 
-	    var base;
 	    this.instance = instance;
 	    this.storeOptions = storeOptions;
 	    this.clientId = this.instance._randomIndex();
@@ -1458,22 +1455,32 @@
 	    this.ready = this.yieldLoop();
 	    this.clients = {};
 
-	    if (typeof (base = this.heartbeat = setInterval(function () {
-	      var now, reservoirRefreshActive;
-	      now = Date.now();
-	      reservoirRefreshActive = _this.storeOptions.reservoirRefreshInterval != null && _this.storeOptions.reservoirRefreshAmount != null;
-
-	      if (reservoirRefreshActive && now >= _this._lastReservoirRefresh + _this.storeOptions.reservoirRefreshInterval) {
-	        _this.storeOptions.reservoir = _this.storeOptions.reservoirRefreshAmount;
-	        _this._lastReservoirRefresh = now;
-	        return _this.instance._drainAll(_this.computeCapacity());
-	      }
-	    }, this.heartbeatInterval)).unref === "function") {
-	      base.unref();
-	    }
+	    this._startHeartbeat();
 	  }
 
 	  _createClass(LocalDatastore, [{
+	    key: "_startHeartbeat",
+	    value: function _startHeartbeat() {
+	      var _this = this;
+
+	      var base;
+
+	      if (this.heartbeat == null && this.storeOptions.reservoirRefreshInterval != null && this.storeOptions.reservoirRefreshAmount != null) {
+	        return typeof (base = this.heartbeat = setInterval(function () {
+	          var now;
+	          now = Date.now();
+
+	          if (now >= _this._lastReservoirRefresh + _this.storeOptions.reservoirRefreshInterval) {
+	            _this.storeOptions.reservoir = _this.storeOptions.reservoirRefreshAmount;
+	            _this._lastReservoirRefresh = now;
+	            return _this.instance._drainAll(_this.computeCapacity());
+	          }
+	        }, this.heartbeatInterval)).unref === "function" ? base.unref() : void 0;
+	      } else {
+	        return clearInterval(this.heartbeat);
+	      }
+	    }
+	  }, {
 	    key: "__publish__",
 	    value: function () {
 	      var _publish__ = _asyncToGenerator(
@@ -1560,11 +1567,13 @@
 	              case 2:
 	                parser$1.overwrite(options, options, this.storeOptions);
 
+	                this._startHeartbeat();
+
 	                this.instance._drainAll(this.computeCapacity());
 
 	                return _context3.abrupt("return", true);
 
-	              case 5:
+	              case 6:
 	              case "end":
 	                return _context3.stop();
 	            }

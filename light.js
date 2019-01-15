@@ -288,7 +288,6 @@
 
 	LocalDatastore = class LocalDatastore {
 	  constructor(instance, storeOptions, storeInstanceOptions) {
-	    var base;
 	    this.instance = instance;
 	    this.storeOptions = storeOptions;
 	    this.clientId = this.instance._randomIndex();
@@ -299,17 +298,23 @@
 	    this._unblockTime = 0;
 	    this.ready = this.yieldLoop();
 	    this.clients = {};
-	    if (typeof (base = (this.heartbeat = setInterval(() => {
-	      var now, reservoirRefreshActive;
-	      now = Date.now();
-	      reservoirRefreshActive = (this.storeOptions.reservoirRefreshInterval != null) && (this.storeOptions.reservoirRefreshAmount != null);
-	      if (reservoirRefreshActive && now >= this._lastReservoirRefresh + this.storeOptions.reservoirRefreshInterval) {
-	        this.storeOptions.reservoir = this.storeOptions.reservoirRefreshAmount;
-	        this._lastReservoirRefresh = now;
-	        return this.instance._drainAll(this.computeCapacity());
-	      }
-	    }, this.heartbeatInterval))).unref === "function") {
-	      base.unref();
+	    this._startHeartbeat();
+	  }
+
+	  _startHeartbeat() {
+	    var base;
+	    if ((this.heartbeat == null) && (this.storeOptions.reservoirRefreshInterval != null) && (this.storeOptions.reservoirRefreshAmount != null)) {
+	      return typeof (base = (this.heartbeat = setInterval(() => {
+	        var now;
+	        now = Date.now();
+	        if (now >= this._lastReservoirRefresh + this.storeOptions.reservoirRefreshInterval) {
+	          this.storeOptions.reservoir = this.storeOptions.reservoirRefreshAmount;
+	          this._lastReservoirRefresh = now;
+	          return this.instance._drainAll(this.computeCapacity());
+	        }
+	      }, this.heartbeatInterval))).unref === "function" ? base.unref() : void 0;
+	    } else {
+	      return clearInterval(this.heartbeat);
 	    }
 	  }
 
@@ -338,6 +343,7 @@
 	  async __updateSettings__(options) {
 	    await this.yieldLoop();
 	    parser$1.overwrite(options, options, this.storeOptions);
+	    this._startHeartbeat();
 	    this.instance._drainAll(this.computeCapacity());
 	    return true;
 	  }

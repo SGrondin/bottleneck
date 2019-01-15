@@ -11,14 +11,18 @@ class LocalDatastore
     @_unblockTime = 0
     @ready = @yieldLoop()
     @clients = {}
-    (@heartbeat = setInterval =>
-      now = Date.now()
-      reservoirRefreshActive = @storeOptions.reservoirRefreshInterval? and @storeOptions.reservoirRefreshAmount?
-      if reservoirRefreshActive and now >= @_lastReservoirRefresh + @storeOptions.reservoirRefreshInterval
-        @storeOptions.reservoir = @storeOptions.reservoirRefreshAmount
-        @_lastReservoirRefresh = now
-        @instance._drainAll @computeCapacity()
-    , @heartbeatInterval).unref?()
+    @_startHeartbeat()
+
+  _startHeartbeat: ->
+    if !@heartbeat? and @storeOptions.reservoirRefreshInterval? and @storeOptions.reservoirRefreshAmount?
+      (@heartbeat = setInterval =>
+          now = Date.now()
+          if now >= @_lastReservoirRefresh + @storeOptions.reservoirRefreshInterval
+            @storeOptions.reservoir = @storeOptions.reservoirRefreshAmount
+            @_lastReservoirRefresh = now
+            @instance._drainAll @computeCapacity()
+        , @heartbeatInterval).unref?()
+    else clearInterval @heartbeat
 
   __publish__: (message) ->
     await @yieldLoop()
@@ -36,6 +40,7 @@ class LocalDatastore
   __updateSettings__: (options) ->
     await @yieldLoop()
     parser.overwrite options, options, @storeOptions
+    @_startHeartbeat()
     @instance._drainAll @computeCapacity()
     true
 
