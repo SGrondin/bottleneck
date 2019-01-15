@@ -88,6 +88,8 @@ const limiter = new Bottleneck({
 
 **IMPORTANT: refresh intervals are not a replacement for minTime/maxConcurrent!** It's strongly recommended to also use `minTime` and/or `maxConcurrent` to spread out the load. For example, suppose a lot of jobs are queued up because the `reservoir` is 0. As soon as the reservoir refresh is triggered, 100 jobs will automatically be launched, all at the same time! To prevent that and keep your application running smoothly, use `minTime` and `maxConcurrent` to *stagger* the jobs.
 
+**IMPORTANT: refresh intervals prevent a limiter from being garbage collected.** Call `limiter.disconnect()` to clear the interval and allow the memory to be freed.
+
 ### Step 2 of 3
 
 #### ➤ Using callbacks?
