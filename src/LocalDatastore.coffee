@@ -9,7 +9,7 @@ class LocalDatastore
     @_running = 0
     @_done = 0
     @_unblockTime = 0
-    @ready = @yieldLoop()
+    @ready = @Promise.resolve()
     @clients = {}
     @_startHeartbeat()
 

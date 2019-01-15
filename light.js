@@ -296,7 +296,7 @@
 	    this._running = 0;
 	    this._done = 0;
 	    this._unblockTime = 0;
-	    this.ready = this.yieldLoop();
+	    this.ready = this.Promise.resolve();
 	    this.clients = {};
 	    this._startHeartbeat();
 	  }
