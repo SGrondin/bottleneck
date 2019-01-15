@@ -5,7 +5,7 @@
 [![License][npm-license]][license-url]
 
 
-Bottleneck is a lightweight and efficient Task Scheduler and Rate Limiter for Node.js and the browser.
+Bottleneck is a lightweight and zero-dependency Task Scheduler and Rate Limiter for Node.js and the browser.
 
 Bottleneck is an easy solution as it adds very little complexity to your code. It is battle-hardened, reliable and production-ready and used on a large scale in private companies and open source software.
 
@@ -72,7 +72,7 @@ const limiter = new Bottleneck({
 });
 ```
 
-**Sometimes rate limits instead take the form of "X requests every Y seconds".** In this example, we throttle to 100 requests every 60 seconds:
+Sometimes, a quota resets on an interval. In this example, we throttle to 100 requests every 60 seconds:
 ```js
 const limiter = new Bottleneck({
   reservoir: 100, // initial value
@@ -86,7 +86,7 @@ const limiter = new Bottleneck({
 ```
 `reservoir` is a counter decremented every time a job is launched, we set its initial value to 100. Then, every `reservoirRefreshInterval` (60000 ms), `reservoir` is automatically reset to `reservoirRefreshAmount` (100).
 
-**IMPORTANT:** For safety reasons, it's strongly recommended to also use `minTime` and/or `maxConcurrent` to spread out the load. For example, suppose a lot of jobs are queued up because the `reservoir` is 0. As soon as the reservoir refresh is triggered, 100 jobs will automatically be launched, all at the same time! To prevent that and keep your application running smoothly, use `minTime` and/or `maxConcurrent` to *stagger* the jobs.
+**IMPORTANT: refresh intervals are not a replacement for minTime/maxConcurrent!** It's strongly recommended to also use `minTime` and/or `maxConcurrent` to spread out the load. For example, suppose a lot of jobs are queued up because the `reservoir` is 0. As soon as the reservoir refresh is triggered, 100 jobs will automatically be launched, all at the same time! To prevent that and keep your application running smoothly, use `minTime` and `maxConcurrent` to *stagger* the jobs.
 
 ### Step 2 of 3
 

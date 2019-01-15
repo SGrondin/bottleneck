@@ -10,6 +10,21 @@ describe('General', function () {
     return c.limiter.disconnect(false)
   })
 
+  if (process.env.DATASTORE !== 'redis' && process.env.DATASTORE !== 'ioredis') {
+    it('Should not leak memory on instantiation', async function () {
+      c = makeTest()
+      this.timeout(8000)
+      const { iterate } = require('leakage')
+
+      const result = await iterate.async(async () => {
+        const limiter = new Bottleneck({ datastore: 'local' })
+        await limiter.ready()
+        return limiter.disconnect(false)
+      }, { iterations: 50 })
+
+    })
+  }
+
   it('Should prompt to upgrade', function () {
     c = makeTest()
     try {

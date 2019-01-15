@@ -41,6 +41,7 @@
     "coffeescript": "2.3.x",
     "ejs-cli": "2.0.1",
     "ioredis": "^4.0.0",
+    "leakage": "^0.4.0",
     "mocha": "4.x",
     "redis": "^2.8.0",
     "regenerator-runtime": "^0.12.1",
