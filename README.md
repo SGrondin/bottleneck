@@ -587,7 +587,9 @@ The Group is then used with the `.key(str)` method:
 
 ```js
 // In this example, the key is an IP
-group.key("77.66.54.32").submit(someAsyncCall, arg1, arg2, cb);
+group.key("77.66.54.32").schedule(() => {
+  /* process the request */
+});
 ```
 
 #### key()
