@@ -16,8 +16,7 @@ if (process.env.DATASTORE === 'ioredis') {
         maxConcurrent: 2,
         clientOptions: {},
         clusterNodes: [{
-          host: '127.0.0.1',
-          port: 6379
+          url: process.env.REDIS_URL
         }]
       })
 
