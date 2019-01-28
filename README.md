@@ -918,7 +918,7 @@ To work on the Bottleneck code, simply clone the repo, makes your changes to the
 
 To speed up compilation time during development, run `./scripts/build.sh dev` instead. Make sure to build and test without `dev` before submitting a PR.
 
-The tests must also pass in Clustering mode and using the ES5 bundle. You'll need a Redis server running on `127.0.0.1:6379`, then run `./scripts/build.sh && npm run test-all`.
+The tests must also pass in Clustering mode and using the ES5 bundle. You'll need a Redis server running locally (latency needs to be minimal to run the tests). If the server isn't using the default hostname and port, you can set those in the `.env` file. Then run `./scripts/build.sh && npm run test-all`.
 
 All contributions are appreciated and will be considered.
 
