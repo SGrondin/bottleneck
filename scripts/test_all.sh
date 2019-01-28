@@ -2,6 +2,8 @@
 
 set -e
 
+source .env
+
 echo 'ioredis tests'
 DATASTORE=ioredis npm test
 
