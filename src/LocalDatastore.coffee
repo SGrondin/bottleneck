@@ -48,6 +48,10 @@ class LocalDatastore
     await @yieldLoop()
     @_running
 
+  __queued__: ->
+    await @yieldLoop()
+    @instance.queued()
+
   __done__: ->
     await @yieldLoop()
     @_done

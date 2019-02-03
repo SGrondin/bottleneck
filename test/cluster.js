@@ -267,7 +267,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
-    it('Should keep track of each client\'s queue length', function () {
+    it('Should keep track of each client\'s queue length', async function () {
       c = makeTest({
         id: 'queues',
         maxConcurrent: 1,
@@ -282,49 +282,42 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       var client_num_queued_key = limiterKeys(c.limiter)[5]
       var clientId1 = c.limiter._store.clientId
       var clientId2 = limiter2._store.clientId
-      var p0, p1, p2, p3
 
-      return c.limiter.ready()
-      .then(function () {
-        return limiter2.ready()
-      })
-      .then(function () {
-        p0 = c.limiter.schedule({id: 0}, c.slowPromise, 100, null, 0)
-        return c.limiter._submitLock.schedule(() => Promise.resolve())
-      })
-      .then(function () {
-        p1 = c.limiter.schedule({id: 1}, c.promise, null, 1)
-        p2 = c.limiter.schedule({id: 2}, c.promise, null, 2)
-        p3 = limiter2.schedule({id: 3}, c.promise, null, 3)
-        return Promise.all([
-          c.limiter._submitLock.schedule(() => Promise.resolve()),
-          limiter2._submitLock.schedule(() => Promise.resolve())
-        ])
-      })
-      .then(function () {
-        return runCommand(c.limiter, 'hgetall', [client_num_queued_key])
-      })
-      .then(function (queued) {
-        c.mustEqual(c.limiter.counts().QUEUED, 2)
-        c.mustEqual(limiter2.counts().QUEUED, 1)
-        c.mustEqual(~~queued[clientId1], 2)
-        c.mustEqual(~~queued[clientId2], 1)
+      await c.limiter.ready()
+      await limiter2.ready()
 
-        return Promise.all([p0, p1, p2, p3])
-      })
-      .then(function () {
-        return runCommand(c.limiter, 'hgetall', [client_num_queued_key])
-      })
-      .then(function (queued) {
-        c.mustEqual(c.limiter.counts().QUEUED, 0)
-        c.mustEqual(limiter2.counts().QUEUED, 0)
-        c.mustEqual(~~queued[clientId1], 0)
-        c.mustEqual(~~queued[clientId2], 0)
-        c.mustEqual(c.limiter.counts().DONE, 3)
-        c.mustEqual(limiter2.counts().DONE, 1)
+      var p0 = c.limiter.schedule({id: 0}, c.slowPromise, 100, null, 0)
+      await c.limiter._submitLock.schedule(() => Promise.resolve())
 
-        return limiter2.disconnect(false)
-      })
+      var p1 = c.limiter.schedule({id: 1}, c.promise, null, 1)
+      var p2 = c.limiter.schedule({id: 2}, c.promise, null, 2)
+      var p3 = limiter2.schedule({id: 3}, c.promise, null, 3)
+
+      await Promise.all([
+        c.limiter._submitLock.schedule(() => Promise.resolve()),
+        limiter2._submitLock.schedule(() => Promise.resolve())
+      ])
+
+      var queuedA = await runCommand(c.limiter, 'hgetall', [client_num_queued_key])
+      c.mustEqual(c.limiter.counts().QUEUED, 2)
+      c.mustEqual(limiter2.counts().QUEUED, 1)
+      c.mustEqual(~~queuedA[clientId1], 2)
+      c.mustEqual(~~queuedA[clientId2], 1)
+
+      c.mustEqual(await c.limiter.clusterQueued(), 3)
+
+      await Promise.all([p0, p1, p2, p3])
+      var queuedB = await runCommand(c.limiter, 'hgetall', [client_num_queued_key])
+      c.mustEqual(c.limiter.counts().QUEUED, 0)
+      c.mustEqual(limiter2.counts().QUEUED, 0)
+      c.mustEqual(~~queuedB[clientId1], 0)
+      c.mustEqual(~~queuedB[clientId2], 0)
+      c.mustEqual(c.limiter.counts().DONE, 3)
+      c.mustEqual(limiter2.counts().DONE, 1)
+
+      c.mustEqual(await c.limiter.clusterQueued(), 0)
+
+      return limiter2.disconnect(false)
     })
 
     it('Should publish capacity increases', function () {
@@ -748,10 +741,19 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         ])
       })
       .then(function () {
-        return runCommand(limiter1, 'exists', [client_num_queued_key])
+        return runCommand(limiter1, 'hvals', [client_num_queued_key])
       })
-      .then(function (exists) {
-        c.mustEqual(exists, 0)
+      .then(function (queues) {
+        c.mustEqual(queues, ['0', '0'])
+
+        return Promise.all([
+          c.limiter.clusterQueued(),
+          limiter2.clusterQueued()
+        ])
+      })
+      .then(function (queues) {
+        c.mustEqual(queues, [0, 0])
+
         return c.wait(100)
       })
       .then(function () {

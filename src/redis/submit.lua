@@ -53,7 +53,15 @@ if blocked then
     'unblockTime', now + computedPenalty,
     'nextRequest', newNextRequest
   )
-  redis.call('del', client_num_queued_key)
+
+  local clients_queued_reset = redis.call('hkeys', client_num_queued_key)
+  local queued_reset = {}
+  for i = 1, #clients_queued_reset do
+    table.insert(queued_reset, clients_queued_reset[i])
+    table.insert(queued_reset, 0)
+  end
+  redis.call('hmset', client_num_queued_key, unpack(queued_reset))
+
   redis.call('publish', 'b_'..id, 'blocked:')
 
   refresh_expiration(now, newNextRequest, groupTimeout)

@@ -111,6 +111,8 @@ class RedisDatastore
 
   __running__: -> @runScript "running", []
 
+  __queued__: -> @runScript "queued", []
+
   __done__: -> @runScript "done", []
 
   __groupCheck__: -> @convertBool await @runScript "group_check", []

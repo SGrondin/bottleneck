@@ -1316,11 +1316,9 @@
 	        }, _callee2, this, [[1, 13]]);
 	      }));
 
-	      function trigger(_x) {
+	      return function trigger(_x) {
 	        return _trigger.apply(this, arguments);
-	      }
-
-	      return trigger;
+	      };
 	    }()
 	  }]);
 
@@ -1506,11 +1504,9 @@
 	        }, _callee, this);
 	      }));
 
-	      function __publish__(_x) {
+	      return function __publish__(_x) {
 	        return _publish__.apply(this, arguments);
-	      }
-
-	      return __publish__;
+	      };
 	    }()
 	  }, {
 	    key: "__disconnect__",
@@ -1537,11 +1533,9 @@
 	        }, _callee2, this);
 	      }));
 
-	      function __disconnect__(_x2) {
+	      return function __disconnect__(_x2) {
 	        return _disconnect__.apply(this, arguments);
-	      }
-
-	      return __disconnect__;
+	      };
 	    }()
 	  }, {
 	    key: "yieldLoop",
@@ -1587,11 +1581,9 @@
 	        }, _callee3, this);
 	      }));
 
-	      function __updateSettings__(_x3) {
+	      return function __updateSettings__(_x3) {
 	        return _updateSettings__.apply(this, arguments);
-	      }
-
-	      return __updateSettings__;
+	      };
 	    }()
 	  }, {
 	    key: "__running__",
@@ -1617,16 +1609,14 @@
 	        }, _callee4, this);
 	      }));
 
-	      function __running__() {
+	      return function __running__() {
 	        return _running__.apply(this, arguments);
-	      }
-
-	      return __running__;
+	      };
 	    }()
 	  }, {
-	    key: "__done__",
+	    key: "__queued__",
 	    value: function () {
-	      var _done__ = _asyncToGenerator(
+	      var _queued__ = _asyncToGenerator(
 	      /*#__PURE__*/
 	      regeneratorRuntime.mark(function _callee5() {
 	        return regeneratorRuntime.wrap(function _callee5$(_context5) {
@@ -1637,7 +1627,7 @@
 	                return this.yieldLoop();
 
 	              case 2:
-	                return _context5.abrupt("return", this._done);
+	                return _context5.abrupt("return", this.instance.queued());
 
 	              case 3:
 	              case "end":
@@ -1647,18 +1637,16 @@
 	        }, _callee5, this);
 	      }));
 
-	      function __done__() {
-	        return _done__.apply(this, arguments);
-	      }
-
-	      return __done__;
+	      return function __queued__() {
+	        return _queued__.apply(this, arguments);
+	      };
 	    }()
 	  }, {
-	    key: "__groupCheck__",
+	    key: "__done__",
 	    value: function () {
-	      var _groupCheck__ = _asyncToGenerator(
+	      var _done__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee6(time) {
+	      regeneratorRuntime.mark(function _callee6() {
 	        return regeneratorRuntime.wrap(function _callee6$(_context6) {
 	          while (1) {
 	            switch (_context6.prev = _context6.next) {
@@ -1667,7 +1655,7 @@
 	                return this.yieldLoop();
 
 	              case 2:
-	                return _context6.abrupt("return", this._nextRequest + this.timeout < time);
+	                return _context6.abrupt("return", this._done);
 
 	              case 3:
 	              case "end":
@@ -1677,11 +1665,37 @@
 	        }, _callee6, this);
 	      }));
 
-	      function __groupCheck__(_x4) {
-	        return _groupCheck__.apply(this, arguments);
-	      }
+	      return function __done__() {
+	        return _done__.apply(this, arguments);
+	      };
+	    }()
+	  }, {
+	    key: "__groupCheck__",
+	    value: function () {
+	      var _groupCheck__ = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee7(time) {
+	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
+	          while (1) {
+	            switch (_context7.prev = _context7.next) {
+	              case 0:
+	                _context7.next = 2;
+	                return this.yieldLoop();
 
-	      return __groupCheck__;
+	              case 2:
+	                return _context7.abrupt("return", this._nextRequest + this.timeout < time);
+
+	              case 3:
+	              case "end":
+	                return _context7.stop();
+	            }
+	          }
+	        }, _callee7, this);
+	      }));
+
+	      return function __groupCheck__(_x4) {
+	        return _groupCheck__.apply(this, arguments);
+	      };
 	    }()
 	  }, {
 	    key: "computeCapacity",
@@ -1713,42 +1727,8 @@
 	    value: function () {
 	      var _incrementReservoir__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee7(incr) {
+	      regeneratorRuntime.mark(function _callee8(incr) {
 	        var reservoir;
-	        return regeneratorRuntime.wrap(function _callee7$(_context7) {
-	          while (1) {
-	            switch (_context7.prev = _context7.next) {
-	              case 0:
-	                _context7.next = 2;
-	                return this.yieldLoop();
-
-	              case 2:
-	                reservoir = this.storeOptions.reservoir += incr;
-
-	                this.instance._drainAll(this.computeCapacity());
-
-	                return _context7.abrupt("return", reservoir);
-
-	              case 5:
-	              case "end":
-	                return _context7.stop();
-	            }
-	          }
-	        }, _callee7, this);
-	      }));
-
-	      function __incrementReservoir__(_x5) {
-	        return _incrementReservoir__.apply(this, arguments);
-	      }
-
-	      return __incrementReservoir__;
-	    }()
-	  }, {
-	    key: "__currentReservoir__",
-	    value: function () {
-	      var _currentReservoir__ = _asyncToGenerator(
-	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee8() {
 	        return regeneratorRuntime.wrap(function _callee8$(_context8) {
 	          while (1) {
 	            switch (_context8.prev = _context8.next) {
@@ -1757,9 +1737,13 @@
 	                return this.yieldLoop();
 
 	              case 2:
-	                return _context8.abrupt("return", this.storeOptions.reservoir);
+	                reservoir = this.storeOptions.reservoir += incr;
 
-	              case 3:
+	                this.instance._drainAll(this.computeCapacity());
+
+	                return _context8.abrupt("return", reservoir);
+
+	              case 5:
 	              case "end":
 	                return _context8.stop();
 	            }
@@ -1767,11 +1751,37 @@
 	        }, _callee8, this);
 	      }));
 
-	      function __currentReservoir__() {
-	        return _currentReservoir__.apply(this, arguments);
-	      }
+	      return function __incrementReservoir__(_x5) {
+	        return _incrementReservoir__.apply(this, arguments);
+	      };
+	    }()
+	  }, {
+	    key: "__currentReservoir__",
+	    value: function () {
+	      var _currentReservoir__ = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee9() {
+	        return regeneratorRuntime.wrap(function _callee9$(_context9) {
+	          while (1) {
+	            switch (_context9.prev = _context9.next) {
+	              case 0:
+	                _context9.next = 2;
+	                return this.yieldLoop();
 
-	      return __currentReservoir__;
+	              case 2:
+	                return _context9.abrupt("return", this.storeOptions.reservoir);
+
+	              case 3:
+	              case "end":
+	                return _context9.stop();
+	            }
+	          }
+	        }, _callee9, this);
+	      }));
+
+	      return function __currentReservoir__() {
+	        return _currentReservoir__.apply(this, arguments);
+	      };
 	    }()
 	  }, {
 	    key: "isBlocked",
@@ -1788,40 +1798,8 @@
 	    value: function () {
 	      var _check__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee9(weight) {
+	      regeneratorRuntime.mark(function _callee10(weight) {
 	        var now;
-	        return regeneratorRuntime.wrap(function _callee9$(_context9) {
-	          while (1) {
-	            switch (_context9.prev = _context9.next) {
-	              case 0:
-	                _context9.next = 2;
-	                return this.yieldLoop();
-
-	              case 2:
-	                now = Date.now();
-	                return _context9.abrupt("return", this.check(weight, now));
-
-	              case 4:
-	              case "end":
-	                return _context9.stop();
-	            }
-	          }
-	        }, _callee9, this);
-	      }));
-
-	      function __check__(_x6) {
-	        return _check__.apply(this, arguments);
-	      }
-
-	      return __check__;
-	    }()
-	  }, {
-	    key: "__register__",
-	    value: function () {
-	      var _register__ = _asyncToGenerator(
-	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee10(index, weight, expiration) {
-	        var now, wait;
 	        return regeneratorRuntime.wrap(function _callee10$(_context10) {
 	          while (1) {
 	            switch (_context10.prev = _context10.next) {
@@ -1831,9 +1809,39 @@
 
 	              case 2:
 	                now = Date.now();
+	                return _context10.abrupt("return", this.check(weight, now));
+
+	              case 4:
+	              case "end":
+	                return _context10.stop();
+	            }
+	          }
+	        }, _callee10, this);
+	      }));
+
+	      return function __check__(_x6) {
+	        return _check__.apply(this, arguments);
+	      };
+	    }()
+	  }, {
+	    key: "__register__",
+	    value: function () {
+	      var _register__ = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee11(index, weight, expiration) {
+	        var now, wait;
+	        return regeneratorRuntime.wrap(function _callee11$(_context11) {
+	          while (1) {
+	            switch (_context11.prev = _context11.next) {
+	              case 0:
+	                _context11.next = 2;
+	                return this.yieldLoop();
+
+	              case 2:
+	                now = Date.now();
 
 	                if (!this.conditionsCheck(weight)) {
-	                  _context10.next = 11;
+	                  _context11.next = 11;
 	                  break;
 	                }
 
@@ -1845,30 +1853,28 @@
 
 	                wait = Math.max(this._nextRequest - now, 0);
 	                this._nextRequest = now + wait + this.storeOptions.minTime;
-	                return _context10.abrupt("return", {
+	                return _context11.abrupt("return", {
 	                  success: true,
 	                  wait: wait,
 	                  reservoir: this.storeOptions.reservoir
 	                });
 
 	              case 11:
-	                return _context10.abrupt("return", {
+	                return _context11.abrupt("return", {
 	                  success: false
 	                });
 
 	              case 12:
 	              case "end":
-	                return _context10.stop();
+	                return _context11.stop();
 	            }
 	          }
-	        }, _callee10, this);
+	        }, _callee11, this);
 	      }));
 
-	      function __register__(_x7, _x8, _x9) {
+	      return function __register__(_x7, _x8, _x9) {
 	        return _register__.apply(this, arguments);
-	      }
-
-	      return __register__;
+	      };
 	    }()
 	  }, {
 	    key: "strategyIsBlock",
@@ -1880,18 +1886,18 @@
 	    value: function () {
 	      var _submit__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee11(queueLength, weight) {
+	      regeneratorRuntime.mark(function _callee12(queueLength, weight) {
 	        var blocked, now, reachedHWM;
-	        return regeneratorRuntime.wrap(function _callee11$(_context11) {
+	        return regeneratorRuntime.wrap(function _callee12$(_context12) {
 	          while (1) {
-	            switch (_context11.prev = _context11.next) {
+	            switch (_context12.prev = _context12.next) {
 	              case 0:
-	                _context11.next = 2;
+	                _context12.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
 	                if (!(this.storeOptions.maxConcurrent != null && weight > this.storeOptions.maxConcurrent)) {
-	                  _context11.next = 4;
+	                  _context12.next = 4;
 	                  break;
 	                }
 
@@ -1909,7 +1915,7 @@
 	                  this.instance._dropAllQueued();
 	                }
 
-	                return _context11.abrupt("return", {
+	                return _context12.abrupt("return", {
 	                  reachedHWM: reachedHWM,
 	                  blocked: blocked,
 	                  strategy: this.storeOptions.strategy
@@ -1917,29 +1923,27 @@
 
 	              case 9:
 	              case "end":
-	                return _context11.stop();
+	                return _context12.stop();
 	            }
 	          }
-	        }, _callee11, this);
+	        }, _callee12, this);
 	      }));
 
-	      function __submit__(_x10, _x11) {
+	      return function __submit__(_x10, _x11) {
 	        return _submit__.apply(this, arguments);
-	      }
-
-	      return __submit__;
+	      };
 	    }()
 	  }, {
 	    key: "__free__",
 	    value: function () {
 	      var _free__ = _asyncToGenerator(
 	      /*#__PURE__*/
-	      regeneratorRuntime.mark(function _callee12(index, weight) {
-	        return regeneratorRuntime.wrap(function _callee12$(_context12) {
+	      regeneratorRuntime.mark(function _callee13(index, weight) {
+	        return regeneratorRuntime.wrap(function _callee13$(_context13) {
 	          while (1) {
-	            switch (_context12.prev = _context12.next) {
+	            switch (_context13.prev = _context13.next) {
 	              case 0:
-	                _context12.next = 2;
+	                _context13.next = 2;
 	                return this.yieldLoop();
 
 	              case 2:
@@ -1948,23 +1952,21 @@
 
 	                this.instance._drainAll(this.computeCapacity());
 
-	                return _context12.abrupt("return", {
+	                return _context13.abrupt("return", {
 	                  running: this._running
 	                });
 
 	              case 6:
 	              case "end":
-	                return _context12.stop();
+	                return _context13.stop();
 	            }
 	          }
-	        }, _callee12, this);
+	        }, _callee13, this);
 	      }));
 
-	      function __free__(_x12, _x13) {
+	      return function __free__(_x12, _x13) {
 	        return _free__.apply(this, arguments);
-	      }
-
-	      return __free__;
+	      };
 	    }()
 	  }]);
 
@@ -1986,12 +1988,13 @@
 		"increment_reservoir.lua": "local incr = tonumber(ARGV[3])\n\nredis.call('hincrby', settings_key, 'reservoir', incr)\n\nlocal reservoir = process_tick(now, true)['reservoir']\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(0, 0, groupTimeout)\n\nreturn reservoir\n",
 		"init.lua": "local clear = tonumber(ARGV[3])\nlocal limiter_version = ARGV[4]\nlocal num_static_argv = 4\n\nif clear == 1 then\n  redis.call('del', unpack(KEYS))\nend\n\nif redis.call('exists', settings_key) == 0 then\n  -- Create\n  local args = {'hmset', settings_key}\n\n  for i = num_static_argv + 1, #ARGV do\n    table.insert(args, ARGV[i])\n  end\n\n  redis.call(unpack(args))\n  redis.call('hmset', settings_key,\n    'nextRequest', now,\n    'lastReservoirRefresh', now,\n    'running', 0,\n    'done', 0,\n    'unblockTime', 0,\n    'capacityPriorityCounter', 0\n  )\n\nelse\n  -- Apply migrations\n  local settings = redis.call('hmget', settings_key,\n    'id',\n    'version'\n  )\n  local id = settings[1]\n  local current_version = settings[2]\n\n  if current_version ~= limiter_version then\n    local version_digits = {}\n    for k, v in string.gmatch(current_version, \"([^.]+)\") do\n      table.insert(version_digits, tonumber(k))\n    end\n\n    -- 2.10.0\n    if version_digits[2] < 10 then\n      redis.call('hsetnx', settings_key, 'reservoirRefreshInterval', '')\n      redis.call('hsetnx', settings_key, 'reservoirRefreshAmount', '')\n      redis.call('hsetnx', settings_key, 'lastReservoirRefresh', '')\n      redis.call('hsetnx', settings_key, 'done', 0)\n      redis.call('hset', settings_key, 'version', '2.10.0')\n    end\n\n    -- 2.11.1\n    if version_digits[2] < 11 and version_digits[3] < 1 then\n      if redis.call('hstrlen', settings_key, 'lastReservoirRefresh') == 0 then\n        redis.call('hmset', settings_key,\n          'lastReservoirRefresh', now,\n          'version', '2.11.1'\n        )\n      end\n    end\n\n    -- 2.14.0\n    if version_digits[2] < 14 then\n      local old_running_key = 'b_'..id..'_running'\n      local old_executing_key = 'b_'..id..'_executing'\n\n      if redis.call('exists', old_running_key) == 1 then\n        redis.call('rename', old_running_key, job_weights_key)\n      end\n      if redis.call('exists', old_executing_key) == 1 then\n        redis.call('rename', old_executing_key, job_expirations_key)\n      end\n      redis.call('hset', settings_key, 'version', '2.14.0')\n    end\n\n    -- 2.15.2\n    if version_digits[2] < 15 and version_digits[3] < 2 then\n      redis.call('hsetnx', settings_key, 'capacityPriorityCounter', 0)\n      redis.call('hset', settings_key, 'version', '2.15.2')\n    end\n\n  end\n\n  process_tick(now, false)\nend\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(0, 0, groupTimeout)\n\nreturn {}\n",
 		"process_tick.lua": "local process_tick = function (now, always_publish)\n\n  local compute_capacity = function (maxConcurrent, running, reservoir)\n    if maxConcurrent ~= nil and reservoir ~= nil then\n      return math.min((maxConcurrent - running), reservoir)\n    elseif maxConcurrent ~= nil then\n      return maxConcurrent - running\n    elseif reservoir ~= nil then\n      return reservoir\n    else\n      return nil\n    end\n  end\n\n  local settings = redis.call('hmget', settings_key,\n    'id',\n    'maxConcurrent',\n    'running',\n    'reservoir',\n    'reservoirRefreshInterval',\n    'reservoirRefreshAmount',\n    'lastReservoirRefresh',\n    'capacityPriorityCounter'\n  )\n  local id = settings[1]\n  local maxConcurrent = tonumber(settings[2])\n  local running = tonumber(settings[3])\n  local reservoir = tonumber(settings[4])\n  local reservoirRefreshInterval = tonumber(settings[5])\n  local reservoirRefreshAmount = tonumber(settings[6])\n  local lastReservoirRefresh = tonumber(settings[7])\n  local capacityPriorityCounter = tonumber(settings[8])\n\n  local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)\n\n  --\n  -- Process 'running' changes\n  --\n  local expired = redis.call('zrangebyscore', job_expirations_key, '-inf', '('..now)\n\n  if #expired > 0 then\n    redis.call('zremrangebyscore', job_expirations_key, '-inf', '('..now)\n\n    local flush_batch = function (batch, acc)\n      local weights = redis.call('hmget', job_weights_key, unpack(batch))\n                      redis.call('hdel',  job_weights_key, unpack(batch))\n      local clients = redis.call('hmget', job_clients_key, unpack(batch))\n                      redis.call('hdel',  job_clients_key, unpack(batch))\n\n      -- Calculate sum of removed weights\n      for i = 1, #weights do\n        acc['total'] = acc['total'] + (tonumber(weights[i]) or 0)\n      end\n\n      -- Calculate sum of removed weights by client\n      local client_weights = {}\n      for i = 1, #clients do\n        if weights[i] ~= nil then\n          acc['client_weights'][clients[i]] = (acc['client_weights'][clients[i]] or 0) + tonumber(weights[i])\n        end\n      end\n    end\n\n    local acc = {\n      ['total'] = 0,\n      ['client_weights'] = {}\n    }\n    local batch_size = 1000\n\n    -- Compute changes to Zsets and apply changes to Hashes\n    for i = 1, #expired, batch_size do\n      local batch = {}\n      for j = i, math.min(i + batch_size - 1, #expired) do\n        table.insert(batch, expired[j])\n      end\n\n      flush_batch(batch, acc)\n    end\n\n    -- Apply changes to Zsets\n    if acc['total'] > 0 then\n      redis.call('hincrby', settings_key, 'done', acc['total'])\n      running = tonumber(redis.call('hincrby', settings_key, 'running', -acc['total']))\n    end\n\n    for client, weight in pairs(acc['client_weights']) do\n      redis.call('zincrby', client_running_key, -weight, client)\n    end\n  end\n\n  --\n  -- Process 'reservoir' changes\n  --\n  local reservoirRefreshActive = reservoirRefreshInterval ~= nil and reservoirRefreshAmount ~= nil\n  if reservoirRefreshActive and now >= lastReservoirRefresh + reservoirRefreshInterval then\n    reservoir = reservoirRefreshAmount\n    redis.call('hmset', settings_key,\n      'reservoir', reservoir,\n      'lastReservoirRefresh', now\n    )\n  end\n\n  --\n  -- Broadcast capacity changes\n  --\n  local final_capacity = compute_capacity(maxConcurrent, running, reservoir)\n\n  if always_publish or (initial_capacity ~= nil and final_capacity == nil) then\n    -- always_publish or was not unlimited, now unlimited\n    redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))\n\n  elseif initial_capacity ~= nil and final_capacity ~= nil and final_capacity > initial_capacity then\n    -- capacity was increased\n    -- send the capacity message to the limiter having the lowest number of running jobs\n    -- the tiebreaker is the limiter having not registered a job in the longest time\n\n    local lowest_concurrency_value = nil\n    local lowest_concurrency_clients = {}\n    local lowest_concurrency_last_registered = {}\n    local client_concurrencies = redis.call('zrange', client_running_key, 0, -1, 'withscores')\n    local valid_clients = redis.call('zrangebyscore', client_last_seen_key, (now - 10000), 'inf')\n    local valid_clients_lookup = {}\n    for i = 1, #valid_clients do\n      valid_clients_lookup[valid_clients[i]] = true\n    end\n\n    for i = 1, #client_concurrencies, 2 do\n      local client = client_concurrencies[i]\n      local concurrency = tonumber(client_concurrencies[i+1])\n\n      if (\n        lowest_concurrency_value == nil or lowest_concurrency_value == concurrency\n      ) and (\n        valid_clients_lookup[client]\n      ) and (\n        tonumber(redis.call('hget', client_num_queued_key, client)) > 0\n      ) then\n        lowest_concurrency_value = concurrency\n        table.insert(lowest_concurrency_clients, client)\n        local last_registered = tonumber(redis.call('zscore', client_last_registered_key, client))\n        table.insert(lowest_concurrency_last_registered, last_registered)\n      end\n    end\n\n    if #lowest_concurrency_clients > 0 then\n      local position = 1\n      local earliest = lowest_concurrency_last_registered[1]\n\n      for i,v in ipairs(lowest_concurrency_last_registered) do\n        if v < earliest then\n          position = i\n          earliest = v\n        end\n      end\n\n      local next_client = lowest_concurrency_clients[position]\n      redis.call('publish', 'b_'..id,\n        'capacity-priority:'..(final_capacity or '')..\n        ':'..next_client..\n        ':'..capacityPriorityCounter\n      )\n      redis.call('hincrby', settings_key, 'capacityPriorityCounter', '1')\n    else\n      redis.call('publish', 'b_'..id, 'capacity:'..(final_capacity or ''))\n    end\n  end\n\n  return {\n    ['capacity'] = final_capacity,\n    ['running'] = running,\n    ['reservoir'] = reservoir\n  }\nend\n",
+		"queued.lua": "local valid_clients = redis.call('zrangebyscore', client_last_seen_key, (now - 10000), 'inf')\nlocal client_queued = redis.call('hmget', client_num_queued_key, unpack(valid_clients))\n\nlocal sum = 0\nfor i = 1, #client_queued do\n  sum = sum + tonumber(client_queued[i])\nend\n\nreturn sum\n",
 		"refresh_expiration.lua": "local refresh_expiration = function (now, nextRequest, groupTimeout)\n\n  if groupTimeout ~= nil then\n    local ttl = (nextRequest + groupTimeout) - now\n\n    for i = 1, #KEYS do\n      redis.call('pexpire', KEYS[i], ttl)\n    end\n  end\n\nend\n",
 		"refs.lua": "local settings_key = KEYS[1]\nlocal job_weights_key = KEYS[2]\nlocal job_expirations_key = KEYS[3]\nlocal job_clients_key = KEYS[4]\nlocal client_running_key = KEYS[5]\nlocal client_num_queued_key = KEYS[6]\nlocal client_last_registered_key = KEYS[7]\nlocal client_last_seen_key = KEYS[8]\n\nlocal now = tonumber(ARGV[1])\nlocal client = ARGV[2]\n\nredis.call('zadd', client_last_seen_key, now, client)\n",
 		"register.lua": "local index = ARGV[3]\nlocal weight = tonumber(ARGV[4])\nlocal expiration = tonumber(ARGV[5])\n\nlocal state = process_tick(now, false)\nlocal capacity = state['capacity']\nlocal reservoir = state['reservoir']\n\nlocal settings = redis.call('hmget', settings_key,\n  'nextRequest',\n  'minTime',\n  'groupTimeout'\n)\nlocal nextRequest = tonumber(settings[1])\nlocal minTime = tonumber(settings[2])\nlocal groupTimeout = tonumber(settings[3])\n\nif conditions_check(capacity, weight) then\n\n  redis.call('hincrby', settings_key, 'running', weight)\n  redis.call('hset', job_weights_key, index, weight)\n  if expiration ~= nil then\n    redis.call('zadd', job_expirations_key, now + expiration, index)\n  end\n  redis.call('hset', job_clients_key, index, client)\n  redis.call('zincrby', client_running_key, weight, client)\n  redis.call('hincrby', client_num_queued_key, client, -1)\n  redis.call('zadd', client_last_registered_key, now, client)\n\n  local wait = math.max(nextRequest - now, 0)\n  local newNextRequest = now + wait + minTime\n\n  if reservoir == nil then\n    redis.call('hset', settings_key,\n      'nextRequest', newNextRequest\n    )\n  else\n    reservoir = reservoir - weight\n    redis.call('hmset', settings_key,\n      'reservoir', reservoir,\n      'nextRequest', newNextRequest\n    )\n  end\n\n  refresh_expiration(now, newNextRequest, groupTimeout)\n\n  return {true, wait, reservoir}\n\nelse\n  return {false}\nend\n",
 		"register_client.lua": "local queued = tonumber(ARGV[3])\n\nredis.call('zadd', client_running_key, 0, client)\nredis.call('hset', client_num_queued_key, client, queued)\nredis.call('zadd', client_last_registered_key, 0, client)\n\nreturn {}\n",
 		"running.lua": "return process_tick(now, false)['running']\n",
-		"submit.lua": "local queueLength = tonumber(ARGV[3])\nlocal weight = tonumber(ARGV[4])\n\nlocal capacity = process_tick(now, false)['capacity']\n\nlocal settings = redis.call('hmget', settings_key,\n  'id',\n  'maxConcurrent',\n  'highWater',\n  'nextRequest',\n  'strategy',\n  'unblockTime',\n  'penalty',\n  'minTime',\n  'groupTimeout'\n)\nlocal id = settings[1]\nlocal maxConcurrent = tonumber(settings[2])\nlocal highWater = tonumber(settings[3])\nlocal nextRequest = tonumber(settings[4])\nlocal strategy = tonumber(settings[5])\nlocal unblockTime = tonumber(settings[6])\nlocal penalty = tonumber(settings[7])\nlocal minTime = tonumber(settings[8])\nlocal groupTimeout = tonumber(settings[9])\n\nif maxConcurrent ~= nil and weight > maxConcurrent then\n  return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)\nend\n\nlocal reachedHWM = (highWater ~= nil and queueLength == highWater\n  and not (\n    conditions_check(capacity, weight)\n    and nextRequest - now <= 0\n  )\n)\n\nlocal blocked = strategy == 3 and (reachedHWM or unblockTime >= now)\n\nif blocked then\n  local computedPenalty = penalty\n  if computedPenalty == nil then\n    if minTime == 0 then\n      computedPenalty = 5000\n    else\n      computedPenalty = 15 * minTime\n    end\n  end\n\n  local newNextRequest = now + computedPenalty + minTime\n\n  redis.call('hmset', settings_key,\n    'unblockTime', now + computedPenalty,\n    'nextRequest', newNextRequest\n  )\n  redis.call('del', client_num_queued_key)\n  redis.call('publish', 'b_'..id, 'blocked:')\n\n  refresh_expiration(now, newNextRequest, groupTimeout)\nend\n\nif not blocked and not reachedHWM then\n  redis.call('hincrby', client_num_queued_key, client, 1)\nend\n\nreturn {reachedHWM, blocked, strategy}\n",
+		"submit.lua": "local queueLength = tonumber(ARGV[3])\nlocal weight = tonumber(ARGV[4])\n\nlocal capacity = process_tick(now, false)['capacity']\n\nlocal settings = redis.call('hmget', settings_key,\n  'id',\n  'maxConcurrent',\n  'highWater',\n  'nextRequest',\n  'strategy',\n  'unblockTime',\n  'penalty',\n  'minTime',\n  'groupTimeout'\n)\nlocal id = settings[1]\nlocal maxConcurrent = tonumber(settings[2])\nlocal highWater = tonumber(settings[3])\nlocal nextRequest = tonumber(settings[4])\nlocal strategy = tonumber(settings[5])\nlocal unblockTime = tonumber(settings[6])\nlocal penalty = tonumber(settings[7])\nlocal minTime = tonumber(settings[8])\nlocal groupTimeout = tonumber(settings[9])\n\nif maxConcurrent ~= nil and weight > maxConcurrent then\n  return redis.error_reply('OVERWEIGHT:'..weight..':'..maxConcurrent)\nend\n\nlocal reachedHWM = (highWater ~= nil and queueLength == highWater\n  and not (\n    conditions_check(capacity, weight)\n    and nextRequest - now <= 0\n  )\n)\n\nlocal blocked = strategy == 3 and (reachedHWM or unblockTime >= now)\n\nif blocked then\n  local computedPenalty = penalty\n  if computedPenalty == nil then\n    if minTime == 0 then\n      computedPenalty = 5000\n    else\n      computedPenalty = 15 * minTime\n    end\n  end\n\n  local newNextRequest = now + computedPenalty + minTime\n\n  redis.call('hmset', settings_key,\n    'unblockTime', now + computedPenalty,\n    'nextRequest', newNextRequest\n  )\n\n  local clients_queued_reset = redis.call('hkeys', client_num_queued_key)\n  local queued_reset = {}\n  for i = 1, #clients_queued_reset do\n    table.insert(queued_reset, clients_queued_reset[i])\n    table.insert(queued_reset, 0)\n  end\n  redis.call('hmset', client_num_queued_key, unpack(queued_reset))\n\n  redis.call('publish', 'b_'..id, 'blocked:')\n\n  refresh_expiration(now, newNextRequest, groupTimeout)\nend\n\nif not blocked and not reachedHWM then\n  redis.call('hincrby', client_num_queued_key, client, 1)\nend\n\nreturn {reachedHWM, blocked, strategy}\n",
 		"update_settings.lua": "local num_static_argv = 2\n\nlocal args = {'hmset', settings_key}\n\nfor i = num_static_argv + 1, #ARGV do\n  table.insert(args, ARGV[i])\nend\n\nredis.call(unpack(args))\n\nprocess_tick(now, true)\n\nlocal groupTimeout = tonumber(redis.call('hget', settings_key, 'groupTimeout'))\nrefresh_expiration(0, 0, groupTimeout)\n\nreturn {}\n",
 		"validate_keys.lua": "if not (redis.call('exists', settings_key) == 1) then\n  return redis.error_reply('SETTINGS_KEY_NOT_FOUND')\nend\n"
 	};
@@ -2099,6 +2102,12 @@
 	      headers: ["validate_keys", "process_tick"],
 	      refresh_expiration: false,
 	      code: lua["running.lua"]
+	    },
+	    queued: {
+	      keys: exports.allKeys,
+	      headers: ["validate_keys"],
+	      refresh_expiration: false,
+	      code: lua["queued.lua"]
 	    },
 	    done: {
 	      keys: exports.allKeys,
@@ -2292,11 +2301,9 @@
 	          }, _callee, this);
 	        }));
 
-	        function __runCommand__(_x) {
+	        return function __runCommand__(_x) {
 	          return _runCommand__.apply(this, arguments);
-	        }
-
-	        return __runCommand__;
+	        };
 	      }()
 	    }, {
 	      key: "__addLimiter__",
@@ -2537,11 +2544,9 @@
 	          }, _callee, this);
 	        }));
 
-	        function __runCommand__(_x) {
+	        return function __runCommand__(_x) {
 	          return _runCommand__.apply(this, arguments);
-	        }
-
-	        return __runCommand__;
+	        };
 	      }()
 	    }, {
 	      key: "__addLimiter__",
@@ -2736,11 +2741,9 @@
 	        }, _callee, this);
 	      }));
 
-	      function __publish__(_x) {
+	      return function __publish__(_x) {
 	        return _publish__.apply(this, arguments);
-	      }
-
-	      return __publish__;
+	      };
 	    }()
 	  }, {
 	    key: "onMessage",
@@ -2892,11 +2895,9 @@
 	        }, _callee3, this, [[0, 47]]);
 	      }));
 
-	      function onMessage(_x2, _x3) {
+	      return function onMessage(_x2, _x3) {
 	        return _onMessage.apply(this, arguments);
-	      }
-
-	      return onMessage;
+	      };
 	    }()
 	  }, {
 	    key: "__disconnect__",
@@ -2964,11 +2965,9 @@
 	        }, _callee4, this);
 	      }));
 
-	      function runScript(_x4, _x5) {
+	      return function runScript(_x4, _x5) {
 	        return _runScript.apply(this, arguments);
-	      }
-
-	      return runScript;
+	      };
 	    }()
 	  }, {
 	    key: "prepareArray",
@@ -3037,16 +3036,19 @@
 	        }, _callee5, this);
 	      }));
 
-	      function __updateSettings__(_x6) {
+	      return function __updateSettings__(_x6) {
 	        return _updateSettings__.apply(this, arguments);
-	      }
-
-	      return __updateSettings__;
+	      };
 	    }()
 	  }, {
 	    key: "__running__",
 	    value: function __running__() {
 	      return this.runScript("running", []);
+	    }
+	  }, {
+	    key: "__queued__",
+	    value: function __queued__() {
+	      return this.runScript("queued", []);
 	    }
 	  }, {
 	    key: "__done__",
@@ -3079,11 +3081,9 @@
 	        }, _callee6, this);
 	      }));
 
-	      function __groupCheck__() {
+	      return function __groupCheck__() {
 	        return _groupCheck__.apply(this, arguments);
-	      }
-
-	      return __groupCheck__;
+	      };
 	    }()
 	  }, {
 	    key: "__incrementReservoir__",
@@ -3121,11 +3121,9 @@
 	        }, _callee7, this);
 	      }));
 
-	      function __check__(_x7) {
+	      return function __check__(_x7) {
 	        return _check__.apply(this, arguments);
-	      }
-
-	      return __check__;
+	      };
 	    }()
 	  }, {
 	    key: "__register__",
@@ -3162,11 +3160,9 @@
 	        }, _callee8, this);
 	      }));
 
-	      function __register__(_x8, _x9, _x10) {
+	      return function __register__(_x8, _x9, _x10) {
 	        return _register__.apply(this, arguments);
-	      }
-
-	      return __register__;
+	      };
 	    }()
 	  }, {
 	    key: "__submit__",
@@ -3224,11 +3220,9 @@
 	        }, _callee9, this, [[0, 11]]);
 	      }));
 
-	      function __submit__(_x11, _x12) {
+	      return function __submit__(_x11, _x12) {
 	        return _submit__.apply(this, arguments);
-	      }
-
-	      return __submit__;
+	      };
 	    }()
 	  }, {
 	    key: "__free__",
@@ -3258,11 +3252,9 @@
 	        }, _callee10, this);
 	      }));
 
-	      function __free__(_x13, _x14) {
+	      return function __free__(_x13, _x14) {
 	        return _free__.apply(this, arguments);
-	      }
-
-	      return __free__;
+	      };
 	    }()
 	  }]);
 
@@ -3610,11 +3602,9 @@
 	          }, _callee, this);
 	        }));
 
-	        function deleteKey() {
+	        return function deleteKey() {
 	          return _deleteKey.apply(this, arguments);
-	        }
-
-	        return deleteKey;
+	        };
 	      }()
 	    }, {
 	      key: "limiters",
@@ -3698,11 +3688,9 @@
 	          }, _callee2, this);
 	        }));
 
-	        function clusterKeys() {
+	        return function clusterKeys() {
 	          return _clusterKeys.apply(this, arguments);
-	        }
-
-	        return clusterKeys;
+	        };
 	      }()
 	    }, {
 	      key: "_startAutoCleanup",
@@ -4019,6 +4007,11 @@
 	      key: "queued",
 	      value: function queued(priority) {
 	        return this._queues.queued(priority);
+	      }
+	    }, {
+	      key: "clusterQueued",
+	      value: function clusterQueued() {
+	        return this._store.__queued__();
 	      }
 	    }, {
 	      key: "empty",
@@ -4672,11 +4665,9 @@
 	          }, _callee3, this);
 	        }));
 
-	        function updateSettings() {
+	        return function updateSettings() {
 	          return _updateSettings.apply(this, arguments);
-	        }
-
-	        return updateSettings;
+	        };
 	      }()
 	    }, {
 	      key: "currentReservoir",

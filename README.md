@@ -352,6 +352,16 @@ console.log(count);
 
 `priority` is optional. Returns the number of `QUEUED` jobs with the given `priority` level. Omitting the `priority` argument returns the total number of queued jobs **in the limiter**.
 
+#### clusterQueued()
+
+```js
+const count = await limiter.clusterQueued();
+
+console.log(count);
+```
+
+Returns the number of `QUEUED` jobs **in the Cluster**.
+
 #### empty()
 
 ```js

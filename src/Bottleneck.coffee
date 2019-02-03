@@ -101,6 +101,8 @@ class Bottleneck
 
   queued: (priority) -> @_queues.queued priority
 
+  clusterQueued: -> @_store.__queued__()
+
   empty: -> @queued() == 0 and @_submitLock.isEmpty()
 
   running: -> @_store.__running__()

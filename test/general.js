@@ -86,59 +86,48 @@ describe('General', function () {
   })
 
   describe('Counts and statuses', function () {
-    it('Should check() and return the queued count with and without a priority value', function () {
+    it('Should check() and return the queued count with and without a priority value', async function () {
       c = makeTest({maxConcurrent: 1, minTime: 100})
 
-      return c.limiter.check()
-      .then(function (willRunNow) {
-        c.mustEqual(willRunNow, true)
+      c.mustEqual(await c.limiter.check(), true)
 
-        c.mustEqual(c.limiter.queued(), 0)
-        return c.limiter.submit({id: 1}, c.slowJob, 50, null, 1, c.noErrVal(1))
-      })
-      .then(function () {
-        c.mustEqual(c.limiter.queued(), 0) // It's already running
-        return c.limiter.check()
-      })
-      .then(function (willRunNow) {
-        c.mustEqual(willRunNow, false)
+      c.mustEqual(c.limiter.queued(), 0)
+      c.mustEqual(await c.limiter.clusterQueued(), 0)
 
-        return c.limiter.submit({id: 2}, c.slowJob, 50, null, 2, c.noErrVal(2))
-      })
-      .then(function () {
-        c.mustEqual(c.limiter.queued(), 1)
-        c.mustEqual(c.limiter.queued(1), 0)
-        c.mustEqual(c.limiter.queued(5), 1)
+      await c.limiter.submit({id: 1}, c.slowJob, 50, null, 1, c.noErrVal(1))
+      c.mustEqual(c.limiter.queued(), 0) // It's already running
 
-        return c.limiter.submit({id: 3}, c.slowJob, 50, null, 3, c.noErrVal(3))
-      })
-      .then(function () {
-        c.mustEqual(c.limiter.queued(), 2)
-        c.mustEqual(c.limiter.queued(1), 0)
-        c.mustEqual(c.limiter.queued(5), 2)
+      c.mustEqual(await c.limiter.check(), false)
 
-        return c.limiter.submit({id: 4}, c.slowJob, 50, null, 4, c.noErrVal(4))
-      })
-      .then(function () {
-        c.mustEqual(c.limiter.queued(), 3)
-        c.mustEqual(c.limiter.queued(1), 0)
-        c.mustEqual(c.limiter.queued(5), 3)
+      await c.limiter.submit({id: 2}, c.slowJob, 50, null, 2, c.noErrVal(2))
+      c.mustEqual(c.limiter.queued(), 1)
+      c.mustEqual(await c.limiter.clusterQueued(), 1)
+      c.mustEqual(c.limiter.queued(1), 0)
+      c.mustEqual(c.limiter.queued(5), 1)
 
-        return c.limiter.submit({priority: 1, id: 5}, c.job, null, 5, c.noErrVal(5))
-      })
-      .then(function () {
-        c.mustEqual(c.limiter.queued(), 4)
-        c.mustEqual(c.limiter.queued(1), 1)
-        c.mustEqual(c.limiter.queued(5), 3)
+      await c.limiter.submit({id: 3}, c.slowJob, 50, null, 3, c.noErrVal(3))
+      c.mustEqual(c.limiter.queued(), 2)
+      c.mustEqual(await c.limiter.clusterQueued(), 2)
+      c.mustEqual(c.limiter.queued(1), 0)
+      c.mustEqual(c.limiter.queued(5), 2)
 
-        return c.last()
-      })
-      .then(function (results) {
-        c.mustEqual(c.limiter.queued(), 0)
-        c.checkResultsOrder([[1], [5], [2], [3], [4]])
-        c.checkDuration(450)
-      })
+      await c.limiter.submit({id: 4}, c.slowJob, 50, null, 4, c.noErrVal(4))
+      c.mustEqual(c.limiter.queued(), 3)
+      c.mustEqual(await c.limiter.clusterQueued(), 3)
+      c.mustEqual(c.limiter.queued(1), 0)
+      c.mustEqual(c.limiter.queued(5), 3)
 
+      await c.limiter.submit({priority: 1, id: 5}, c.job, null, 5, c.noErrVal(5))
+      c.mustEqual(c.limiter.queued(), 4)
+      c.mustEqual(await c.limiter.clusterQueued(), 4)
+      c.mustEqual(c.limiter.queued(1), 1)
+      c.mustEqual(c.limiter.queued(5), 3)
+
+      var results = await c.last()
+      c.mustEqual(c.limiter.queued(), 0)
+      c.mustEqual(await c.limiter.clusterQueued(), 0)
+      c.checkResultsOrder([[1], [5], [2], [3], [4]])
+      c.checkDuration(450)
     })
 
     it('Should return the running and done counts', function () {

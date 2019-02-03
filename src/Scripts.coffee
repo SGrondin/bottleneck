@@ -93,6 +93,11 @@ templates =
     headers: ["validate_keys", "process_tick"]
     refresh_expiration: false
     code: lua["running.lua"]
+  queued:
+    keys: exports.allKeys
+    headers: ["validate_keys"]
+    refresh_expiration: false
+    code: lua["queued.lua"]
   done:
     keys: exports.allKeys
     headers: ["validate_keys", "process_tick"]

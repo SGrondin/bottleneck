@@ -353,6 +353,11 @@
 	    return this._running;
 	  }
 
+	  async __queued__() {
+	    await this.yieldLoop();
+	    return this.instance.queued();
+	  }
+
 	  async __done__() {
 	    await this.yieldLoop();
 	    return this._done;
@@ -943,6 +948,10 @@
 
 	    queued(priority) {
 	      return this._queues.queued(priority);
+	    }
+
+	    clusterQueued() {
+	      return this._store.__queued__();
 	    }
 
 	    empty() {
