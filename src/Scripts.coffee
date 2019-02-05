@@ -121,7 +121,7 @@ templates =
   free:
     keys: exports.allKeys
     headers: ["validate_keys", "process_tick"]
-    refresh_expiration: false
+    refresh_expiration: true
     code: lua["free.lua"]
   current_reservoir:
     keys: exports.allKeys

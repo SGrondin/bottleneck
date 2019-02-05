@@ -56,7 +56,7 @@ local process_tick = function (now, always_publish)
       local client_weights = {}
       for i = 1, #clients do
         if weights[i] ~= nil then
-          acc['client_weights'][clients[i]] = (acc['client_weights'][clients[i]] or 0) + tonumber(weights[i])
+          acc['client_weights'][clients[i]] = (acc['client_weights'][clients[i]] or 0) + (tonumber(weights[i]) or 0)
         end
       end
     end
