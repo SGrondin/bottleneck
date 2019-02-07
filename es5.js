@@ -4615,16 +4615,15 @@
 	    }, {
 	      key: "wrap",
 	      value: function wrap(fn) {
-	        var _this9 = this;
-
-	        var wrapped;
+	        var schedule, wrapped;
+	        schedule = this.schedule;
 
 	        wrapped = function wrapped() {
 	          for (var _len8 = arguments.length, args = new Array(_len8), _key8 = 0; _key8 < _len8; _key8++) {
 	            args[_key8] = arguments[_key8];
 	          }
 
-	          return _this9.schedule.apply(_this9, [fn].concat(args));
+	          return schedule.apply(void 0, [fn.bind(this)].concat(args));
 	        };
 
 	        wrapped.withOptions = function (options) {
@@ -4632,7 +4631,7 @@
 	            args[_key9 - 1] = arguments[_key9];
 	          }
 
-	          return _this9.schedule.apply(_this9, [options, fn].concat(args));
+	          return schedule.apply(void 0, [options, fn].concat(args));
 	        };
 
 	        return wrapped;
