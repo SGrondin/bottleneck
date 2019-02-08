@@ -619,7 +619,7 @@
 
 	var Sync_1 = Sync;
 
-	var version = "2.16.0";
+	var version = "2.16.1";
 	var version$1 = {
 		version: version
 	};
@@ -1280,12 +1280,13 @@
 	    }
 
 	    wrap(fn) {
-	      var wrapped;
-	      wrapped = (...args) => {
-	        return this.schedule(fn, ...args);
+	      var schedule, wrapped;
+	      schedule = this.schedule;
+	      wrapped = function(...args) {
+	        return schedule(fn.bind(this), ...args);
 	      };
 	      wrapped.withOptions = (options, ...args) => {
-	        return this.schedule(options, fn, ...args);
+	        return schedule(options, fn, ...args);
 	      };
 	      return wrapped;
 	    }

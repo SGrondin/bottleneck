@@ -98,6 +98,34 @@ describe('Promises', function () {
       })
     })
 
+    it('Should inherit the original target for wrapped methods', function () {
+      c = makeTest({maxConcurrent: 1, minTime: 100})
+
+      var object = {
+        fn: c.limiter.wrap(function () { return this })
+      }
+
+      return object.fn().then(result => {
+        assert(result === object)
+      })
+    })
+
+    it('Should inherit the original target on prototype methods', function () {
+      c = makeTest({maxConcurrent: 1, minTime: 100})
+
+      class Animal {
+        constructor(name) { this.name = name }
+        getName() { return this.name }
+      }
+
+      Animal.prototype.getName = c.limiter.wrap(Animal.prototype.getName)
+      let elephant = new Animal('Dumbo')
+
+      return elephant.getName().then(result => {
+        assert(result === 'Dumbo')
+      })
+    })
+
     it('Should pass errors back', function () {
       var failureMessage = 'BLEW UP!!!'
       c = makeTest({maxConcurrent: 1, minTime: 100})
