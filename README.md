@@ -17,8 +17,9 @@ It supports **Clustering**: it can rate limit jobs across multiple Node.js insta
 
 - [Install](#install)
 - [Quick Start](#quick-start)
-  * [Gotchas](#gotchas)
+  * [Gotchas & Common Mistakes](#gotchas--common-mistakes)
 - [Constructor](#constructor)
+- [Refresh Intervals](#refresh-intervals)
 - [`submit()`](#submit)
 - [`schedule()`](#schedule)
 - [`wrap()`](#wrap)
@@ -47,7 +48,7 @@ npm install --save bottleneck
 ```
 
 ```js
-import Bottleneck from "bottleneck";
+const Bottleneck = require("bottleneck");
 
 // Note: To support older browsers and Node <6.0, you must import the ES5 bundle instead.
 var Bottleneck = require("bottleneck/es5");
@@ -72,36 +73,9 @@ const limiter = new Bottleneck({
 });
 ```
 
-Sometimes, a quota resets on an interval. In this example, we throttle to 100 requests every 60 seconds:
-```js
-const limiter = new Bottleneck({
-  reservoir: 100, // initial value
-  reservoirRefreshAmount: 100,
-  reservoirRefreshInterval: 60 * 1000, // must be divisible by 250
-
-  // also use maxConcurrent and/or minTime for safety
-  maxConcurrent: 1,
-  minTime: 333
-});
-```
-`reservoir` is a counter decremented every time a job is launched, we set its initial value to 100. Then, every `reservoirRefreshInterval` (60000 ms), `reservoir` is automatically reset to `reservoirRefreshAmount` (100).
-
-**IMPORTANT: refresh intervals are not a replacement for minTime/maxConcurrent!** It's strongly recommended to also use `minTime` and/or `maxConcurrent` to spread out the load. For example, suppose a lot of jobs are queued up because the `reservoir` is 0. As soon as the reservoir refresh is triggered, 100 jobs will automatically be launched, all at the same time! To prevent that and keep your application running smoothly, use `minTime` and `maxConcurrent` to *stagger* the jobs.
-
-**IMPORTANT: refresh intervals prevent a limiter from being garbage collected.** Call `limiter.disconnect()` to clear the interval and allow the memory to be freed.
+`minTime` and `maxConcurrent` are enough for the majority of use cases. They work well together to ensure a smooth rate of requests. If your use case requires executing requests in **bursts** or every time a quota resets, look into [Refresh Intervals](#refresh-intervals).
 
 ### Step 2 of 3
-
-#### ➤ Using callbacks?
-
-Instead of this:
-```js
-someAsyncCall(arg1, arg2, callback);
-```
-Do this:
-```js
-limiter.submit(someAsyncCall, arg1, arg2, callback);
-```
 
 #### ➤ Using promises?
 
@@ -146,6 +120,17 @@ const wrapped = limiter.wrap(myFunction);
 const result = await wrapped(arg1, arg2);
 ```
 
+#### ➤ Using callbacks?
+
+Instead of this:
+```js
+someAsyncCall(arg1, arg2, callback);
+```
+Do this:
+```js
+limiter.submit(someAsyncCall, arg1, arg2, callback);
+```
+
 ### Step 3 of 3
 
 Remember...
@@ -158,7 +143,25 @@ Bottleneck builds a queue of jobs and executes them as soon as possible. By defa
 
 Instead of throttling maybe [you want to batch up requests](#batching) into fewer calls?
 
-#### Gotchas
+### Gotchas & Common Mistakes
+
+* Make sure the function you pass to `schedule()` or `wrap()` only returns once **all the work it does** has completed.
+
+Instead of this:
+```js
+limiter.schedule(() => {
+  tasksArray.forEach(x => processTask(x));
+  // BAD, we return before our processTask() functions are finished processing!
+});
+```
+Do this:
+```js
+limiter.schedule(() => {
+  const allTasks = tasksArray.map(x => processTask(x));
+  // GOOD, we wait until all tasks are done.
+  return Promise.all(allTasks);
+});
+```
 
 * If you're passing an object's method as a job, you'll probably need to `bind()` the object:
 ```js
@@ -175,6 +178,8 @@ limiter.schedule(() => object.doSomething());
 * Make sure you're catching `"error"` events emitted by your limiters!
 
 * Consider setting a `maxConcurrent` value instead of leaving it `null`. This can help your application's performance, especially if you think the limiter's queue might become very long.
+
+* If you plan on using `priorities`, make sure to set a `maxConcurrent` value.
 
 * **When using `submit()`**, if a callback isn't necessary, you must pass `null` or an empty function instead. It will not work otherwise.
 
@@ -202,6 +207,30 @@ Basic options:
 | `reservoirRefreshAmount` | `null` (disabled) | The value to reset `reservoir` to when `reservoirRefreshInterval` is in use. |
 | `Promise` | `Promise` (built-in) | This lets you override the Promise library used by Bottleneck. |
 
+
+### Refresh Intervals
+
+Refresh Intervals let you execute requests in bursts, by resetting a quota on an interval. In this example, we throttle to 100 requests every 60 seconds:
+```js
+const limiter = new Bottleneck({
+  reservoir: 100, // initial value
+  reservoirRefreshAmount: 100,
+  reservoirRefreshInterval: 60 * 1000, // must be divisible by 250
+
+  // also use maxConcurrent and/or minTime for safety
+  maxConcurrent: 1,
+  minTime: 333
+});
+```
+`reservoir` is a counter decremented every time a job is launched, we set its initial value to 100. Then, every `reservoirRefreshInterval` (60000 ms), `reservoir` is automatically reset to `reservoirRefreshAmount` (100).
+
+Refresh Intervals are an advanced feature, please take the time to read and understand the following warnings.
+
+- **Refresh Intervals are not a replacement for `minTime` and `maxConcurrent`.** It's strongly recommended to also use `minTime` and/or `maxConcurrent` to spread out the load. For example, suppose a lot of jobs are queued up because the `reservoir` is 0. As soon as the reservoir refresh is triggered, 100 jobs will automatically be launched, all at the same time! To prevent this flooding effect and keep your application running smoothly, use `minTime` and `maxConcurrent` to *stagger* the jobs.
+
+- **The Refresh Interval starts from the moment the limiter is created**. Let's suppose we're using `reservoirRefreshAmount: 5`. If you happen to add 10 jobs just 1ms before the refresh is triggered, the first 5 will run immediately, then 1ms later it will refresh the reservoir value and that will make the last 5 also run right away. It will have run 10 jobs in just over 1ms no matter what your refresh interval was!
+
+- **Refresh Intervals prevent a limiter from being garbage collected.** Call `limiter.disconnect()` to clear the interval and allow the memory to be freed. However, it's not necessary to call `.disconnect()` to allow the application to exit.
 
 ### submit()
 
