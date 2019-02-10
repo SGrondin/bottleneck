@@ -21,7 +21,7 @@ class RedisDatastore
     @ready = @connection.ready
     .then (@clients) => @runScript "init", @prepareInitSettings @clearDatastore
     .then => @connection.__addLimiter__ @instance
-    .then => @runScript "register_client", [@instance.queued()]
+    .then => @runScript "heartbeat", []
     .then =>
       (@heartbeat = setInterval =>
         @runScript "heartbeat", []
@@ -72,11 +72,11 @@ class RedisDatastore
       @connection.disconnect flush
 
   runScript: (name, args) ->
-    await @ready unless name == "init" or name == "heartbeat" or name == "register_client"
+    await @ready unless name == "init" or name == "heartbeat"
     new @Promise (resolve, reject) =>
-      args_ts = [Date.now(), @clientId].concat args
-      @instance.Events.trigger "debug", "Calling Redis script: #{name}.lua", args_ts
-      arr = @connection.__scriptArgs__ name, @originalId, args_ts, (err, replies) ->
+      all_args = [Date.now(), @clientId, @instance.queued()].concat args
+      @instance.Events.trigger "debug", "Calling Redis script: #{name}.lua", all_args
+      arr = @connection.__scriptArgs__ name, @originalId, all_args, (err, replies) ->
         if err? then return reject err
         return resolve replies
       @connection.__scriptFn__(name) arr...

@@ -9,5 +9,6 @@ local client_last_seen_key = KEYS[8]
 
 local now = tonumber(ARGV[1])
 local client = ARGV[2]
+local queued = ARGV[3]
 
-redis.call('zadd', client_last_seen_key, now, client)
+local num_static_argv = 3

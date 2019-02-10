@@ -1,6 +1,6 @@
-local clear = tonumber(ARGV[3])
-local limiter_version = ARGV[4]
-local num_static_argv = 4
+local clear = tonumber(ARGV[num_static_argv + 1])
+local limiter_version = ARGV[num_static_argv + 2]
+local num_local_argv = num_static_argv + 2
 
 if clear == 1 then
   redis.call('del', unpack(KEYS))
@@ -10,7 +10,7 @@ if redis.call('exists', settings_key) == 0 then
   -- Create
   local args = {'hmset', settings_key}
 
-  for i = num_static_argv + 1, #ARGV do
+  for i = num_local_argv + 1, #ARGV do
     table.insert(args, ARGV[i])
   end
 
@@ -23,6 +23,11 @@ if redis.call('exists', settings_key) == 0 then
     'unblockTime', 0,
     'capacityPriorityCounter', 0
   )
+
+  if clear == 1 then
+    -- Force all connected clients to re-register
+    process_tick(now, true)
+  end
 
 else
   -- Apply migrations

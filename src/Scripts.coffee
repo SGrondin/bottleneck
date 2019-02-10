@@ -68,11 +68,6 @@ templates =
     headers: []
     refresh_expiration: false
     code: lua["group_check.lua"]
-  register_client:
-    keys: exports.allKeys
-    headers: ["validate_keys"]
-    refresh_expiration: false
-    code: lua["register_client.lua"]
   blacklist_client:
     keys: exports.allKeys
     headers: ["validate_keys"]

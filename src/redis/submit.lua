@@ -1,5 +1,5 @@
-local queueLength = tonumber(ARGV[3])
-local weight = tonumber(ARGV[4])
+local queueLength = tonumber(ARGV[num_static_argv + 1])
+local weight = tonumber(ARGV[num_static_argv + 2])
 
 local capacity = process_tick(now, false)['capacity']
 

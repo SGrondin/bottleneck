@@ -1,4 +1,4 @@
-local incr = tonumber(ARGV[3])
+local incr = tonumber(ARGV[num_static_argv + 1])
 
 redis.call('hincrby', settings_key, 'reservoir', incr)
 

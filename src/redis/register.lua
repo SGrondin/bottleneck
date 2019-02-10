@@ -1,6 +1,6 @@
-local index = ARGV[3]
-local weight = tonumber(ARGV[4])
-local expiration = tonumber(ARGV[5])
+local index = ARGV[num_static_argv + 1]
+local weight = tonumber(ARGV[num_static_argv + 2])
+local expiration = tonumber(ARGV[num_static_argv + 3])
 
 local state = process_tick(now, false)
 local capacity = state['capacity']

@@ -1,5 +1,3 @@
-local num_static_argv = 2
-
 local args = {'hmset', settings_key}
 
 for i = num_static_argv + 1, #ARGV do

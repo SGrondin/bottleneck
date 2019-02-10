@@ -1,4 +1,4 @@
-local index = ARGV[3]
+local index = ARGV[num_static_argv + 1]
 
 redis.call('zadd', job_expirations_key, 0, index)
 
