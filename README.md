@@ -48,7 +48,7 @@ npm install --save bottleneck
 ```
 
 ```js
-const Bottleneck = require("bottleneck");
+import Bottleneck from "bottleneck";
 
 // Note: To support older browsers and Node <6.0, you must import the ES5 bundle instead.
 var Bottleneck = require("bottleneck/es5");
@@ -326,7 +326,7 @@ When adding a new job to a limiter, if the queue length reaches `highWater`, the
 
 ### Jobs lifecycle
 
-1. **Received**. You new job has been added to your limiter. Bottleneck needs to check whether if can be accepted into the queue.
+1. **Received**. You new job has been added to your limiter. Bottleneck needs to check whether it can be accepted into the queue.
 2. **Queued**. Bottleneck has accepted your job, but it can not tell at what exact timestamp it will run yet, because it is dependent on previous jobs.
 3. **Running**. Your job is not in the queue anymore, it will be executed after a delay that was computed according to your `minTime` setting.
 4. **Executing**. Your job is executing its code.
