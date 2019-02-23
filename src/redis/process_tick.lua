@@ -84,7 +84,9 @@ local process_tick = function (now, always_publish)
     end
 
     for client, weight in pairs(acc['client_weights']) do
-      redis.call('zincrby', client_running_key, -weight, client)
+      if client_exists(client) then -- can't use 'zadd XX' due to Redis 2.8 in Ubuntu LTS
+        redis.call('zincrby', client_running_key, -weight, client)
+      end
     end
   end
 
@@ -98,6 +100,21 @@ local process_tick = function (now, always_publish)
       'reservoir', reservoir,
       'lastReservoirRefresh', now
     )
+  end
+
+  --
+  -- Clear unresponsive clients
+  --
+  local unresponsive = redis.call(
+    'zrangebyscore', client_last_seen_key,
+    '-inf', (now - 10000),
+    'limit', 0, 1000
+  )
+  if (#unresponsive) > 0 then
+    redis.call('zrem', client_running_key,         unpack(unresponsive))
+    redis.call('hdel', client_num_queued_key,      unpack(unresponsive))
+    redis.call('zrem', client_last_registered_key, unpack(unresponsive))
+    redis.call('zrem', client_last_seen_key,       unpack(unresponsive))
   end
 
   --
@@ -118,11 +135,6 @@ local process_tick = function (now, always_publish)
     local lowest_concurrency_clients = {}
     local lowest_concurrency_last_registered = {}
     local client_concurrencies = redis.call('zrange', client_running_key, 0, -1, 'withscores')
-    local valid_clients = redis.call('zrangebyscore', client_last_seen_key, (now - 10000), 'inf')
-    local valid_clients_lookup = {}
-    for i = 1, #valid_clients do
-      valid_clients_lookup[valid_clients[i]] = true
-    end
 
     for i = 1, #client_concurrencies, 2 do
       local client = client_concurrencies[i]
@@ -130,8 +142,6 @@ local process_tick = function (now, always_publish)
 
       if (
         lowest_concurrency_value == nil or lowest_concurrency_value == concurrency
-      ) and (
-        valid_clients_lookup[client]
       ) and (
         tonumber(redis.call('hget', client_num_queued_key, client)) > 0
       ) then
