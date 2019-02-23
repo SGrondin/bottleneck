@@ -4612,11 +4612,22 @@
 	        schedule = this.schedule;
 
 	        wrapped = function wrapped() {
+	          var _this9 = this;
+
 	          for (var _len8 = arguments.length, args = new Array(_len8), _key8 = 0; _key8 < _len8; _key8++) {
 	            args[_key8] = arguments[_key8];
 	          }
 
-	          return schedule.apply(void 0, [fn.bind(this)].concat(args));
+	          return schedule(function () {
+	            var e;
+
+	            try {
+	              return Promise.resolve(fn.apply(_this9, args));
+	            } catch (error1) {
+	              e = error1;
+	              return Promise.reject(e);
+	            }
+	          });
 	        };
 
 	        wrapped.withOptions = function (options) {
