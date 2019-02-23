@@ -80,6 +80,18 @@ describe('Promises', function () {
     })
   })
 
+  it('Should automatically wrap an exception in a rejected promise - schedule()', function () {
+    c = makeTest({maxConcurrent: 1, minTime: 100})
+
+    return c.limiter.schedule(() => {
+      throw new Error('I will reject')
+    })
+    .then(() => assert(false))
+    .catch(err => {
+      assert(err.message === 'I will reject');
+    })
+  })
+
   describe('Wrap', function () {
     it('Should wrap', function () {
       c = makeTest({maxConcurrent: 1, minTime: 100})

@@ -284,7 +284,8 @@ class Bottleneck
       [options, task, args...] = args
       options = parser.load options, @jobDefaults
     wrapped = (args..., cb) =>
-      returned = task args...
+      returned = try task args...
+      catch e then @Promise.reject e
       (unless returned?.then? and typeof returned.then == "function" then @Promise.resolve(returned) else returned)
       .then (args...) -> cb null, args...
       .catch (args...) -> cb args...
@@ -295,11 +296,7 @@ class Bottleneck
 
   wrap: (fn) ->
     schedule = @schedule
-    wrapped = (args...) -> schedule () =>
-      try
-        Promise.resolve fn.apply(@, args)
-      catch e
-        Promise.reject e
+    wrapped = (args...) -> schedule fn.bind(@), args...
     wrapped.withOptions = (options, args...) => schedule options, fn, args...
     wrapped
 

@@ -4579,9 +4579,18 @@
 	            args[_key5] = arguments[_key5];
 	          }
 
-	          var cb, ref, returned;
+	          var cb, e, ref, returned;
 	          ref = args, (_ref12 = ref, _ref13 = _toArray(_ref12), args = _ref13.slice(0), _ref12), (_splice$call7 = splice$1.call(args, -1), _splice$call8 = _slicedToArray(_splice$call7, 1), cb = _splice$call8[0], _splice$call7);
-	          returned = task.apply(void 0, _toConsumableArray(args));
+
+	          returned = function () {
+	            try {
+	              return task.apply(void 0, _toConsumableArray(args));
+	            } catch (error1) {
+	              e = error1;
+	              return this.Promise.reject(e);
+	            }
+	          }.call(_this8);
+
 	          return (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function") ? _this8.Promise.resolve(returned) : returned).then(function () {
 	            for (var _len6 = arguments.length, args = new Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
 	              args[_key6] = arguments[_key6];
@@ -4612,22 +4621,11 @@
 	        schedule = this.schedule;
 
 	        wrapped = function wrapped() {
-	          var _this9 = this;
-
 	          for (var _len8 = arguments.length, args = new Array(_len8), _key8 = 0; _key8 < _len8; _key8++) {
 	            args[_key8] = arguments[_key8];
 	          }
 
-	          return schedule(function () {
-	            var e;
-
-	            try {
-	              return Promise.resolve(fn.apply(_this9, args));
-	            } catch (error1) {
-	              e = error1;
-	              return Promise.reject(e);
-	            }
-	          });
+	          return schedule.apply(void 0, [fn.bind(this)].concat(args));
 	        };
 
 	        wrapped.withOptions = function (options) {

@@ -1261,9 +1261,16 @@
 	        options = parser$4.load(options, this.jobDefaults);
 	      }
 	      wrapped = (...args) => {
-	        var cb, ref, returned;
+	        var cb, e, ref, returned;
 	        ref = args, [...args] = ref, [cb] = splice$1.call(args, -1);
-	        returned = task(...args);
+	        returned = (function() {
+	          try {
+	            return task(...args);
+	          } catch (error1) {
+	            e = error1;
+	            return this.Promise.reject(e);
+	          }
+	        }).call(this);
 	        return (!(((returned != null ? returned.then : void 0) != null) && typeof returned.then === "function") ? this.Promise.resolve(returned) : returned).then(function(...args) {
 	          return cb(null, ...args);
 	        }).catch(function(...args) {
@@ -1283,15 +1290,7 @@
 	      var schedule, wrapped;
 	      schedule = this.schedule;
 	      wrapped = function(...args) {
-	        return schedule(() => {
-	          var e;
-	          try {
-	            return Promise.resolve(fn.apply(this, args));
-	          } catch (error1) {
-	            e = error1;
-	            return Promise.reject(e);
-	          }
-	        });
+	        return schedule(fn.bind(this), ...args);
 	      };
 	      wrapped.withOptions = (options, ...args) => {
 	        return schedule(options, fn, ...args);
