@@ -1283,7 +1283,15 @@
 	      var schedule, wrapped;
 	      schedule = this.schedule;
 	      wrapped = function(...args) {
-	        return schedule(fn.bind(this), ...args);
+	        return schedule(() => {
+	          var e;
+	          try {
+	            return Promise.resolve(fn.apply(this, args));
+	          } catch (error1) {
+	            e = error1;
+	            return Promise.reject(e);
+	          }
+	        });
 	      };
 	      wrapped.withOptions = (options, ...args) => {
 	        return schedule(options, fn, ...args);

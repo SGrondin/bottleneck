@@ -295,7 +295,11 @@ class Bottleneck
 
   wrap: (fn) ->
     schedule = @schedule
-    wrapped = (args...) -> schedule fn.bind(@), args...
+    wrapped = (args...) -> schedule () =>
+      try
+        Promise.resolve fn.apply(@, args)
+      catch e
+        Promise.reject e
     wrapped.withOptions = (options, args...) => schedule options, fn, args...
     wrapped
 

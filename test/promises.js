@@ -98,6 +98,26 @@ describe('Promises', function () {
       })
     })
 
+    it('Should automatically wrap a returned value in a resolved promise', function () {
+      c = makeTest({maxConcurrent: 1, minTime: 100})
+
+      fn = c.limiter.wrap(() => { return 7 });
+
+      return fn().then(result => {
+        assert(result === 7);
+      })
+    })
+
+    it('Should automatically wrap an exception in a rejected promise', function () {
+      c = makeTest({maxConcurrent: 1, minTime: 100})
+
+      fn = c.limiter.wrap(() => { throw new Error('I will reject') });
+
+      return fn().then(() => assert(false)).catch(error => {
+        assert(error.message === 'I will reject');
+      })
+    })
+
     it('Should inherit the original target for wrapped methods', function () {
       c = makeTest({maxConcurrent: 1, minTime: 100})
 
