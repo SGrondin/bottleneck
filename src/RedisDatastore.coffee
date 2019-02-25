@@ -21,7 +21,7 @@ class RedisDatastore
     @ready = @connection.ready
     .then (@clients) => @runScript "init", @prepareInitSettings @clearDatastore
     .then => @connection.__addLimiter__ @instance
-    .then => @runScript "heartbeat", []
+    .then => @runScript "register_client", [@instance.queued()]
     .then =>
       (@heartbeat = setInterval =>
         @runScript "heartbeat", []
@@ -72,19 +72,23 @@ class RedisDatastore
       @connection.disconnect flush
 
   runScript: (name, args) ->
-    await @ready unless name == "init" or name == "heartbeat"
+    await @ready unless name == "init" or name == "register_client"
     new @Promise (resolve, reject) =>
-      all_args = [Date.now(), @clientId, @instance.queued()].concat args
+      all_args = [Date.now(), @clientId].concat args
       @instance.Events.trigger "debug", "Calling Redis script: #{name}.lua", all_args
       arr = @connection.__scriptArgs__ name, @originalId, all_args, (err, replies) ->
         if err? then return reject err
         return resolve replies
       @connection.__scriptFn__(name) arr...
     .catch (e) =>
-      if e.message == "SETTINGS_KEY_NOT_FOUND" and name != "heartbeat"
-        @runScript("init", @prepareInitSettings(false))
+      if e.message == "SETTINGS_KEY_NOT_FOUND"
+        if name == "heartbeat" then @Promise.resolve()
+        else
+          @runScript("init", @prepareInitSettings(false))
+          .then => @runScript(name, args)
+      else if e.message == "UNKNOWN_CLIENT"
+        @runScript("register_client", [@instance.queued()])
         .then => @runScript(name, args)
-      else if name == "heartbeat" then @Promise.resolve()
       else @Promise.reject e
 
   prepareArray: (arr) -> (if x? then x.toString() else "") for x in arr
@@ -96,9 +100,10 @@ class RedisDatastore
 
   prepareInitSettings: (clear) ->
     args = @prepareObject Object.assign({}, @storeOptions, {
-      id: @originalId,
-      version: @instance.version,
+      id: @originalId
+      version: @instance.version
       groupTimeout: @timeout
+      @clientTimeout
     })
     args.unshift (if clear then 1 else 0), @instance.version
     args

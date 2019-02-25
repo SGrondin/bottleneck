@@ -3,6 +3,7 @@ lua = require "./lua.json"
 headers =
   refs: lua["refs.lua"]
   validate_keys: lua["validate_keys.lua"]
+  validate_client: lua["validate_client.lua"]
   refresh_expiration: lua["refresh_expiration.lua"]
   process_tick: lua["process_tick.lua"]
   conditions_check: lua["conditions_check.lua"]
@@ -68,64 +69,69 @@ templates =
     headers: []
     refresh_expiration: false
     code: lua["group_check.lua"]
-  blacklist_client:
+  register_client:
     keys: exports.allKeys
     headers: ["validate_keys"]
+    refresh_expiration: false
+    code: lua["register_client.lua"]
+  blacklist_client:
+    keys: exports.allKeys
+    headers: ["validate_keys", "validate_client"]
     refresh_expiration: false
     code: lua["blacklist_client.lua"]
   heartbeat:
     keys: exports.allKeys
-    headers: ["validate_keys", "process_tick"]
+    headers: ["validate_keys", "validate_client", "process_tick"]
     refresh_expiration: false
     code: lua["heartbeat.lua"]
   update_settings:
     keys: exports.allKeys
-    headers: ["validate_keys", "process_tick"]
+    headers: ["validate_keys", "validate_client", "process_tick"]
     refresh_expiration: true
     code: lua["update_settings.lua"]
   running:
     keys: exports.allKeys
-    headers: ["validate_keys", "process_tick"]
+    headers: ["validate_keys", "validate_client", "process_tick"]
     refresh_expiration: false
     code: lua["running.lua"]
   queued:
     keys: exports.allKeys
-    headers: ["validate_keys"]
+    headers: ["validate_keys", "validate_client"]
     refresh_expiration: false
     code: lua["queued.lua"]
   done:
     keys: exports.allKeys
-    headers: ["validate_keys", "process_tick"]
+    headers: ["validate_keys", "validate_client", "process_tick"]
     refresh_expiration: false
     code: lua["done.lua"]
   check:
     keys: exports.allKeys
-    headers: ["validate_keys", "process_tick", "conditions_check"]
+    headers: ["validate_keys", "validate_client", "process_tick", "conditions_check"]
     refresh_expiration: false
     code: lua["check.lua"]
   submit:
     keys: exports.allKeys
-    headers: ["validate_keys", "process_tick", "conditions_check"]
+    headers: ["validate_keys", "validate_client", "process_tick", "conditions_check"]
     refresh_expiration: true
     code: lua["submit.lua"]
   register:
     keys: exports.allKeys
-    headers: ["validate_keys", "process_tick", "conditions_check"]
+    headers: ["validate_keys", "validate_client", "process_tick", "conditions_check"]
     refresh_expiration: true
     code: lua["register.lua"]
   free:
     keys: exports.allKeys
-    headers: ["validate_keys", "process_tick"]
+    headers: ["validate_keys", "validate_client", "process_tick"]
     refresh_expiration: true
     code: lua["free.lua"]
   current_reservoir:
     keys: exports.allKeys
-    headers: ["validate_keys", "process_tick"]
+    headers: ["validate_keys", "validate_client", "process_tick"]
     refresh_expiration: false
     code: lua["current_reservoir.lua"]
   increment_reservoir:
     keys: exports.allKeys
-    headers: ["validate_keys", "process_tick"]
+    headers: ["validate_keys", "validate_client", "process_tick"]
     refresh_expiration: true
     code: lua["increment_reservoir.lua"]
 

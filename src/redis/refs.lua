@@ -9,6 +9,5 @@ local client_last_seen_key = KEYS[8]
 
 local now = tonumber(ARGV[1])
 local client = ARGV[2]
-local queued = ARGV[3]
 
-local num_static_argv = 3
+local num_static_argv = 2

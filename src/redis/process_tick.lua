@@ -20,7 +20,8 @@ local process_tick = function (now, always_publish)
     'reservoirRefreshInterval',
     'reservoirRefreshAmount',
     'lastReservoirRefresh',
-    'capacityPriorityCounter'
+    'capacityPriorityCounter',
+    'clientTimeout'
   )
   local id = settings[1]
   local maxConcurrent = tonumber(settings[2])
@@ -30,6 +31,7 @@ local process_tick = function (now, always_publish)
   local reservoirRefreshAmount = tonumber(settings[6])
   local lastReservoirRefresh = tonumber(settings[7])
   local capacityPriorityCounter = tonumber(settings[8])
+  local clientTimeout = tonumber(settings[9])
 
   local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)
 
@@ -55,8 +57,9 @@ local process_tick = function (now, always_publish)
       -- Calculate sum of removed weights by client
       local client_weights = {}
       for i = 1, #clients do
-        if weights[i] ~= nil then
-          acc['client_weights'][clients[i]] = (acc['client_weights'][clients[i]] or 0) + (tonumber(weights[i]) or 0)
+        local removed = tonumber(weights[i]) or 0
+        if removed > 0 then
+          acc['client_weights'][clients[i]] = (acc['client_weights'][clients[i]] or 0) + removed
         end
       end
     end
@@ -84,9 +87,7 @@ local process_tick = function (now, always_publish)
     end
 
     for client, weight in pairs(acc['client_weights']) do
-      if client_exists(client) then -- can't use 'zadd XX' due to Redis 2.8 in Ubuntu LTS
-        redis.call('zincrby', client_running_key, -weight, client)
-      end
+      redis.call('zincrby', client_running_key, -weight, client)
     end
   end
 
@@ -105,16 +106,20 @@ local process_tick = function (now, always_publish)
   --
   -- Clear unresponsive clients
   --
-  local unresponsive = redis.call(
-    'zrangebyscore', client_last_seen_key,
-    '-inf', (now - 10000),
-    'limit', 0, 1000
-  )
-  if (#unresponsive) > 0 then
-    redis.call('zrem', client_running_key,         unpack(unresponsive))
-    redis.call('hdel', client_num_queued_key,      unpack(unresponsive))
-    redis.call('zrem', client_last_registered_key, unpack(unresponsive))
-    redis.call('zrem', client_last_seen_key,       unpack(unresponsive))
+  local unresponsive = redis.call('zrangebyscore', client_last_seen_key, '-inf', (now - clientTimeout))
+  if #unresponsive > 0 then
+    local terminated_clients = {}
+    for i = 1, #unresponsive do
+      if tonumber(redis.call('zscore', client_running_key, unresponsive[i])) == 0 then
+        table.insert(terminated_clients, unresponsive[i])
+      end
+    end
+    if #terminated_clients > 0 then
+      redis.call('zrem', client_running_key,         unpack(terminated_clients))
+      redis.call('hdel', client_num_queued_key,      unpack(terminated_clients))
+      redis.call('zrem', client_last_registered_key, unpack(terminated_clients))
+      redis.call('zrem', client_last_seen_key,       unpack(terminated_clients))
+    end
   end
 
   --

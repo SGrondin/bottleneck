@@ -24,11 +24,6 @@ if redis.call('exists', settings_key) == 0 then
     'capacityPriorityCounter', 0
   )
 
-  if clear == 1 then
-    -- Force all connected clients to re-register
-    process_tick(now, true)
-  end
-
 else
   -- Apply migrations
   local settings = redis.call('hmget', settings_key,
@@ -54,7 +49,7 @@ else
     end
 
     -- 2.11.1
-    if version_digits[2] < 11 and version_digits[3] < 1 then
+    if version_digits[2] < 11 or (version_digits[2] == 11 and version_digits[3] < 1) then
       if redis.call('hstrlen', settings_key, 'lastReservoirRefresh') == 0 then
         redis.call('hmset', settings_key,
           'lastReservoirRefresh', now,
@@ -78,9 +73,15 @@ else
     end
 
     -- 2.15.2
-    if version_digits[2] < 15 and version_digits[3] < 2 then
+    if version_digits[2] < 15 or (version_digits[2] == 15 and version_digits[3] < 2) then
       redis.call('hsetnx', settings_key, 'capacityPriorityCounter', 0)
       redis.call('hset', settings_key, 'version', '2.15.2')
+    end
+
+    -- 2.17.0
+    if version_digits[2] < 17 then
+      redis.call('hsetnx', settings_key, 'clientTimeout', 10000)
+      redis.call('hset', settings_key, 'version', '2.17.0')
     end
 
   end

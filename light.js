@@ -1364,6 +1364,7 @@
 	    Promise: Promise,
 	    timeout: null,
 	    heartbeatInterval: 5000,
+	    clientTimeout: 10000,
 	    clientOptions: {},
 	    clusterNodes: null,
 	    clearDatastore: false,

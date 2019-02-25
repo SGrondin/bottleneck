@@ -235,7 +235,7 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         var settings_key = limiterKeys(c.limiter)[0]
         return Promise.all([
           runCommand(c.limiter, 'hset', [settings_key, 'version', '2.8.0']),
-          runCommand(c.limiter, 'hdel', [settings_key, 'done', 'capacityPriorityCounter']),
+          runCommand(c.limiter, 'hdel', [settings_key, 'done', 'capacityPriorityCounter', 'clientTimeout']),
           runCommand(c.limiter, 'hset', [settings_key, 'lastReservoirRefresh', ''])
         ])
       })
@@ -254,13 +254,15 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           'reservoirRefreshInterval',
           'reservoirRefreshAmount',
           'capacityPriorityCounter',
+          'clientTimeout',
+          // Add new values here, before lastReservoirRefresh
           'lastReservoirRefresh'
         ])
       })
       .then(function (values) {
         var lastReservoirRefresh = values[values.length - 1]
         assert(parseInt(lastReservoirRefresh) > Date.now() - 500)
-        c.mustEqual(values.slice(0, values.length - 1), ['2.15.2', '0', '', '', '0'])
+        c.mustEqual(values.slice(0, values.length - 1), ['2.17.0', '0', '', '', '0', '10000'])
       })
       .then(function () {
         return limiter2.disconnect(false)
@@ -522,6 +524,141 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           limiter2.disconnect(false)
         ])
       })
+    })
+
+    it('Should clear unresponsive clients', async function () {
+      c = makeTest({
+        id: 'unresponsive',
+        maxConcurrent: 1,
+        timeout: 1000,
+        clientTimeout: 100,
+        heartbeat: 50
+      })
+      const limiter2 = new Bottleneck({
+        id: 'unresponsive',
+        datastore: process.env.DATASTORE
+      })
+
+      await Promise.all([c.limiter.running(), limiter2.running()])
+
+      const client_running_key = limiterKeys(limiter2)[4]
+      const client_num_queued_key = limiterKeys(limiter2)[5]
+      const client_last_registered_key = limiterKeys(limiter2)[6]
+      const client_last_seen_key = limiterKeys(limiter2)[7]
+      const numClients = () => Promise.all([
+        runCommand(c.limiter, 'zcard', [client_running_key]),
+        runCommand(c.limiter, 'hlen', [client_num_queued_key]),
+        runCommand(c.limiter, 'zcard', [client_last_registered_key]),
+        runCommand(c.limiter, 'zcard', [client_last_seen_key])
+      ])
+
+      c.mustEqual(await numClients(), [2, 2, 2, 2])
+
+      await limiter2.disconnect(false)
+      await c.wait(150)
+
+      await c.limiter.running()
+
+      c.mustEqual(await numClients(), [1, 1, 1, 1])
+
+    })
+
+
+    it('Should not clear unresponsive clients with unexpired running jobs', async function () {
+      c = makeTest({
+        id: 'unresponsive-unexpired',
+        maxConcurrent: 1,
+        timeout: 1000,
+        clientTimeout: 200,
+        heartbeat: 2000
+      })
+      const limiter2 = new Bottleneck({
+        id: 'unresponsive-unexpired',
+        datastore: process.env.DATASTORE
+      })
+
+      await c.limiter.ready()
+      await limiter2.ready()
+
+      const client_running_key = limiterKeys(limiter2)[4]
+      const client_num_queued_key = limiterKeys(limiter2)[5]
+      const client_last_registered_key = limiterKeys(limiter2)[6]
+      const client_last_seen_key = limiterKeys(limiter2)[7]
+      const numClients = () => Promise.all([
+        runCommand(limiter2, 'zcard', [client_running_key]),
+        runCommand(limiter2, 'hlen', [client_num_queued_key]),
+        runCommand(limiter2, 'zcard', [client_last_registered_key]),
+        runCommand(limiter2, 'zcard', [client_last_seen_key])
+      ])
+
+      const job = c.limiter.schedule(c.slowPromise, 500, null, 1)
+
+      await c.wait(300)
+
+      // running() triggers process_tick and that will attempt to remove client 1
+      // but it shouldn't do it because it has a running job
+      c.mustEqual(await limiter2.running(), 1)
+
+      c.mustEqual(await numClients(), [2, 2, 2, 2])
+
+      await job
+
+      c.mustEqual(await limiter2.running(), 0)
+
+      await limiter2.disconnect(false)
+    })
+
+    it('Should clear unresponsive clients after last jobs are expired', async function () {
+      c = makeTest({
+        id: 'unresponsive-expired',
+        maxConcurrent: 1,
+        timeout: 1000,
+        clientTimeout: 200,
+        heartbeat: 2000
+      })
+      const limiter2 = new Bottleneck({
+        id: 'unresponsive-expired',
+        datastore: process.env.DATASTORE
+      })
+
+      await c.limiter.ready()
+      await limiter2.ready()
+
+      const client_running_key = limiterKeys(limiter2)[4]
+      const client_num_queued_key = limiterKeys(limiter2)[5]
+      const client_last_registered_key = limiterKeys(limiter2)[6]
+      const client_last_seen_key = limiterKeys(limiter2)[7]
+      const numClients = () => Promise.all([
+        runCommand(limiter2, 'zcard', [client_running_key]),
+        runCommand(limiter2, 'hlen', [client_num_queued_key]),
+        runCommand(limiter2, 'zcard', [client_last_registered_key]),
+        runCommand(limiter2, 'zcard', [client_last_seen_key])
+      ])
+
+      const job = c.limiter.schedule({ expiration: 250 }, c.slowPromise, 300, null, 1)
+      await c.wait(100) // wait for it to register
+
+      c.mustEqual(await c.limiter.running(), 1)
+      c.mustEqual(await numClients(), [2,2,2,2])
+
+      let dropped = false
+      try {
+        await job
+      } catch (e) {
+        if (e.message === 'This job timed out after 250 ms.') {
+          dropped = true
+        } else {
+          throw e
+        }
+      }
+      assert(dropped)
+
+      await c.wait(200)
+
+      c.mustEqual(await limiter2.running(), 0)
+      c.mustEqual(await numClients(), [1,1,1,1])
+
+      await limiter2.disconnect(false)
     })
 
     it('Should use shared settings', function () {
@@ -1355,7 +1492,6 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
 
       await Promise.all([p1, p3])
       c.checkResultsOrder([['A'], ['B'], ['C'], [4], [6]])
-
 
       await limiter1.disconnect(false)
       await limiter2.disconnect(false)
