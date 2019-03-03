@@ -107,19 +107,19 @@ local process_tick = function (now, always_publish)
   -- Clear unresponsive clients
   --
   local unresponsive = redis.call('zrangebyscore', client_last_seen_key, '-inf', (now - clientTimeout))
-  if #unresponsive > 0 then
-    local terminated_clients = {}
-    for i = 1, #unresponsive do
-      if tonumber(redis.call('zscore', client_running_key, unresponsive[i])) == 0 then
-        table.insert(terminated_clients, unresponsive[i])
-      end
+  local unresponsive_lookup = {}
+  local terminated_clients = {}
+  for i = 1, #unresponsive do
+    unresponsive_lookup[unresponsive[i]] = true
+    if tonumber(redis.call('zscore', client_running_key, unresponsive[i])) == 0 then
+      table.insert(terminated_clients, unresponsive[i])
     end
-    if #terminated_clients > 0 then
-      redis.call('zrem', client_running_key,         unpack(terminated_clients))
-      redis.call('hdel', client_num_queued_key,      unpack(terminated_clients))
-      redis.call('zrem', client_last_registered_key, unpack(terminated_clients))
-      redis.call('zrem', client_last_seen_key,       unpack(terminated_clients))
-    end
+  end
+  if #terminated_clients > 0 then
+    redis.call('zrem', client_running_key,         unpack(terminated_clients))
+    redis.call('hdel', client_num_queued_key,      unpack(terminated_clients))
+    redis.call('zrem', client_last_registered_key, unpack(terminated_clients))
+    redis.call('zrem', client_last_seen_key,       unpack(terminated_clients))
   end
 
   --
@@ -147,6 +147,8 @@ local process_tick = function (now, always_publish)
 
       if (
         lowest_concurrency_value == nil or lowest_concurrency_value == concurrency
+      ) and (
+        not unresponsive_lookup[client]
       ) and (
         tonumber(redis.call('hget', client_num_queued_key, client)) > 0
       ) then
