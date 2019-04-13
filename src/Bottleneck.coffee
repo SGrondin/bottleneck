@@ -33,6 +33,9 @@ class Bottleneck
     reservoir: null
     reservoirRefreshInterval: null
     reservoirRefreshAmount: null
+    reservoirIncreaseInterval: null
+    reservoirIncreaseAmount: null
+    reservoirIncreaseMaximum: null
   localStoreDefaults:
     Promise: Promise
     timeout: null

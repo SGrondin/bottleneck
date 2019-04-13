@@ -18,6 +18,7 @@ if redis.call('exists', settings_key) == 0 then
   redis.call('hmset', settings_key,
     'nextRequest', now,
     'lastReservoirRefresh', now,
+    'lastReservoirIncrease', now,
     'running', 0,
     'done', 0,
     'unblockTime', 0,
@@ -82,6 +83,15 @@ else
     if version_digits[2] < 17 then
       redis.call('hsetnx', settings_key, 'clientTimeout', 10000)
       redis.call('hset', settings_key, 'version', '2.17.0')
+    end
+
+    -- 2.18.0
+    if version_digits[2] < 18 then
+      redis.call('hsetnx', settings_key, 'reservoirIncreaseInterval', '')
+      redis.call('hsetnx', settings_key, 'reservoirIncreaseAmount', '')
+      redis.call('hsetnx', settings_key, 'reservoirIncreaseMaximum', '')
+      redis.call('hsetnx', settings_key, 'lastReservoirIncrease', now)
+      redis.call('hset', settings_key, 'version', '2.18.0')
     end
 
   end

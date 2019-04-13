@@ -225,6 +225,31 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
       })
     })
 
+    it('Should compute reservoir increased based on number of missed intervals', async function () {
+      const settings = {
+        id: 'missed-intervals',
+        clearDatastore: false,
+        reservoir: 2,
+        reservoirIncreaseInterval: 100,
+        reservoirIncreaseAmount: 2,
+        timeout: 2000
+      }
+      c = makeTest({ ...settings })
+      await c.limiter.ready()
+
+      c.mustEqual(await c.limiter.currentReservoir(), 2)
+
+      const settings_key = limiterKeys(c.limiter)[0]
+      await runCommand(c.limiter, 'hincrby', [settings_key, 'lastReservoirIncrease', -3000])
+
+      const limiter2 = new Bottleneck({ ...settings, datastore: process.env.DATASTORE })
+      await limiter2.ready()
+
+      c.mustEqual(await c.limiter.currentReservoir(), 62) // 2 + ((3000 / 100) * 2) === 62
+
+      await limiter2.disconnect()
+    })
+
     it('Should migrate from 2.8.0', function () {
       c = makeTest({ id: 'migrate' })
       var settings_key = limiterKeys(c.limiter)[0]
@@ -255,14 +280,26 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           'reservoirRefreshAmount',
           'capacityPriorityCounter',
           'clientTimeout',
-          // Add new values here, before lastReservoirRefresh
-          'lastReservoirRefresh'
+          'reservoirIncreaseAmount',
+          'reservoirIncreaseMaximum',
+          // Add new values here, before these 2 timestamps
+          'lastReservoirRefresh',
+          'lastReservoirIncrease'
         ])
       })
       .then(function (values) {
-        var lastReservoirRefresh = values[values.length - 1]
-        assert(parseInt(lastReservoirRefresh) > Date.now() - 500)
-        c.mustEqual(values.slice(0, values.length - 1), ['2.17.0', '0', '', '', '0', '10000'])
+        var timestamps = values.slice(-2)
+        timestamps.forEach((t) => assert(parseInt(t) > Date.now() - 500))
+        c.mustEqual(values.slice(0, -timestamps.length), [
+          '2.18.0',
+          '0',
+          '',
+          '',
+          '0',
+          '10000',
+          '',
+          ''
+         ])
       })
       .then(function () {
         return limiter2.disconnect(false)

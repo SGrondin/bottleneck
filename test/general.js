@@ -598,7 +598,7 @@ describe('General', function () {
     })
   })
 
-  describe('Refresh', function () {
+  describe('Reservoir Refresh', function () {
     it('Should auto-refresh the reservoir', function () {
       c = makeTest({
         reservoir: 8,
@@ -666,13 +666,114 @@ describe('General', function () {
         cwd: process.cwd() + '/test/spawn',
         timeout: 1000
       }
-      child_process.exec('node ref.js', options, function (err, stdout, stderr) {
+      child_process.exec('node refreshKeepAlive.js', options, function (err, stdout, stderr) {
         c.mustEqual(stdout, '[0][0][2][2]')
         c.mustEqual(stderr, '')
         done(err)
       })
     })
 
+  })
+
+  describe('Reservoir Increase', function () {
+    it('Should auto-increase the reservoir', async function () {
+      c = makeTest({
+        reservoir: 3,
+        reservoirIncreaseInterval: 150,
+        reservoirIncreaseAmount: 5,
+        heartbeatInterval: 75 // not for production use
+      })
+      var calledDepleted = 0
+
+      c.limiter.on('depleted', function () {
+        calledDepleted++
+      })
+
+      await Promise.all([
+        c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.promise, null, 1), 1),
+        c.pNoErrVal(c.limiter.schedule({ weight: 2 }, c.promise, null, 2), 2),
+        c.pNoErrVal(c.limiter.schedule({ weight: 3 }, c.promise, null, 3), 3),
+        c.pNoErrVal(c.limiter.schedule({ weight: 4 }, c.promise, null, 4), 4),
+        c.pNoErrVal(c.limiter.schedule({ weight: 5 }, c.promise, null, 5), 5)
+      ])
+      const reservoir = await c.limiter.currentReservoir()
+      c.mustEqual(reservoir, 3)
+
+      const results = await c.last({ weight: 0, priority: 9 })
+      c.checkResultsOrder([[1], [2], [3], [4], [5]])
+      c.mustEqual(calledDepleted, 1)
+      c.checkDuration(450)
+    })
+
+    it('Should auto-increase the reservoir up to a maximum', async function () {
+      c = makeTest({
+        reservoir: 3,
+        reservoirIncreaseInterval: 150,
+        reservoirIncreaseAmount: 5,
+        reservoirIncreaseMaximum: 6,
+        heartbeatInterval: 75 // not for production use
+      })
+      var calledDepleted = 0
+
+      c.limiter.on('depleted', function () {
+        calledDepleted++
+      })
+
+      await Promise.all([
+        c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.promise, null, 1), 1),
+        c.pNoErrVal(c.limiter.schedule({ weight: 2 }, c.promise, null, 2), 2),
+        c.pNoErrVal(c.limiter.schedule({ weight: 3 }, c.promise, null, 3), 3),
+        c.pNoErrVal(c.limiter.schedule({ weight: 4 }, c.promise, null, 4), 4),
+        c.pNoErrVal(c.limiter.schedule({ weight: 5 }, c.promise, null, 5), 5)
+      ])
+      const reservoir = await c.limiter.currentReservoir()
+      c.mustEqual(reservoir, 1)
+
+      const results = await c.last({ weight: 0, priority: 9 })
+      c.checkResultsOrder([[1], [2], [3], [4], [5]])
+      c.mustEqual(calledDepleted, 1)
+      c.checkDuration(450)
+    })
+
+    it('Should allow staggered X by Y type usage', function () {
+      c = makeTest({
+        reservoir: 2,
+        reservoirIncreaseInterval: 150,
+        reservoirIncreaseAmount: 2,
+        heartbeatInterval: 75 // not for production use
+      })
+
+      return Promise.all([
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 1), 1),
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2),
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3),
+        c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
+      ])
+      .then(function () {
+        return c.limiter.currentReservoir()
+      })
+      .then(function (reservoir) {
+        c.mustEqual(reservoir, 0)
+        return c.last({ weight: 0, priority: 9 })
+      })
+      .then(function (results) {
+        c.checkResultsOrder([[1], [2], [3], [4]])
+        c.checkDuration(150)
+      })
+    })
+
+    it('Should keep process alive until queue is empty', function (done) {
+      c = makeTest()
+      var options = {
+        cwd: process.cwd() + '/test/spawn',
+        timeout: 1000
+      }
+      child_process.exec('node increaseKeepAlive.js', options, function (err, stdout, stderr) {
+        c.mustEqual(stdout, '[0][0][2][2]')
+        c.mustEqual(stderr, '')
+        done(err)
+      })
+    })
   })
 
 })

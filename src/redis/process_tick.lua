@@ -20,6 +20,10 @@ local process_tick = function (now, always_publish)
     'reservoirRefreshInterval',
     'reservoirRefreshAmount',
     'lastReservoirRefresh',
+    'reservoirIncreaseInterval',
+    'reservoirIncreaseAmount',
+    'reservoirIncreaseMaximum',
+    'lastReservoirIncrease',
     'capacityPriorityCounter',
     'clientTimeout'
   )
@@ -30,8 +34,12 @@ local process_tick = function (now, always_publish)
   local reservoirRefreshInterval = tonumber(settings[5])
   local reservoirRefreshAmount = tonumber(settings[6])
   local lastReservoirRefresh = tonumber(settings[7])
-  local capacityPriorityCounter = tonumber(settings[8])
-  local clientTimeout = tonumber(settings[9])
+  local reservoirIncreaseInterval = tonumber(settings[8])
+  local reservoirIncreaseAmount = tonumber(settings[9])
+  local reservoirIncreaseMaximum = tonumber(settings[10])
+  local lastReservoirIncrease = tonumber(settings[11])
+  local capacityPriorityCounter = tonumber(settings[12])
+  local clientTimeout = tonumber(settings[13])
 
   local initial_capacity = compute_capacity(maxConcurrent, running, reservoir)
 
@@ -100,6 +108,22 @@ local process_tick = function (now, always_publish)
     redis.call('hmset', settings_key,
       'reservoir', reservoir,
       'lastReservoirRefresh', now
+    )
+  end
+
+  local reservoirIncreaseActive = reservoirIncreaseInterval ~= nil and reservoirIncreaseAmount ~= nil
+  if reservoirIncreaseActive and now >= lastReservoirIncrease + reservoirIncreaseInterval then
+    local num_intervals = math.floor((now - lastReservoirIncrease) / reservoirIncreaseInterval)
+    local incr = reservoirIncreaseAmount * num_intervals
+    if reservoirIncreaseMaximum ~= nil then
+      incr = math.min(incr, reservoirIncreaseMaximum - (reservoir or 0))
+    end
+    if incr > 0 then
+      reservoir = (reservoir or 0) + incr
+    end
+    redis.call('hmset', settings_key,
+      'reservoir', reservoir,
+      'lastReservoirIncrease', now
     )
   end
 

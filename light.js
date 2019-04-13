@@ -292,7 +292,7 @@
 	    this.storeOptions = storeOptions;
 	    this.clientId = this.instance._randomIndex();
 	    parser$1.load(storeInstanceOptions, storeInstanceOptions, this);
-	    this._nextRequest = this._lastReservoirRefresh = Date.now();
+	    this._nextRequest = this._lastReservoirRefresh = this._lastReservoirIncrease = Date.now();
 	    this._running = 0;
 	    this._done = 0;
 	    this._unblockTime = 0;
@@ -303,14 +303,27 @@
 
 	  _startHeartbeat() {
 	    var base;
-	    if ((this.heartbeat == null) && (this.storeOptions.reservoirRefreshInterval != null) && (this.storeOptions.reservoirRefreshAmount != null)) {
+	    if ((this.heartbeat == null) && (((this.storeOptions.reservoirRefreshInterval != null) && (this.storeOptions.reservoirRefreshAmount != null)) || ((this.storeOptions.reservoirIncreaseInterval != null) && (this.storeOptions.reservoirIncreaseAmount != null)))) {
 	      return typeof (base = (this.heartbeat = setInterval(() => {
-	        var now;
+	        var amount, incr, maximum, now, reservoir;
 	        now = Date.now();
-	        if (now >= this._lastReservoirRefresh + this.storeOptions.reservoirRefreshInterval) {
-	          this.storeOptions.reservoir = this.storeOptions.reservoirRefreshAmount;
+	        if ((this.storeOptions.reservoirRefreshInterval != null) && now >= this._lastReservoirRefresh + this.storeOptions.reservoirRefreshInterval) {
 	          this._lastReservoirRefresh = now;
-	          return this.instance._drainAll(this.computeCapacity());
+	          this.storeOptions.reservoir = this.storeOptions.reservoirRefreshAmount;
+	          this.instance._drainAll(this.computeCapacity());
+	        }
+	        if ((this.storeOptions.reservoirIncreaseInterval != null) && now >= this._lastReservoirIncrease + this.storeOptions.reservoirIncreaseInterval) {
+	          ({
+	            reservoirIncreaseAmount: amount,
+	            reservoirIncreaseMaximum: maximum,
+	            reservoir
+	          } = this.storeOptions);
+	          this._lastReservoirIncrease = now;
+	          incr = maximum != null ? Math.min(amount, maximum - reservoir) : amount;
+	          if (incr > 0) {
+	            this.storeOptions.reservoir += incr;
+	            return this.instance._drainAll(this.computeCapacity());
+	          }
 	        }
 	      }, this.heartbeatInterval))).unref === "function" ? base.unref() : void 0;
 	    } else {
@@ -1351,7 +1364,10 @@
 	    penalty: null,
 	    reservoir: null,
 	    reservoirRefreshInterval: null,
-	    reservoirRefreshAmount: null
+	    reservoirRefreshAmount: null,
+	    reservoirIncreaseInterval: null,
+	    reservoirIncreaseAmount: null,
+	    reservoirIncreaseMaximum: null
 	  };
 
 	  Bottleneck.prototype.localStoreDefaults = {

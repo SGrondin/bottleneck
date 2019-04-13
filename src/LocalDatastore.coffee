@@ -5,7 +5,7 @@ class LocalDatastore
   constructor: (@instance, @storeOptions, storeInstanceOptions) ->
     @clientId = @instance._randomIndex()
     parser.load storeInstanceOptions, storeInstanceOptions, @
-    @_nextRequest = @_lastReservoirRefresh = Date.now()
+    @_nextRequest = @_lastReservoirRefresh = @_lastReservoirIncrease = Date.now()
     @_running = 0
     @_done = 0
     @_unblockTime = 0
@@ -14,13 +14,27 @@ class LocalDatastore
     @_startHeartbeat()
 
   _startHeartbeat: ->
-    if !@heartbeat? and @storeOptions.reservoirRefreshInterval? and @storeOptions.reservoirRefreshAmount?
+    if !@heartbeat? and ((
+      @storeOptions.reservoirRefreshInterval? and @storeOptions.reservoirRefreshAmount?
+    ) or (
+      @storeOptions.reservoirIncreaseInterval? and @storeOptions.reservoirIncreaseAmount?
+    ))
       (@heartbeat = setInterval =>
           now = Date.now()
-          if now >= @_lastReservoirRefresh + @storeOptions.reservoirRefreshInterval
-            @storeOptions.reservoir = @storeOptions.reservoirRefreshAmount
+
+          if @storeOptions.reservoirRefreshInterval? and now >= @_lastReservoirRefresh + @storeOptions.reservoirRefreshInterval
             @_lastReservoirRefresh = now
+            @storeOptions.reservoir = @storeOptions.reservoirRefreshAmount
             @instance._drainAll @computeCapacity()
+
+          if @storeOptions.reservoirIncreaseInterval? and now >= @_lastReservoirIncrease + @storeOptions.reservoirIncreaseInterval
+            { reservoirIncreaseAmount: amount, reservoirIncreaseMaximum: maximum, reservoir } = @storeOptions
+            @_lastReservoirIncrease = now
+            incr = if maximum? then Math.min amount, maximum - reservoir else amount
+            if incr > 0
+              @storeOptions.reservoir += incr
+              @instance._drainAll @computeCapacity()
+
         , @heartbeatInterval).unref?()
     else clearInterval @heartbeat
 

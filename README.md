@@ -19,7 +19,7 @@ It supports **Clustering**: it can rate limit jobs across multiple Node.js insta
 - [Quick Start](#quick-start)
   * [Gotchas & Common Mistakes](#gotchas--common-mistakes)
 - [Constructor](#constructor)
-- [Refresh Intervals](#refresh-intervals)
+- [Reservoir Intervals](#reservoir-intervals)
 - [`submit()`](#submit)
 - [`schedule()`](#schedule)
 - [`wrap()`](#wrap)
@@ -73,7 +73,7 @@ const limiter = new Bottleneck({
 });
 ```
 
-`minTime` and `maxConcurrent` are enough for the majority of use cases. They work well together to ensure a smooth rate of requests. If your use case requires executing requests in **bursts** or every time a quota resets, look into [Refresh Intervals](#refresh-intervals).
+`minTime` and `maxConcurrent` are enough for the majority of use cases. They work well together to ensure a smooth rate of requests. If your use case requires executing requests in **bursts** or every time a quota resets, look into [Reservoir Intervals](#reservoir-intervals).
 
 ### Step 2 of 3
 
@@ -203,14 +203,24 @@ Basic options:
 | `strategy` | `Bottleneck.strategy.LEAK` | Which strategy to use when the queue gets longer than the high water mark. [Read about strategies](#strategies). Strategies are never executed if `highWater` is `null`. |
 | `penalty` | `15 * minTime`, or `5000` when `minTime` is `0` | The `penalty` value used by the `BLOCK` strategy. |
 | `reservoir` | `null` (unlimited) | How many jobs can be executed before the limiter stops executing jobs. If `reservoir` reaches `0`, no jobs will be executed until it is no longer `0`. New jobs will still be queued up. |
-| `reservoirRefreshInterval` | `null` (disabled) | Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically reset to `reservoirRefreshAmount`. The `reservoirRefreshInterval` value should be a [multiple of 250 (5000 for Clustering)](https://github.com/SGrondin/bottleneck/issues/88). |
-| `reservoirRefreshAmount` | `null` (disabled) | The value to reset `reservoir` to when `reservoirRefreshInterval` is in use. |
+| `reservoirRefreshInterval` | `null` (disabled) | Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically updated to the value of `reservoirRefreshAmount`. The `reservoirRefreshInterval` value should be a [multiple of 250 (5000 for Clustering)](https://github.com/SGrondin/bottleneck/issues/88). |
+| `reservoirRefreshAmount` | `null` (disabled) | The value to set `reservoir` to when `reservoirRefreshInterval` is in use. |
+| `reservoirIncreaseInterval` | `null` (disabled) | Every `reservoirIncreaseInterval` milliseconds, the `reservoir` value will be automatically incremented by `reservoirIncreaseAmount`. The `reservoirIncreaseInterval` value should be a [multiple of 250 (5000 for Clustering)](https://github.com/SGrondin/bottleneck/issues/88). |
+| `reservoirIncreaseAmount` | `null` (disabled) | The increment applied to `reservoir` when `reservoirIncreaseInterval` is in use. |
+| `reservoirIncreaseMaximum` | `null` (disabled) | The maximum value that `reservoir` can reach when `reservoirIncreaseInterval` is in use. |
 | `Promise` | `Promise` (built-in) | This lets you override the Promise library used by Bottleneck. |
 
 
-### Refresh Intervals
+### Reservoir Intervals
 
-Refresh Intervals let you execute requests in bursts, by resetting a quota on an interval. In this example, we throttle to 100 requests every 60 seconds:
+Reservoir Intervals let you execute requests in bursts, by automatically controlling the value of the limiter's `reservoir` value. The `reservoir` is simply the number of jobs the limiter is allowed to execute. Once the value reaches 0, it stops starting new jobs.
+
+There are 2 types of Reservoir Intervals: Refresh Intervals and Increase Intervals.
+
+#### Refresh Interval
+
+In this example, we throttle to 100 requests every 60 seconds:
+
 ```js
 const limiter = new Bottleneck({
   reservoir: 100, // initial value
@@ -219,18 +229,37 @@ const limiter = new Bottleneck({
 
   // also use maxConcurrent and/or minTime for safety
   maxConcurrent: 1,
-  minTime: 333
+  minTime: 333 // pick a value that makes sense for your use case
 });
 ```
-`reservoir` is a counter decremented every time a job is launched, we set its initial value to 100. Then, every `reservoirRefreshInterval` (60000 ms), `reservoir` is automatically reset to `reservoirRefreshAmount` (100).
+`reservoir` is a counter decremented every time a job is launched, we set its initial value to 100. Then, every `reservoirRefreshInterval` (60000 ms), `reservoir` is automatically updated to be equal to the `reservoirRefreshAmount` (100).
 
-Refresh Intervals are an advanced feature, please take the time to read and understand the following warnings.
+#### Increase Interval
 
-- **Refresh Intervals are not a replacement for `minTime` and `maxConcurrent`.** It's strongly recommended to also use `minTime` and/or `maxConcurrent` to spread out the load. For example, suppose a lot of jobs are queued up because the `reservoir` is 0. As soon as the reservoir refresh is triggered, 100 jobs will automatically be launched, all at the same time! To prevent this flooding effect and keep your application running smoothly, use `minTime` and `maxConcurrent` to *stagger* the jobs.
+In this example, we throttle jobs to meet the Shopify API Rate Limits. The Shopify API allows the user to send 40 requests initially, then every second grants 2 more requests up to a maximum of 40.
 
-- **The Refresh Interval starts from the moment the limiter is created**. Let's suppose we're using `reservoirRefreshAmount: 5`. If you happen to add 10 jobs just 1ms before the refresh is triggered, the first 5 will run immediately, then 1ms later it will refresh the reservoir value and that will make the last 5 also run right away. It will have run 10 jobs in just over 1ms no matter what your refresh interval was!
+```js
+const limiter = new Bottleneck({
+  reservoir: 40, // initial value
+  reservoirIncreaseAmount: 2,
+  reservoirIncreaseInterval: 1000, // must be divisible by 250
+  reservoirIncreaseMaximum: 40,
 
-- **Refresh Intervals prevent a limiter from being garbage collected.** Call `limiter.disconnect()` to clear the interval and allow the memory to be freed. However, it's not necessary to call `.disconnect()` to allow the application to exit.
+  // also use maxConcurrent and/or minTime for safety
+  maxConcurrent: 5,
+  minTime: 250 // pick a value that makes sense for your use case
+});
+```
+
+#### Warnings
+
+Reservoir Intervals are an advanced feature, please take the time to read and understand the following warnings.
+
+- **Reservoir Intervals are not a replacement for `minTime` and `maxConcurrent`.** It's strongly recommended to also use `minTime` and/or `maxConcurrent` to spread out the load. For example, suppose a lot of jobs are queued up because the `reservoir` is 0. As soon as the Refresh Interval is triggered, a number of jobs equal to `reservoirRefreshAmount` will automatically be launched, all at the same time! To prevent this flooding effect and keep your application running smoothly, use `minTime` and `maxConcurrent` to **stagger** the jobs.
+
+- **The Reservoir Interval starts from the moment the limiter is created**. Let's suppose we're using `reservoirRefreshAmount: 5`. If you happen to add 10 jobs just 1ms before the refresh is triggered, the first 5 will run immediately, then 1ms later it will refresh the reservoir value and that will make the last 5 also run right away. It will have run 10 jobs in just over 1ms no matter what your reservoir interval was!
+
+- **Reservoir Intervals prevent a limiter from being garbage collected.** Call `limiter.disconnect()` to clear the interval and allow the memory to be freed. However, it's not necessary to call `.disconnect()` to allow the Node.js process to exit.
 
 ### submit()
 
