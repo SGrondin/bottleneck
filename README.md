@@ -213,7 +213,7 @@ Basic options:
 
 ### Reservoir Intervals
 
-Reservoir Intervals let you execute requests in bursts, by automatically controlling the value of the limiter's `reservoir` value. The `reservoir` is simply the number of jobs the limiter is allowed to execute. Once the value reaches 0, it stops starting new jobs.
+Reservoir Intervals let you execute requests in bursts, by automatically controlling the limiter's `reservoir` value. The `reservoir` is simply the number of jobs the limiter is allowed to execute. Once the value reaches 0, it stops starting new jobs.
 
 There are 2 types of Reservoir Intervals: Refresh Intervals and Increase Intervals.
 
@@ -236,7 +236,7 @@ const limiter = new Bottleneck({
 
 #### Increase Interval
 
-In this example, we throttle jobs to meet the Shopify API Rate Limits. The Shopify API allows the user to send 40 requests initially, then every second grants 2 more requests up to a maximum of 40.
+In this example, we throttle jobs to meet the Shopify API Rate Limits. Users are allowed to send 40 requests initially, then every second grants 2 more requests up to a maximum of 40.
 
 ```js
 const limiter = new Bottleneck({
@@ -255,7 +255,7 @@ const limiter = new Bottleneck({
 
 Reservoir Intervals are an advanced feature, please take the time to read and understand the following warnings.
 
-- **Reservoir Intervals are not a replacement for `minTime` and `maxConcurrent`.** It's strongly recommended to also use `minTime` and/or `maxConcurrent` to spread out the load. For example, suppose a lot of jobs are queued up because the `reservoir` is 0. As soon as the Refresh Interval is triggered, a number of jobs equal to `reservoirRefreshAmount` will automatically be launched, all at the same time! To prevent this flooding effect and keep your application running smoothly, use `minTime` and `maxConcurrent` to **stagger** the jobs.
+- **Reservoir Intervals are not a replacement for `minTime` and `maxConcurrent`.** It's strongly recommended to also use `minTime` and/or `maxConcurrent` to spread out the load. For example, suppose a lot of jobs are queued up because the `reservoir` is 0. Every time the Refresh Interval is triggered, a number of jobs equal to `reservoirRefreshAmount` will automatically be launched, all at the same time! To prevent this flooding effect and keep your application running smoothly, use `minTime` and `maxConcurrent` to **stagger** the jobs.
 
 - **The Reservoir Interval starts from the moment the limiter is created**. Let's suppose we're using `reservoirRefreshAmount: 5`. If you happen to add 10 jobs just 1ms before the refresh is triggered, the first 5 will run immediately, then 1ms later it will refresh the reservoir value and that will make the last 5 also run right away. It will have run 10 jobs in just over 1ms no matter what your reservoir interval was!
 
