@@ -123,7 +123,7 @@ local process_tick = function (now, always_publish)
     end
     redis.call('hmset', settings_key,
       'reservoir', reservoir,
-      'lastReservoirIncrease', now
+      'lastReservoirIncrease', lastReservoirIncrease + (num_intervals * reservoirIncreaseInterval)
     )
   end
 
