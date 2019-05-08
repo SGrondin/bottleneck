@@ -237,8 +237,8 @@
 	    }
 	  }
 
-	  push(priority, job) {
-	    return this._lists[priority].push(job);
+	  push(job) {
+	    return this._lists[job.options.priority].push(job);
 	  }
 
 	  queued(priority) {
@@ -274,28 +274,43 @@
 
 	var Queues_1 = Queues;
 
-	var Job, parser$1;
+	var BottleneckError;
+
+	BottleneckError = class BottleneckError extends Error {};
+
+	var BottleneckError_1 = BottleneckError;
+
+	var BottleneckError$1, DEFAULT_PRIORITY, Job, NUM_PRIORITIES, parser$1;
+
+	NUM_PRIORITIES = 10;
+
+	DEFAULT_PRIORITY = 5;
 
 	parser$1 = parser;
 
+	BottleneckError$1 = BottleneckError_1;
+
 	Job = class Job {
-	  constructor(task, args, options, jobDefaults, Promise, NUM_PRIORITIES, DEFAULT_PRIORITY) {
+	  constructor(task, args, options, jobDefaults, rejectOnDrop, Events, _states, Promise) {
 	    this.task = task;
 	    this.args = args;
+	    this.rejectOnDrop = rejectOnDrop;
+	    this.Events = Events;
+	    this._states = _states;
 	    this.Promise = Promise;
 	    this.options = parser$1.load(options, jobDefaults);
 	    this.options.priority = this._sanitizePriority(this.options.priority);
 	    if (this.options.id === jobDefaults.id) {
 	      this.options.id = `${this.options.id}-${this._randomIndex()}`;
 	    }
-	    this.promise = new this.Promise((resolve, reject) => {
-	      this.resolve = resolve;
-	      this.reject = reject;
+	    this.promise = new this.Promise((_resolve, _reject) => {
+	      this._resolve = _resolve;
+	      this._reject = _reject;
 	    });
 	    this.retryCount = 0;
 	  }
 
-	  _sanitizePriority(priority, NUM_PRIORITIES, DEFAULT_PRIORITY) {
+	  _sanitizePriority(priority) {
 	    var sProperty;
 	    sProperty = ~~priority !== priority ? DEFAULT_PRIORITY : priority;
 	    if (sProperty < 0) {
@@ -311,28 +326,114 @@
 	    return Math.random().toString(36).slice(2);
 	  }
 
-	  execute(cb) {
-	    var e, returned;
-	    returned = (function() {
-	      try {
-	        return this.task(...this.args);
-	      } catch (error) {
-	        e = error;
-	        return this.Promise.reject(e);
+	  doDrop({error, message = "This job has been dropped by Bottleneck"} = {}) {
+	    if (this._states.remove(this.options.id)) {
+	      if (this.rejectOnDrop) {
+	        this._reject(error != null ? error : new BottleneckError$1(message));
 	      }
-	    }).call(this);
-	    return (!(((returned != null ? returned.then : void 0) != null) && typeof returned.then === "function") ? this.Promise.resolve(returned) : returned).then(function(passed) {
-	      return cb(null, passed);
-	    }).catch(function(err) {
-	      return cb(err);
-	    });
+	      this.Events.trigger("dropped", {task: this.task, args: this.args, options: this.options, promise: this.promise});
+	      return true;
+	    } else {
+	      return false;
+	    }
 	  }
 
-	  done(err, passed) {
-	    if (err != null) {
-	      return this.reject(err);
+	  _assertStatus(expected) {
+	    var status;
+	    status = this._states.jobStatus(this.options.id);
+	    if (!(status === expected || (expected === "DONE" && status === null))) {
+	      throw new BottleneckError$1(`Invalid job status ${status}, expected ${expected}. Please open an issue at https://github.com/SGrondin/bottleneck/issues`);
+	    }
+	  }
+
+	  doReceive() {
+	    if (this._states.jobStatus(this.options.id) != null) {
+	      this._reject(new BottleneckError$1(`A job with the same id already exists (id=${this.options.id})`));
+	      return false;
 	    } else {
-	      return this.resolve(passed);
+	      this._states.start(this.options.id);
+	      this.Events.trigger("debug", `Queueing ${this.options.id}`, {args: this.args, options: this.options});
+	      return true;
+	    }
+	  }
+
+	  doQueue(reachedHWM, blocked) {
+	    this._assertStatus("RECEIVED");
+	    this._states.next(this.options.id);
+	    return this.Events.trigger("debug", `Queued ${this.options.id}`, {args: this.args, options: this.options, reachedHWM, blocked});
+	  }
+
+	  doRun() {
+	    if (this.retryCount === 0) {
+	      this._assertStatus("QUEUED");
+	      this._states.next(this.options.id);
+	    } else {
+	      this._assertStatus("EXECUTING");
+	    }
+	    return this.Events.trigger("debug", `Scheduling ${this.options.id}`, {args: this.args, options: this.options});
+	  }
+
+	  async doExecute(chained, clearGlobalState, run, free) {
+	    var error, eventInfo, passed;
+	    if (this.retryCount === 0) {
+	      this._assertStatus("RUNNING");
+	      this._states.next(this.options.id);
+	    } else {
+	      this._assertStatus("EXECUTING");
+	    }
+	    this.Events.trigger("debug", `Executing ${this.options.id}`, {args: this.args, options: this.options});
+	    eventInfo = {args: this.args, options: this.options, retryCount: this.retryCount};
+	    try {
+	      passed = (await (chained != null ? chained.schedule(this.options, this.task, ...this.args) : this.task(...this.args)));
+	      if (clearGlobalState()) {
+	        this.doDone(eventInfo);
+	        await free(this.options, eventInfo);
+	        return this.doResolve(null, passed);
+	      }
+	    } catch (error1) {
+	      error = error1;
+	      return this._onFailure(error, eventInfo, clearGlobalState, run, free);
+	    }
+	  }
+
+	  doExpire(clearGlobalState, run, free) {
+	    var error, eventInfo;
+	    this._assertStatus("EXECUTING");
+	    eventInfo = {args: this.args, options: this.options, retryCount: this.retryCount};
+	    error = new BottleneckError$1(`This job timed out after ${this.options.expiration} ms.`);
+	    return this._onFailure(error, eventInfo, clearGlobalState, run, free);
+	  }
+
+	  async _onFailure(error, eventInfo, clearGlobalState, run, free) {
+	    var retry, retryAfter;
+	    if (clearGlobalState()) {
+	      retry = (await this.Events.trigger("failed", error, eventInfo));
+	      if (retry != null) {
+	        retryAfter = ~~retry;
+	        this.Events.trigger("retry", `Retrying ${this.options.id} after ${retryAfter} ms`, eventInfo);
+	        this.retryCount++;
+	        return run(retryAfter);
+	      } else {
+	        this.doDone(eventInfo);
+	        await free(this.options, eventInfo);
+	        return this.doResolve(error);
+	      }
+	    }
+	  }
+
+	  doDone(eventInfo) {
+	    this._assertStatus("EXECUTING");
+	    this._states.next(this.options.id);
+	    this.Events.trigger("debug", `Completed ${this.options.id}`, eventInfo);
+	    return this.Events.trigger("done", `Completed ${this.options.id}`, eventInfo);
+	  }
+
+	  doResolve(error, passed) {
+	    this._assertStatus("DONE");
+	    if (error != null) {
+	      return this._reject(error);
+	    } else {
+	      return this._resolve(passed);
 	    }
 	  }
 
@@ -340,17 +441,11 @@
 
 	var Job_1 = Job;
 
-	var BottleneckError;
-
-	BottleneckError = class BottleneckError extends Error {};
-
-	var BottleneckError_1 = BottleneckError;
-
-	var BottleneckError$1, LocalDatastore, parser$2;
+	var BottleneckError$2, LocalDatastore, parser$2;
 
 	parser$2 = parser;
 
-	BottleneckError$1 = BottleneckError_1;
+	BottleneckError$2 = BottleneckError_1;
 
 	LocalDatastore = class LocalDatastore {
 	  constructor(instance, storeOptions, storeInstanceOptions) {
@@ -526,7 +621,7 @@
 	    var blocked, now, reachedHWM;
 	    await this.yieldLoop();
 	    if ((this.storeOptions.maxConcurrent != null) && weight > this.storeOptions.maxConcurrent) {
-	      throw new BottleneckError$1(`Impossible to add a job having a weight of ${weight} to a limiter having a maxConcurrent setting of ${this.storeOptions.maxConcurrent}`);
+	      throw new BottleneckError$2(`Impossible to add a job having a weight of ${weight} to a limiter having a maxConcurrent setting of ${this.storeOptions.maxConcurrent}`);
 	    }
 	    now = Date.now();
 	    reachedHWM = (this.storeOptions.highWater != null) && queueLength === this.storeOptions.highWater && !this.check(weight, now);
@@ -557,9 +652,9 @@
 
 	var LocalDatastore_1 = LocalDatastore;
 
-	var BottleneckError$2, States;
+	var BottleneckError$3, States;
 
-	BottleneckError$2 = BottleneckError_1;
+	BottleneckError$3 = BottleneckError_1;
 
 	States = class States {
 	  constructor(status1) {
@@ -611,7 +706,7 @@
 	    if (status != null) {
 	      pos = this.status.indexOf(status);
 	      if (pos < 0) {
-	        throw new BottleneckError$2(`status must be one of ${this.status.join(', ')}`);
+	        throw new BottleneckError$3(`status must be one of ${this.status.join(', ')}`);
 	      }
 	      ref = this.jobs;
 	      results = [];
@@ -929,12 +1024,12 @@
 
 	var require$$8 = getCjsExportFromNamespace(version$2);
 
-	var Bottleneck, DEFAULT_PRIORITY, Events$4, Job$1, LocalDatastore$1, NUM_PRIORITIES, Queues$1, RedisDatastore$1, States$1, Sync$1, parser$5,
+	var Bottleneck, DEFAULT_PRIORITY$1, Events$4, Job$1, LocalDatastore$1, NUM_PRIORITIES$1, Queues$1, RedisDatastore$1, States$1, Sync$1, parser$5,
 	  splice$1 = [].splice;
 
-	NUM_PRIORITIES = 10;
+	NUM_PRIORITIES$1 = 10;
 
-	DEFAULT_PRIORITY = 5;
+	DEFAULT_PRIORITY$1 = 5;
 
 	parser$5 = parser;
 
@@ -963,7 +1058,7 @@
 	      this.incrementReservoir = this.incrementReservoir.bind(this);
 	      this._validateOptions(options, invalid);
 	      parser$5.load(options, this.instanceDefaults, this);
-	      this._queues = new Queues$1(NUM_PRIORITIES);
+	      this._queues = new Queues$1(NUM_PRIORITIES$1);
 	      this._scheduled = {};
 	      this._states = new States$1(["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(this.trackDoneStatus ? ["DONE"] : []));
 	      this._limiter = null;
@@ -1067,68 +1162,43 @@
 	      return this._store.__check__(weight);
 	    }
 
-	    async _handler(index, job, error, passed) {
-	      var args, e, eventInfo, options, retry, retryAfter, retryCount, running;
-	      try {
-	        if (this._scheduled[index] == null) {
-	          return;
-	        }
-	        ({args, options, retryCount} = job);
+	    _clearGlobalState(index) {
+	      if (this._scheduled[index] != null) {
 	        clearTimeout(this._scheduled[index].expiration);
 	        delete this._scheduled[index];
-	        eventInfo = {args, options, retryCount};
-	        if (error != null) {
-	          retry = (await this.Events.trigger("failed", error, eventInfo));
-	          if (retry != null) {
-	            retryAfter = ~~retry;
-	            this.Events.trigger("retry", `Retrying ${options.id} after ${retryAfter} ms`, eventInfo);
-	            job.retryCount++;
-	            return this._run(job, retryAfter, index);
-	          }
-	        }
-	        this._states.next(options.id); // DONE
-	        this.Events.trigger("debug", `Completed ${options.id}`, eventInfo);
-	        this.Events.trigger("done", `Completed ${options.id}`, eventInfo);
+	        return true;
+	      } else {
+	        return false;
+	      }
+	    }
+
+	    async _free(index, job, options, eventInfo) {
+	      var e, running;
+	      try {
 	        ({running} = (await this._store.__free__(index, options.weight)));
 	        this.Events.trigger("debug", `Freed ${options.id}`, eventInfo);
 	        if (running === 0 && this.empty()) {
-	          this.Events.trigger("idle");
+	          return this.Events.trigger("idle");
 	        }
-	        return job.done(error, passed);
 	      } catch (error1) {
 	        e = error1;
 	        return this.Events.trigger("error", e);
 	      }
 	    }
 
-	    _run(job, wait, index) {
-	      var args, options, retryCount, task;
-	      ({task, args, options, retryCount} = job);
-	      this.Events.trigger("debug", `Scheduling ${options.id}`, {args, options});
-	      if (retryCount === 0) { // RUNNING
-	        this._states.next(options.id);
-	      }
+	    _run(index, job, wait) {
+	      var clearGlobalState, free, run;
+	      job.doRun();
+	      clearGlobalState = this._clearGlobalState.bind(this, index);
+	      run = this._run.bind(this, index, job);
+	      free = this._free.bind(this, index, job);
 	      return this._scheduled[index] = {
 	        timeout: setTimeout(() => {
-	          var handler;
-	          this.Events.trigger("debug", `Executing ${options.id}`, {args, options});
-	          if (retryCount === 0) { // EXECUTING
-	            this._states.next(options.id);
-	          }
-	          handler = this._handler.bind(this, index, job);
-	          if (this._limiter != null) {
-	            return this._limiter.schedule(options, task, ...args).then(function(passed) {
-	              return handler(null, passed);
-	            }).catch(function(error) {
-	              return handler(error);
-	            });
-	          } else {
-	            return job.execute(handler);
-	          }
+	          return job.doExecute(this._limiter, clearGlobalState, run, free);
 	        }, wait),
-	        expiration: options.expiration != null ? setTimeout(() => {
-	          return this._handler(index, job, new Bottleneck.prototype.BottleneckError(`This job timed out after ${options.expiration} ms.`));
-	        }, wait + options.expiration) : void 0,
+	        expiration: job.options.expiration != null ? setTimeout(function() {
+	          return job.doExpire(clearGlobalState, run, free);
+	        }, wait + job.options.expiration) : void 0,
 	        job: job
 	      };
 	    }
@@ -1158,7 +1228,7 @@
 	            if (reservoir === 0) {
 	              this.Events.trigger("depleted", empty);
 	            }
-	            this._run(next, wait, index);
+	            this._run(index, next, wait);
 	            return this.Promise.resolve(options.weight);
 	          } else {
 	            return this.Promise.resolve(null);
@@ -1181,18 +1251,9 @@
 	      });
 	    }
 
-	    _drop(job, message = "This job has been dropped by Bottleneck") {
-	      if (this._states.remove(job.options.id)) {
-	        if (this.rejectOnDrop) {
-	          job.reject(new Bottleneck.prototype.BottleneckError(message));
-	        }
-	        return this.Events.trigger("dropped", job);
-	      }
-	    }
-
 	    _dropAllQueued(message) {
-	      return this._queues.shiftAll((job) => {
-	        return this._drop(job, message);
+	      return this._queues.shiftAll(function(job) {
+	        return job.doDrop({message});
 	      });
 	    }
 
@@ -1219,8 +1280,10 @@
 	          }
 	        });
 	      };
-	      done = options.dropWaitingJobs ? (this._run = (next) => {
-	        return this._drop(next, options.dropErrorMessage);
+	      done = options.dropWaitingJobs ? (this._run = function(index, next) {
+	        return next.doDrop({
+	          message: options.dropErrorMessage
+	        });
 	      }, this._drainOne = () => {
 	        return this.Promise.resolve(null);
 	      }, this._registerLock.schedule(() => {
@@ -1232,20 +1295,22 @@
 	            if (this.jobStatus(v.job.options.id) === "RUNNING") {
 	              clearTimeout(v.timeout);
 	              clearTimeout(v.expiration);
-	              this._drop(v.job, options.dropErrorMessage);
+	              v.job.doDrop({
+	                message: options.dropErrorMessage
+	              });
 	            }
 	          }
 	          this._dropAllQueued(options.dropErrorMessage);
 	          return waitForExecuting(0);
 	        });
 	      })) : this.schedule({
-	        priority: NUM_PRIORITIES - 1,
+	        priority: NUM_PRIORITIES$1 - 1,
 	        weight: 0
 	      }, () => {
 	        return waitForExecuting(1);
 	      });
-	      this._addToQueue = (job) => {
-	        return job.reject(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage));
+	      this._addToQueue = function(job) {
+	        return job._reject(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage));
 	      };
 	      this.stop = () => {
 	        return this.Promise.reject(new Bottleneck.prototype.BottleneckError("stop() has already been called"));
@@ -1254,47 +1319,38 @@
 	    }
 
 	    _addToQueue(job) {
-	      var args, options, reject;
-	      ({args, options, reject} = job);
-	      if (this.jobStatus(options.id) != null) {
-	        reject(new Bottleneck.prototype.BottleneckError(`A job with the same id already exists (id=${options.id})`));
+	      var args, options;
+	      ({args, options} = job);
+	      if (!job.doReceive()) {
 	        return false;
 	      }
-	      this._states.start(options.id); // RECEIVED
-	      this.Events.trigger("debug", `Queueing ${options.id}`, {args, options});
 	      return this._submitLock.schedule(async() => {
-	        var blocked, e, reachedHWM, shifted, strategy;
+	        var blocked, error, reachedHWM, shifted, strategy;
 	        try {
 	          ({reachedHWM, blocked, strategy} = (await this._store.__submit__(this.queued(), options.weight)));
-	          this.Events.trigger("debug", `Queued ${options.id}`, {args, options, reachedHWM, blocked});
 	        } catch (error1) {
-	          e = error1;
-	          this._states.remove(options.id);
-	          this.Events.trigger("debug", `Could not queue ${options.id}`, {
-	            args,
-	            options,
-	            error: e
-	          });
-	          reject(e);
+	          error = error1;
+	          this.Events.trigger("debug", `Could not queue ${options.id}`, {args, options, error});
+	          job.doDrop({error});
 	          return false;
 	        }
 	        if (blocked) {
-	          this._drop(job);
+	          job.doDrop();
 	          return true;
 	        } else if (reachedHWM) {
 	          shifted = strategy === Bottleneck.prototype.strategy.LEAK ? this._queues.shiftLastFrom(options.priority) : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? this._queues.shiftLastFrom(options.priority + 1) : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
 	          if (shifted != null) {
-	            this._drop(shifted);
+	            shifted.doDrop();
 	          }
 	          if ((shifted == null) || strategy === Bottleneck.prototype.strategy.OVERFLOW) {
 	            if (shifted == null) {
-	              this._drop(job);
+	              job.doDrop();
 	            }
 	            return reachedHWM;
 	          }
 	        }
-	        this._states.next(options.id); // QUEUED
-	        this._queues.push(options.priority, job);
+	        job.doQueue(reachedHWM, blocked);
+	        this._queues.push(job);
 	        await this._drainAll();
 	        return reachedHWM;
 	      });
@@ -1310,13 +1366,13 @@
 	        options = parser$5.load(options, this.jobDefaults);
 	      }
 	      task = (...args) => {
-	        return new this.Promise((resolve, reject) => {
+	        return new this.Promise(function(resolve, reject) {
 	          return fn(...args, function(...args) {
 	            return (args[0] != null ? reject : resolve)(args);
 	          });
 	        });
 	      };
-	      job = new Job$1(task, args, options, this.jobDefaults, this.Promise, NUM_PRIORITIES, DEFAULT_PRIORITY);
+	      job = new Job$1(task, args, options, this.jobDefaults, this.rejectOnDrop, this.Events, this._states, this.Promise);
 	      job.promise.then(function(args) {
 	        return typeof cb === "function" ? cb(...args) : void 0;
 	      }).catch(function(args) {
@@ -1337,7 +1393,7 @@
 	      } else {
 	        [options, task, ...args] = args;
 	      }
-	      job = new Job$1(task, args, options, this.jobDefaults, this.Promise, NUM_PRIORITIES, DEFAULT_PRIORITY);
+	      job = new Job$1(task, args, options, this.jobDefaults, this.rejectOnDrop, this.Events, this._states, this.Promise);
 	      this._addToQueue(job);
 	      return job.promise;
 	    }
@@ -1393,7 +1449,7 @@
 	  Bottleneck.Batcher = Bottleneck.prototype.Batcher = Batcher_1;
 
 	  Bottleneck.prototype.jobDefaults = {
-	    priority: DEFAULT_PRIORITY,
+	    priority: DEFAULT_PRIORITY$1,
 	    weight: 1,
 	    expiration: null,
 	    id: "<no-id>"

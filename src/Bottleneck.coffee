@@ -124,51 +124,35 @@ class Bottleneck
 
   check: (weight=1) -> @_store.__check__ weight
 
-  _handler: (index, job, error, passed) ->
-    try
-      unless @_scheduled[index]? then return
-
-      { args, options, retryCount } = job
+  _clearGlobalState: (index) ->
+    if @_scheduled[index]?
       clearTimeout @_scheduled[index].expiration
       delete @_scheduled[index]
-      eventInfo = { args, options, retryCount }
+      true
+    else
+      false
 
-      if error?
-        retry = await @Events.trigger "failed", error, eventInfo
-        if retry?
-          retryAfter = ~~retry
-          @Events.trigger "retry", "Retrying #{options.id} after #{retryAfter} ms", eventInfo
-          job.retryCount++
-          return @_run job, retryAfter, index
-
-      @_states.next options.id # DONE
-      @Events.trigger "debug", "Completed #{options.id}", eventInfo
-      @Events.trigger "done", "Completed #{options.id}", eventInfo
+  _free: (index, job, options, eventInfo) ->
+    try
       { running } = await @_store.__free__ index, options.weight
       @Events.trigger "debug", "Freed #{options.id}", eventInfo
       if running == 0 and @empty() then @Events.trigger "idle"
-      job.done error, passed
     catch e
       @Events.trigger "error", e
 
-  _run: (job, wait, index) ->
-    { task, args, options, retryCount } = job
-    @Events.trigger "debug", "Scheduling #{options.id}", { args, options }
-    @_states.next options.id if retryCount == 0 # RUNNING
+  _run: (index, job, wait) ->
+    job.doRun()
+    clearGlobalState = @_clearGlobalState.bind(@, index)
+    run = @_run.bind(@, index, job)
+    free = @_free.bind(@, index, job)
+
     @_scheduled[index] =
       timeout: setTimeout =>
-        @Events.trigger "debug", "Executing #{options.id}", { args, options }
-        @_states.next options.id if retryCount == 0 # EXECUTING
-        handler = @_handler.bind @, index, job
-        if @_limiter?
-          @_limiter.schedule(options, task, args...)
-          .then (passed) -> handler null, passed
-          .catch (error) -> handler error
-        else job.execute handler
+        job.doExecute @_limiter, clearGlobalState, run, free
       , wait
-      expiration: if options.expiration? then setTimeout =>
-        @_handler index, job, new Bottleneck::BottleneckError "This job timed out after #{options.expiration} ms."
-      , wait + options.expiration
+      expiration: if job.options.expiration? then setTimeout ->
+        job.doExpire(clearGlobalState, run, free)
+      , wait + job.options.expiration
       job: job
 
   _drainOne: (capacity) =>
@@ -187,7 +171,7 @@ class Bottleneck
           empty = @empty()
           if empty then @Events.trigger "empty"
           if reservoir == 0 then @Events.trigger "depleted", empty
-          @_run next, wait, index
+          @_run index, next, wait
           @Promise.resolve options.weight
         else
           @Promise.resolve null
@@ -201,13 +185,7 @@ class Bottleneck
       else @Promise.resolve total
     .catch (e) => @Events.trigger "error", e
 
-  _drop: (job, message="This job has been dropped by Bottleneck") ->
-    if @_states.remove job.options.id
-      if @rejectOnDrop then job.reject new Bottleneck::BottleneckError message
-      @Events.trigger "dropped", job
-
-  _dropAllQueued: (message) ->
-    @_queues.shiftAll (job) => @_drop job, message
+  _dropAllQueued: (message) -> @_queues.shiftAll (job) -> job.doDrop { message }
 
   stop: (options={}) ->
     options = parser.load options, @stopDefaults
@@ -223,55 +201,48 @@ class Bottleneck
               @removeAllListeners "done"
               resolve()
     done = if options.dropWaitingJobs
-      @_run = (next) => @_drop next, options.dropErrorMessage
+      @_run = (index, next) -> next.doDrop { message: options.dropErrorMessage }
       @_drainOne = => @Promise.resolve null
       @_registerLock.schedule => @_submitLock.schedule =>
         for k, v of @_scheduled
           if @jobStatus(v.job.options.id) == "RUNNING"
             clearTimeout v.timeout
             clearTimeout v.expiration
-            @_drop v.job, options.dropErrorMessage
+            v.job.doDrop { message: options.dropErrorMessage }
         @_dropAllQueued options.dropErrorMessage
         waitForExecuting(0)
     else
       @schedule { priority: NUM_PRIORITIES - 1, weight: 0 }, => waitForExecuting(1)
-    @_addToQueue = (job) => job.reject new Bottleneck::BottleneckError options.enqueueErrorMessage
+    @_addToQueue = (job) -> job._reject new Bottleneck::BottleneckError options.enqueueErrorMessage
     @stop = => @Promise.reject new Bottleneck::BottleneckError "stop() has already been called"
     done
 
   _addToQueue: (job) ->
-    { args, options, reject } = job
-    if @jobStatus(options.id)?
-      reject new Bottleneck::BottleneckError "A job with the same id already exists (id=#{options.id})"
-      return false
-
-    @_states.start options.id # RECEIVED
-    @Events.trigger "debug", "Queueing #{options.id}", { args, options }
+    { args, options } = job
+    if not job.doReceive() then return false
 
     @_submitLock.schedule =>
       try
         { reachedHWM, blocked, strategy } = await @_store.__submit__ @queued(), options.weight
-        @Events.trigger "debug", "Queued #{options.id}", { args, options, reachedHWM, blocked }
-      catch e
-        @_states.remove options.id
-        @Events.trigger "debug", "Could not queue #{options.id}", { args, options, error: e }
-        reject e
+      catch error
+        @Events.trigger "debug", "Could not queue #{options.id}", { args, options, error }
+        job.doDrop { error }
         return false
 
       if blocked
-        @_drop job
+        job.doDrop()
         return true
       else if reachedHWM
         shifted = if strategy == Bottleneck::strategy.LEAK then @_queues.shiftLastFrom(options.priority)
         else if strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_queues.shiftLastFrom(options.priority + 1)
         else if strategy == Bottleneck::strategy.OVERFLOW then job
-        if shifted? then @_drop shifted
+        if shifted? then shifted.doDrop()
         if not shifted? or strategy == Bottleneck::strategy.OVERFLOW
-          if not shifted? then @_drop job
+          if not shifted? then job.doDrop()
           return reachedHWM
 
-      @_states.next options.id # QUEUED
-      @_queues.push options.priority, job
+      job.doQueue(reachedHWM, blocked)
+      @_queues.push job
       await @_drainAll()
       reachedHWM
 
@@ -284,11 +255,11 @@ class Bottleneck
       options = parser.load options, @jobDefaults
 
     task = (args...) =>
-      new @Promise (resolve, reject) =>
+      new @Promise (resolve, reject) ->
         fn args..., (args...) ->
           (if args[0]? then reject else resolve) args
 
-    job = new Job task, args, options, @jobDefaults, @Promise, NUM_PRIORITIES, DEFAULT_PRIORITY
+    job = new Job task, args, options, @jobDefaults, @rejectOnDrop, @Events, @_states, @Promise
     job.promise
     .then (args) -> cb? args...
     .catch (args) -> if Array.isArray args then cb? args... else cb? args
@@ -300,7 +271,7 @@ class Bottleneck
       options = {}
     else
       [options, task, args...] = args
-    job = new Job task, args, options, @jobDefaults, @Promise, NUM_PRIORITIES, DEFAULT_PRIORITY
+    job = new Job task, args, options, @jobDefaults, @rejectOnDrop, @Events, @_states, @Promise
     @_addToQueue job
     job.promise
 

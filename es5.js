@@ -1369,8 +1369,8 @@
 	    }
 	  }, {
 	    key: "push",
-	    value: function push(priority, job) {
-	      return this._lists[priority].push(job);
+	    value: function push(job) {
+	      return this._lists[job.options.priority].push(job);
 	    }
 	  }, {
 	    key: "queued",
@@ -1416,89 +1416,6 @@
 
 	var Queues_1 = Queues;
 
-	var Job, parser$1;
-	parser$1 = parser;
-
-	Job =
-	/*#__PURE__*/
-	function () {
-	  function Job(task, args, options, jobDefaults, Promise, NUM_PRIORITIES, DEFAULT_PRIORITY) {
-	    var _this = this;
-
-	    _classCallCheck(this, Job);
-
-	    this.task = task;
-	    this.args = args;
-	    this.Promise = Promise;
-	    this.options = parser$1.load(options, jobDefaults);
-	    this.options.priority = this._sanitizePriority(this.options.priority);
-
-	    if (this.options.id === jobDefaults.id) {
-	      this.options.id = "".concat(this.options.id, "-").concat(this._randomIndex());
-	    }
-
-	    this.promise = new this.Promise(function (resolve, reject) {
-	      _this.resolve = resolve;
-	      _this.reject = reject;
-	    });
-	    this.retryCount = 0;
-	  }
-
-	  _createClass(Job, [{
-	    key: "_sanitizePriority",
-	    value: function _sanitizePriority(priority, NUM_PRIORITIES, DEFAULT_PRIORITY) {
-	      var sProperty;
-	      sProperty = ~~priority !== priority ? DEFAULT_PRIORITY : priority;
-
-	      if (sProperty < 0) {
-	        return 0;
-	      } else if (sProperty > NUM_PRIORITIES - 1) {
-	        return NUM_PRIORITIES - 1;
-	      } else {
-	        return sProperty;
-	      }
-	    }
-	  }, {
-	    key: "_randomIndex",
-	    value: function _randomIndex() {
-	      return Math.random().toString(36).slice(2);
-	    }
-	  }, {
-	    key: "execute",
-	    value: function execute(cb) {
-	      var e, returned;
-
-	      returned = function () {
-	        try {
-	          return this.task.apply(this, _toConsumableArray(this.args));
-	        } catch (error) {
-	          e = error;
-	          return this.Promise.reject(e);
-	        }
-	      }.call(this);
-
-	      return (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function") ? this.Promise.resolve(returned) : returned).then(function (passed) {
-	        return cb(null, passed);
-	      }).catch(function (err) {
-	        return cb(err);
-	      });
-	    }
-	  }, {
-	    key: "done",
-	    value: function done(err, passed) {
-	      if (err != null) {
-	        return this.reject(err);
-	      } else {
-	        return this.resolve(passed);
-	      }
-	    }
-	  }]);
-
-	  return Job;
-	}();
-
-	var Job_1 = Job;
-
 	var BottleneckError;
 
 	BottleneckError =
@@ -1517,9 +1434,307 @@
 
 	var BottleneckError_1 = BottleneckError;
 
-	var BottleneckError$1, LocalDatastore, parser$2;
-	parser$2 = parser;
+	var BottleneckError$1, DEFAULT_PRIORITY, Job, NUM_PRIORITIES, parser$1;
+	NUM_PRIORITIES = 10;
+	DEFAULT_PRIORITY = 5;
+	parser$1 = parser;
 	BottleneckError$1 = BottleneckError_1;
+
+	Job =
+	/*#__PURE__*/
+	function () {
+	  function Job(task, args, options, jobDefaults, rejectOnDrop, Events, _states, Promise) {
+	    var _this = this;
+
+	    _classCallCheck(this, Job);
+
+	    this.task = task;
+	    this.args = args;
+	    this.rejectOnDrop = rejectOnDrop;
+	    this.Events = Events;
+	    this._states = _states;
+	    this.Promise = Promise;
+	    this.options = parser$1.load(options, jobDefaults);
+	    this.options.priority = this._sanitizePriority(this.options.priority);
+
+	    if (this.options.id === jobDefaults.id) {
+	      this.options.id = "".concat(this.options.id, "-").concat(this._randomIndex());
+	    }
+
+	    this.promise = new this.Promise(function (_resolve, _reject) {
+	      _this._resolve = _resolve;
+	      _this._reject = _reject;
+	    });
+	    this.retryCount = 0;
+	  }
+
+	  _createClass(Job, [{
+	    key: "_sanitizePriority",
+	    value: function _sanitizePriority(priority) {
+	      var sProperty;
+	      sProperty = ~~priority !== priority ? DEFAULT_PRIORITY : priority;
+
+	      if (sProperty < 0) {
+	        return 0;
+	      } else if (sProperty > NUM_PRIORITIES - 1) {
+	        return NUM_PRIORITIES - 1;
+	      } else {
+	        return sProperty;
+	      }
+	    }
+	  }, {
+	    key: "_randomIndex",
+	    value: function _randomIndex() {
+	      return Math.random().toString(36).slice(2);
+	    }
+	  }, {
+	    key: "doDrop",
+	    value: function doDrop() {
+	      var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+	          error = _ref.error,
+	          _ref$message = _ref.message,
+	          message = _ref$message === void 0 ? "This job has been dropped by Bottleneck" : _ref$message;
+
+	      if (this._states.remove(this.options.id)) {
+	        if (this.rejectOnDrop) {
+	          this._reject(error != null ? error : new BottleneckError$1(message));
+	        }
+
+	        this.Events.trigger("dropped", {
+	          task: this.task,
+	          args: this.args,
+	          options: this.options,
+	          promise: this.promise
+	        });
+	        return true;
+	      } else {
+	        return false;
+	      }
+	    }
+	  }, {
+	    key: "_assertStatus",
+	    value: function _assertStatus(expected) {
+	      var status;
+	      status = this._states.jobStatus(this.options.id);
+
+	      if (!(status === expected || expected === "DONE" && status === null)) {
+	        throw new BottleneckError$1("Invalid job status ".concat(status, ", expected ").concat(expected, ". Please open an issue at https://github.com/SGrondin/bottleneck/issues"));
+	      }
+	    }
+	  }, {
+	    key: "doReceive",
+	    value: function doReceive() {
+	      if (this._states.jobStatus(this.options.id) != null) {
+	        this._reject(new BottleneckError$1("A job with the same id already exists (id=".concat(this.options.id, ")")));
+
+	        return false;
+	      } else {
+	        this._states.start(this.options.id);
+
+	        this.Events.trigger("debug", "Queueing ".concat(this.options.id), {
+	          args: this.args,
+	          options: this.options
+	        });
+	        return true;
+	      }
+	    }
+	  }, {
+	    key: "doQueue",
+	    value: function doQueue(reachedHWM, blocked) {
+	      this._assertStatus("RECEIVED");
+
+	      this._states.next(this.options.id);
+
+	      return this.Events.trigger("debug", "Queued ".concat(this.options.id), {
+	        args: this.args,
+	        options: this.options,
+	        reachedHWM: reachedHWM,
+	        blocked: blocked
+	      });
+	    }
+	  }, {
+	    key: "doRun",
+	    value: function doRun() {
+	      if (this.retryCount === 0) {
+	        this._assertStatus("QUEUED");
+
+	        this._states.next(this.options.id);
+	      } else {
+	        this._assertStatus("EXECUTING");
+	      }
+
+	      return this.Events.trigger("debug", "Scheduling ".concat(this.options.id), {
+	        args: this.args,
+	        options: this.options
+	      });
+	    }
+	  }, {
+	    key: "doExecute",
+	    value: function () {
+	      var _doExecute = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee(chained, clearGlobalState, run, free) {
+	        var error, eventInfo, passed;
+	        return regeneratorRuntime.wrap(function _callee$(_context) {
+	          while (1) {
+	            switch (_context.prev = _context.next) {
+	              case 0:
+	                if (this.retryCount === 0) {
+	                  this._assertStatus("RUNNING");
+
+	                  this._states.next(this.options.id);
+	                } else {
+	                  this._assertStatus("EXECUTING");
+	                }
+
+	                this.Events.trigger("debug", "Executing ".concat(this.options.id), {
+	                  args: this.args,
+	                  options: this.options
+	                });
+	                eventInfo = {
+	                  args: this.args,
+	                  options: this.options,
+	                  retryCount: this.retryCount
+	                };
+	                _context.prev = 3;
+	                _context.next = 6;
+	                return chained != null ? chained.schedule.apply(chained, [this.options, this.task].concat(_toConsumableArray(this.args))) : this.task.apply(this, _toConsumableArray(this.args));
+
+	              case 6:
+	                passed = _context.sent;
+
+	                if (!clearGlobalState()) {
+	                  _context.next = 12;
+	                  break;
+	                }
+
+	                this.doDone(eventInfo);
+	                _context.next = 11;
+	                return free(this.options, eventInfo);
+
+	              case 11:
+	                return _context.abrupt("return", this.doResolve(null, passed));
+
+	              case 12:
+	                _context.next = 18;
+	                break;
+
+	              case 14:
+	                _context.prev = 14;
+	                _context.t0 = _context["catch"](3);
+	                error = _context.t0;
+	                return _context.abrupt("return", this._onFailure(error, eventInfo, clearGlobalState, run, free));
+
+	              case 18:
+	              case "end":
+	                return _context.stop();
+	            }
+	          }
+	        }, _callee, this, [[3, 14]]);
+	      }));
+
+	      return function doExecute(_x, _x2, _x3, _x4) {
+	        return _doExecute.apply(this, arguments);
+	      };
+	    }()
+	  }, {
+	    key: "doExpire",
+	    value: function doExpire(clearGlobalState, run, free) {
+	      var error, eventInfo;
+
+	      this._assertStatus("EXECUTING");
+
+	      eventInfo = {
+	        args: this.args,
+	        options: this.options,
+	        retryCount: this.retryCount
+	      };
+	      error = new BottleneckError$1("This job timed out after ".concat(this.options.expiration, " ms."));
+	      return this._onFailure(error, eventInfo, clearGlobalState, run, free);
+	    }
+	  }, {
+	    key: "_onFailure",
+	    value: function () {
+	      var _onFailure2 = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee2(error, eventInfo, clearGlobalState, run, free) {
+	        var retry, retryAfter;
+	        return regeneratorRuntime.wrap(function _callee2$(_context2) {
+	          while (1) {
+	            switch (_context2.prev = _context2.next) {
+	              case 0:
+	                if (!clearGlobalState()) {
+	                  _context2.next = 15;
+	                  break;
+	                }
+
+	                _context2.next = 3;
+	                return this.Events.trigger("failed", error, eventInfo);
+
+	              case 3:
+	                retry = _context2.sent;
+
+	                if (!(retry != null)) {
+	                  _context2.next = 11;
+	                  break;
+	                }
+
+	                retryAfter = ~~retry;
+	                this.Events.trigger("retry", "Retrying ".concat(this.options.id, " after ").concat(retryAfter, " ms"), eventInfo);
+	                this.retryCount++;
+	                return _context2.abrupt("return", run(retryAfter));
+
+	              case 11:
+	                this.doDone(eventInfo);
+	                _context2.next = 14;
+	                return free(this.options, eventInfo);
+
+	              case 14:
+	                return _context2.abrupt("return", this.doResolve(error));
+
+	              case 15:
+	              case "end":
+	                return _context2.stop();
+	            }
+	          }
+	        }, _callee2, this);
+	      }));
+
+	      return function _onFailure(_x5, _x6, _x7, _x8, _x9) {
+	        return _onFailure2.apply(this, arguments);
+	      };
+	    }()
+	  }, {
+	    key: "doDone",
+	    value: function doDone(eventInfo) {
+	      this._assertStatus("EXECUTING");
+
+	      this._states.next(this.options.id);
+
+	      this.Events.trigger("debug", "Completed ".concat(this.options.id), eventInfo);
+	      return this.Events.trigger("done", "Completed ".concat(this.options.id), eventInfo);
+	    }
+	  }, {
+	    key: "doResolve",
+	    value: function doResolve(error, passed) {
+	      this._assertStatus("DONE");
+
+	      if (error != null) {
+	        return this._reject(error);
+	      } else {
+	        return this._resolve(passed);
+	      }
+	    }
+	  }]);
+
+	  return Job;
+	}();
+
+	var Job_1 = Job;
+
+	var BottleneckError$2, LocalDatastore, parser$2;
+	parser$2 = parser;
+	BottleneckError$2 = BottleneckError_1;
 
 	LocalDatastore =
 	/*#__PURE__*/
@@ -1999,7 +2214,7 @@
 	                  break;
 	                }
 
-	                throw new BottleneckError$1("Impossible to add a job having a weight of ".concat(weight, " to a limiter having a maxConcurrent setting of ").concat(this.storeOptions.maxConcurrent));
+	                throw new BottleneckError$2("Impossible to add a job having a weight of ".concat(weight, " to a limiter having a maxConcurrent setting of ").concat(this.storeOptions.maxConcurrent));
 
 	              case 4:
 	                now = Date.now();
@@ -2753,9 +2968,9 @@
 
 	var IORedisConnection_1 = IORedisConnection;
 
-	var BottleneckError$2, IORedisConnection$1, RedisConnection$1, RedisDatastore, parser$5;
+	var BottleneckError$3, IORedisConnection$1, RedisConnection$1, RedisDatastore, parser$5;
 	parser$5 = parser;
-	BottleneckError$2 = BottleneckError_1;
+	BottleneckError$3 = BottleneckError_1;
 	RedisConnection$1 = RedisConnection_1;
 	IORedisConnection$1 = IORedisConnection_1;
 
@@ -3314,7 +3529,7 @@
 	                overweight = _e$message$split2[0];
 	                weight = _e$message$split2[1];
 	                maxConcurrent = _e$message$split2[2];
-	                throw new BottleneckError$2("Impossible to add a job having a weight of ".concat(weight, " to a limiter having a maxConcurrent setting of ").concat(maxConcurrent));
+	                throw new BottleneckError$3("Impossible to add a job having a weight of ".concat(weight, " to a limiter having a maxConcurrent setting of ").concat(maxConcurrent));
 
 	              case 23:
 	                throw e;
@@ -3370,8 +3585,8 @@
 
 	var RedisDatastore_1 = RedisDatastore;
 
-	var BottleneckError$3, States;
-	BottleneckError$3 = BottleneckError_1;
+	var BottleneckError$4, States;
+	BottleneckError$4 = BottleneckError_1;
 
 	States =
 	/*#__PURE__*/
@@ -3438,7 +3653,7 @@
 	        pos = this.status.indexOf(status);
 
 	        if (pos < 0) {
-	          throw new BottleneckError$3("status must be one of ".concat(this.status.join(', ')));
+	          throw new BottleneckError$4("status must be one of ".concat(this.status.join(', ')));
 	        }
 
 	        ref = this.jobs;
@@ -3989,19 +4204,19 @@
 	var require$$8 = getCjsExportFromNamespace(version$2);
 
 	var Bottleneck,
-	    DEFAULT_PRIORITY,
+	    DEFAULT_PRIORITY$1,
 	    Events$6,
 	    Job$1,
 	    LocalDatastore$1,
-	    NUM_PRIORITIES,
+	    NUM_PRIORITIES$1,
 	    Queues$1,
 	    RedisDatastore$1,
 	    States$1,
 	    Sync$1,
 	    parser$8,
 	    splice$1 = [].splice;
-	NUM_PRIORITIES = 10;
-	DEFAULT_PRIORITY = 5;
+	NUM_PRIORITIES$1 = 10;
+	DEFAULT_PRIORITY$1 = 5;
 	parser$8 = parser;
 	Queues$1 = Queues_1;
 	Job$1 = Job_1;
@@ -4036,7 +4251,7 @@
 	      this._validateOptions(options, invalid);
 
 	      parser$8.load(options, this.instanceDefaults, this);
-	      this._queues = new Queues$1(NUM_PRIORITIES);
+	      this._queues = new Queues$1(NUM_PRIORITIES$1);
 	      this._scheduled = {};
 	      this._states = new States$1(["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(this.trackDoneStatus ? ["DONE"] : []));
 	      this._limiter = null;
@@ -4164,148 +4379,83 @@
 	        return this._store.__check__(weight);
 	      }
 	    }, {
-	      key: "_handler",
+	      key: "_clearGlobalState",
+	      value: function _clearGlobalState(index) {
+	        if (this._scheduled[index] != null) {
+	          clearTimeout(this._scheduled[index].expiration);
+	          delete this._scheduled[index];
+	          return true;
+	        } else {
+	          return false;
+	        }
+	      }
+	    }, {
+	      key: "_free",
 	      value: function () {
-	        var _handler2 = _asyncToGenerator(
+	        var _free2 = _asyncToGenerator(
 	        /*#__PURE__*/
-	        regeneratorRuntime.mark(function _callee(index, job, error, passed) {
-	          var args, e, eventInfo, options, retry, retryAfter, retryCount, running, _ref;
+	        regeneratorRuntime.mark(function _callee(index, job, options, eventInfo) {
+	          var e, running, _ref;
 
 	          return regeneratorRuntime.wrap(function _callee$(_context) {
 	            while (1) {
 	              switch (_context.prev = _context.next) {
 	                case 0:
 	                  _context.prev = 0;
-
-	                  if (!(this._scheduled[index] == null)) {
-	                    _context.next = 3;
-	                    break;
-	                  }
-
-	                  return _context.abrupt("return");
-
-	                case 3:
-	                  args = job.args;
-	                  options = job.options;
-	                  retryCount = job.retryCount;
-	                  clearTimeout(this._scheduled[index].expiration);
-	                  delete this._scheduled[index];
-	                  eventInfo = {
-	                    args: args,
-	                    options: options,
-	                    retryCount: retryCount
-	                  };
-
-	                  if (!(error != null)) {
-	                    _context.next = 18;
-	                    break;
-	                  }
-
-	                  _context.next = 12;
-	                  return this.Events.trigger("failed", error, eventInfo);
-
-	                case 12:
-	                  retry = _context.sent;
-
-	                  if (!(retry != null)) {
-	                    _context.next = 18;
-	                    break;
-	                  }
-
-	                  retryAfter = ~~retry;
-	                  this.Events.trigger("retry", "Retrying ".concat(options.id, " after ").concat(retryAfter, " ms"), eventInfo);
-	                  job.retryCount++;
-	                  return _context.abrupt("return", this._run(job, retryAfter, index));
-
-	                case 18:
-	                  this._states.next(options.id); // DONE
-
-
-	                  this.Events.trigger("debug", "Completed ".concat(options.id), eventInfo);
-	                  this.Events.trigger("done", "Completed ".concat(options.id), eventInfo);
-	                  _context.next = 23;
+	                  _context.next = 3;
 	                  return this._store.__free__(index, options.weight);
 
-	                case 23:
+	                case 3:
 	                  _ref = _context.sent;
 	                  running = _ref.running;
 	                  this.Events.trigger("debug", "Freed ".concat(options.id), eventInfo);
 
-	                  if (running === 0 && this.empty()) {
-	                    this.Events.trigger("idle");
+	                  if (!(running === 0 && this.empty())) {
+	                    _context.next = 8;
+	                    break;
 	                  }
 
-	                  return _context.abrupt("return", job.done(error, passed));
+	                  return _context.abrupt("return", this.Events.trigger("idle"));
 
-	                case 30:
-	                  _context.prev = 30;
+	                case 8:
+	                  _context.next = 14;
+	                  break;
+
+	                case 10:
+	                  _context.prev = 10;
 	                  _context.t0 = _context["catch"](0);
 	                  e = _context.t0;
 	                  return _context.abrupt("return", this.Events.trigger("error", e));
 
-	                case 34:
+	                case 14:
 	                case "end":
 	                  return _context.stop();
 	              }
 	            }
-	          }, _callee, this, [[0, 30]]);
+	          }, _callee, this, [[0, 10]]);
 	        }));
 
-	        return function _handler(_x, _x2, _x3, _x4) {
-	          return _handler2.apply(this, arguments);
+	        return function _free(_x, _x2, _x3, _x4) {
+	          return _free2.apply(this, arguments);
 	        };
 	      }()
 	    }, {
 	      key: "_run",
-	      value: function _run(job, wait, index) {
+	      value: function _run(index, job, wait) {
 	        var _this2 = this;
 
-	        var args, options, retryCount, task;
-	        task = job.task;
-	        args = job.args;
-	        options = job.options;
-	        retryCount = job.retryCount;
-	        this.Events.trigger("debug", "Scheduling ".concat(options.id), {
-	          args: args,
-	          options: options
-	        });
-
-	        if (retryCount === 0) {
-	          // RUNNING
-	          this._states.next(options.id);
-	        }
-
+	        var clearGlobalState, free, run;
+	        job.doRun();
+	        clearGlobalState = this._clearGlobalState.bind(this, index);
+	        run = this._run.bind(this, index, job);
+	        free = this._free.bind(this, index, job);
 	        return this._scheduled[index] = {
 	          timeout: setTimeout(function () {
-	            var handler;
-
-	            _this2.Events.trigger("debug", "Executing ".concat(options.id), {
-	              args: args,
-	              options: options
-	            });
-
-	            if (retryCount === 0) {
-	              // EXECUTING
-	              _this2._states.next(options.id);
-	            }
-
-	            handler = _this2._handler.bind(_this2, index, job);
-
-	            if (_this2._limiter != null) {
-	              var _this2$_limiter;
-
-	              return (_this2$_limiter = _this2._limiter).schedule.apply(_this2$_limiter, [options, task].concat(_toConsumableArray(args))).then(function (passed) {
-	                return handler(null, passed);
-	              }).catch(function (error) {
-	                return handler(error);
-	              });
-	            } else {
-	              return job.execute(handler);
-	            }
+	            return job.doExecute(_this2._limiter, clearGlobalState, run, free);
 	          }, wait),
-	          expiration: options.expiration != null ? setTimeout(function () {
-	            return _this2._handler(index, job, new Bottleneck.prototype.BottleneckError("This job timed out after ".concat(options.expiration, " ms.")));
-	          }, wait + options.expiration) : void 0,
+	          expiration: job.options.expiration != null ? setTimeout(function () {
+	            return job.doExpire(clearGlobalState, run, free);
+	          }, wait + job.options.expiration) : void 0,
 	          job: job
 	        };
 	      }
@@ -4362,7 +4512,7 @@
 	                _this3.Events.trigger("depleted", empty);
 	              }
 
-	              _this3._run(next, wait, index);
+	              _this3._run(index, next, wait);
 
 	              return _this3.Promise.resolve(options.weight);
 	            } else {
@@ -4391,31 +4541,18 @@
 	        });
 	      }
 	    }, {
-	      key: "_drop",
-	      value: function _drop(job) {
-	        var message = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "This job has been dropped by Bottleneck";
-
-	        if (this._states.remove(job.options.id)) {
-	          if (this.rejectOnDrop) {
-	            job.reject(new Bottleneck.prototype.BottleneckError(message));
-	          }
-
-	          return this.Events.trigger("dropped", job);
-	        }
-	      }
-	    }, {
 	      key: "_dropAllQueued",
 	      value: function _dropAllQueued(message) {
-	        var _this5 = this;
-
 	        return this._queues.shiftAll(function (job) {
-	          return _this5._drop(job, message);
+	          return job.doDrop({
+	            message: message
+	          });
 	        });
 	      }
 	    }, {
 	      key: "stop",
 	      value: function stop() {
-	        var _this6 = this;
+	        var _this5 = this;
 
 	        var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 	        var done, waitForExecuting;
@@ -4426,17 +4563,17 @@
 
 	          finished = function finished() {
 	            var counts;
-	            counts = _this6._states.counts;
+	            counts = _this5._states.counts;
 	            return counts[0] + counts[1] + counts[2] + counts[3] === at;
 	          };
 
-	          return new _this6.Promise(function (resolve, reject) {
+	          return new _this5.Promise(function (resolve, reject) {
 	            if (finished()) {
 	              return resolve();
 	            } else {
-	              return _this6.on("done", function () {
+	              return _this5.on("done", function () {
 	                if (finished()) {
-	                  _this6.removeAllListeners("done");
+	                  _this5.removeAllListeners("done");
 
 	                  return resolve();
 	                }
@@ -4445,43 +4582,46 @@
 	          });
 	        };
 
-	        done = options.dropWaitingJobs ? (this._run = function (next) {
-	          return _this6._drop(next, options.dropErrorMessage);
+	        done = options.dropWaitingJobs ? (this._run = function (index, next) {
+	          return next.doDrop({
+	            message: options.dropErrorMessage
+	          });
 	        }, this._drainOne = function () {
-	          return _this6.Promise.resolve(null);
+	          return _this5.Promise.resolve(null);
 	        }, this._registerLock.schedule(function () {
-	          return _this6._submitLock.schedule(function () {
+	          return _this5._submitLock.schedule(function () {
 	            var k, ref, v;
-	            ref = _this6._scheduled;
+	            ref = _this5._scheduled;
 
 	            for (k in ref) {
 	              v = ref[k];
 
-	              if (_this6.jobStatus(v.job.options.id) === "RUNNING") {
+	              if (_this5.jobStatus(v.job.options.id) === "RUNNING") {
 	                clearTimeout(v.timeout);
 	                clearTimeout(v.expiration);
-
-	                _this6._drop(v.job, options.dropErrorMessage);
+	                v.job.doDrop({
+	                  message: options.dropErrorMessage
+	                });
 	              }
 	            }
 
-	            _this6._dropAllQueued(options.dropErrorMessage);
+	            _this5._dropAllQueued(options.dropErrorMessage);
 
 	            return waitForExecuting(0);
 	          });
 	        })) : this.schedule({
-	          priority: NUM_PRIORITIES - 1,
+	          priority: NUM_PRIORITIES$1 - 1,
 	          weight: 0
 	        }, function () {
 	          return waitForExecuting(1);
 	        });
 
 	        this._addToQueue = function (job) {
-	          return job.reject(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage));
+	          return job._reject(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage));
 	        };
 
 	        this.stop = function () {
-	          return _this6.Promise.reject(new Bottleneck.prototype.BottleneckError("stop() has already been called"));
+	          return _this5.Promise.reject(new Bottleneck.prototype.BottleneckError("stop() has already been called"));
 	        };
 
 	        return done;
@@ -4489,31 +4629,22 @@
 	    }, {
 	      key: "_addToQueue",
 	      value: function _addToQueue(job) {
-	        var _this7 = this;
+	        var _this6 = this;
 
-	        var args, options, reject;
+	        var args, options;
 	        args = job.args;
 	        options = job.options;
-	        reject = job.reject;
 
-	        if (this.jobStatus(options.id) != null) {
-	          reject(new Bottleneck.prototype.BottleneckError("A job with the same id already exists (id=".concat(options.id, ")")));
+	        if (!job.doReceive()) {
 	          return false;
 	        }
 
-	        this._states.start(options.id); // RECEIVED
-
-
-	        this.Events.trigger("debug", "Queueing ".concat(options.id), {
-	          args: args,
-	          options: options
-	        });
 	        return this._submitLock.schedule(
 	        /*#__PURE__*/
 	        _asyncToGenerator(
 	        /*#__PURE__*/
 	        regeneratorRuntime.mark(function _callee2() {
-	          var blocked, e, reachedHWM, shifted, strategy, _ref4;
+	          var blocked, error, reachedHWM, shifted, strategy, _ref4;
 
 	          return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	            while (1) {
@@ -4521,97 +4652,87 @@
 	                case 0:
 	                  _context2.prev = 0;
 	                  _context2.next = 3;
-	                  return _this7._store.__submit__(_this7.queued(), options.weight);
+	                  return _this6._store.__submit__(_this6.queued(), options.weight);
 
 	                case 3:
 	                  _ref4 = _context2.sent;
 	                  reachedHWM = _ref4.reachedHWM;
 	                  blocked = _ref4.blocked;
 	                  strategy = _ref4.strategy;
-
-	                  _this7.Events.trigger("debug", "Queued ".concat(options.id), {
-	                    args: args,
-	                    options: options,
-	                    reachedHWM: reachedHWM,
-	                    blocked: blocked
-	                  });
-
-	                  _context2.next = 17;
+	                  _context2.next = 15;
 	                  break;
 
-	                case 10:
-	                  _context2.prev = 10;
+	                case 9:
+	                  _context2.prev = 9;
 	                  _context2.t0 = _context2["catch"](0);
-	                  e = _context2.t0;
+	                  error = _context2.t0;
 
-	                  _this7._states.remove(options.id);
-
-	                  _this7.Events.trigger("debug", "Could not queue ".concat(options.id), {
+	                  _this6.Events.trigger("debug", "Could not queue ".concat(options.id), {
 	                    args: args,
 	                    options: options,
-	                    error: e
+	                    error: error
 	                  });
 
-	                  reject(e);
+	                  job.doDrop({
+	                    error: error
+	                  });
 	                  return _context2.abrupt("return", false);
 
-	                case 17:
+	                case 15:
 	                  if (!blocked) {
-	                    _context2.next = 22;
+	                    _context2.next = 20;
 	                    break;
 	                  }
 
-	                  _this7._drop(job);
-
+	                  job.doDrop();
 	                  return _context2.abrupt("return", true);
 
-	                case 22:
+	                case 20:
 	                  if (!reachedHWM) {
-	                    _context2.next = 28;
+	                    _context2.next = 26;
 	                    break;
 	                  }
 
-	                  shifted = strategy === Bottleneck.prototype.strategy.LEAK ? _this7._queues.shiftLastFrom(options.priority) : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? _this7._queues.shiftLastFrom(options.priority + 1) : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
+	                  shifted = strategy === Bottleneck.prototype.strategy.LEAK ? _this6._queues.shiftLastFrom(options.priority) : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? _this6._queues.shiftLastFrom(options.priority + 1) : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
 
 	                  if (shifted != null) {
-	                    _this7._drop(shifted);
+	                    shifted.doDrop();
 	                  }
 
 	                  if (!(shifted == null || strategy === Bottleneck.prototype.strategy.OVERFLOW)) {
-	                    _context2.next = 28;
+	                    _context2.next = 26;
 	                    break;
 	                  }
 
 	                  if (shifted == null) {
-	                    _this7._drop(job);
+	                    job.doDrop();
 	                  }
 
 	                  return _context2.abrupt("return", reachedHWM);
 
-	                case 28:
-	                  _this7._states.next(options.id); // QUEUED
+	                case 26:
+	                  job.doQueue(reachedHWM, blocked);
 
+	                  _this6._queues.push(job);
 
-	                  _this7._queues.push(options.priority, job);
+	                  _context2.next = 30;
+	                  return _this6._drainAll();
 
-	                  _context2.next = 32;
-	                  return _this7._drainAll();
-
-	                case 32:
+	                case 30:
 	                  return _context2.abrupt("return", reachedHWM);
 
-	                case 33:
+	                case 31:
 	                case "end":
 	                  return _context2.stop();
 	              }
 	            }
-	          }, _callee2, this, [[0, 10]]);
+	          }, _callee2, this, [[0, 9]]);
 	        })));
 	      }
 	    }, {
 	      key: "submit",
 	      value: function submit() {
-	        var _this8 = this;
+	        var _this7 = this;
 
 	        for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
 	          args[_key2] = arguments[_key2];
@@ -4636,7 +4757,7 @@
 	            args[_key3] = arguments[_key3];
 	          }
 
-	          return new _this8.Promise(function (resolve, reject) {
+	          return new _this7.Promise(function (resolve, reject) {
 	            return fn.apply(void 0, args.concat([function () {
 	              for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
 	                args[_key4] = arguments[_key4];
@@ -4647,7 +4768,7 @@
 	          });
 	        };
 
-	        job = new Job$1(task, args, options, this.jobDefaults, this.Promise, NUM_PRIORITIES, DEFAULT_PRIORITY);
+	        job = new Job$1(task, args, options, this.jobDefaults, this.rejectOnDrop, this.Events, this._states, this.Promise);
 	        job.promise.then(function (args) {
 	          return typeof cb === "function" ? cb.apply(void 0, _toConsumableArray(args)) : void 0;
 	        }).catch(function (args) {
@@ -4686,7 +4807,7 @@
 	          args = _args6.slice(2);
 	        }
 
-	        job = new Job$1(task, args, options, this.jobDefaults, this.Promise, NUM_PRIORITIES, DEFAULT_PRIORITY);
+	        job = new Job$1(task, args, options, this.jobDefaults, this.rejectOnDrop, this.Events, this._states, this.Promise);
 
 	        this._addToQueue(job);
 
@@ -4778,7 +4899,7 @@
 	  Bottleneck.IORedisConnection = Bottleneck.prototype.IORedisConnection = IORedisConnection_1;
 	  Bottleneck.Batcher = Bottleneck.prototype.Batcher = Batcher_1;
 	  Bottleneck.prototype.jobDefaults = {
-	    priority: DEFAULT_PRIORITY,
+	    priority: DEFAULT_PRIORITY$1,
 	    weight: 1,
 	    expiration: null,
 	    id: "<no-id>"

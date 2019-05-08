@@ -481,6 +481,12 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
           return acc + ~~weights[x]
         }, 0)
       }
+      var numExpirations = 0
+      var errorHandler = function (err) {
+        if (err.message.indexOf('This job timed out') === 0) {
+          numExpirations++
+        }
+      }
 
       return Promise.all([c.limiter.ready(), limiter1.ready(), limiter2.ready()])
       .then(function () {
@@ -488,10 +494,10 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         c.pNoErrVal(c.limiter.schedule({ weight: 1 }, c.slowPromise, 150, null, 1), 1),
 
         // Expiration present, these jobs should be removed automatically
-        c.limiter.schedule({ expiration: 50, weight: 2 }, c.slowPromise, 75, null, 2),
-        c.limiter.schedule({ expiration: 50, weight: 3 }, c.slowPromise, 75, null, 3),
-        c.limiter.schedule({ expiration: 50, weight: 4 }, c.slowPromise, 75, null, 4),
-        c.limiter.schedule({ expiration: 50, weight: 5 }, c.slowPromise, 75, null, 5)
+        c.limiter.schedule({ expiration: 50, weight: 2 }, c.slowPromise, 75, null, 2).catch(errorHandler)
+        c.limiter.schedule({ expiration: 50, weight: 3 }, c.slowPromise, 75, null, 3).catch(errorHandler)
+        c.limiter.schedule({ expiration: 50, weight: 4 }, c.slowPromise, 75, null, 4).catch(errorHandler)
+        c.limiter.schedule({ expiration: 50, weight: 5 }, c.slowPromise, 75, null, 5).catch(errorHandler)
 
         return c.limiter._submitLock.schedule(() => Promise.resolve(true))
       })
@@ -554,6 +560,8 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
         assert(client_last_seen[1] > Date.now() - 1000)
         var passed = Date.now() - parseFloat(client_last_registered[3])
         assert(passed > 170 && passed < 200)
+
+        c.mustEqual(numExpirations, 4)
       })
       .then(function () {
         return Promise.all([

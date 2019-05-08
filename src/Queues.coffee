@@ -12,7 +12,7 @@ class Queues
 
   decr: -> if --@_length == 0 then @Events.trigger "zero"
 
-  push: (priority, job) -> @_lists[priority].push job
+  push: (job) -> @_lists[job.options.priority].push job
 
   queued: (priority) -> if priority? then @_lists[priority].length else @_length
 

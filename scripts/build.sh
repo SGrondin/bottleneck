@@ -54,6 +54,9 @@ makeTypings() {
 if [ "$1" = 'dev' ]; then
   clean
   makeLib10
+elif [ "$1" = 'bench' ]; then
+  clean
+  makeLib6
 elif [ "$1" = 'es5' ]; then
   clean
   makeES5
