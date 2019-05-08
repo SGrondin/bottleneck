@@ -1416,6 +1416,89 @@
 
 	var Queues_1 = Queues;
 
+	var Job, parser$1;
+	parser$1 = parser;
+
+	Job =
+	/*#__PURE__*/
+	function () {
+	  function Job(task, args, options, jobDefaults, Promise, NUM_PRIORITIES, DEFAULT_PRIORITY) {
+	    var _this = this;
+
+	    _classCallCheck(this, Job);
+
+	    this.task = task;
+	    this.args = args;
+	    this.Promise = Promise;
+	    this.options = parser$1.load(options, jobDefaults);
+	    this.options.priority = this._sanitizePriority(this.options.priority);
+
+	    if (this.options.id === jobDefaults.id) {
+	      this.options.id = "".concat(this.options.id, "-").concat(this._randomIndex());
+	    }
+
+	    this.promise = new this.Promise(function (resolve, reject) {
+	      _this.resolve = resolve;
+	      _this.reject = reject;
+	    });
+	    this.retryCount = 0;
+	  }
+
+	  _createClass(Job, [{
+	    key: "_sanitizePriority",
+	    value: function _sanitizePriority(priority, NUM_PRIORITIES, DEFAULT_PRIORITY) {
+	      var sProperty;
+	      sProperty = ~~priority !== priority ? DEFAULT_PRIORITY : priority;
+
+	      if (sProperty < 0) {
+	        return 0;
+	      } else if (sProperty > NUM_PRIORITIES - 1) {
+	        return NUM_PRIORITIES - 1;
+	      } else {
+	        return sProperty;
+	      }
+	    }
+	  }, {
+	    key: "_randomIndex",
+	    value: function _randomIndex() {
+	      return Math.random().toString(36).slice(2);
+	    }
+	  }, {
+	    key: "execute",
+	    value: function execute(cb) {
+	      var e, returned;
+
+	      returned = function () {
+	        try {
+	          return this.task.apply(this, _toConsumableArray(this.args));
+	        } catch (error) {
+	          e = error;
+	          return this.Promise.reject(e);
+	        }
+	      }.call(this);
+
+	      return (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function") ? this.Promise.resolve(returned) : returned).then(function (passed) {
+	        return cb(null, passed);
+	      }).catch(function (err) {
+	        return cb(err);
+	      });
+	    }
+	  }, {
+	    key: "done",
+	    value: function done(err, passed) {
+	      if (err != null) {
+	        return this.reject(err);
+	      } else {
+	        return this.resolve(passed);
+	      }
+	    }
+	  }]);
+
+	  return Job;
+	}();
+
+	var Job_1 = Job;
+
 	var BottleneckError;
 
 	BottleneckError =
@@ -1434,8 +1517,8 @@
 
 	var BottleneckError_1 = BottleneckError;
 
-	var BottleneckError$1, LocalDatastore, parser$1;
-	parser$1 = parser;
+	var BottleneckError$1, LocalDatastore, parser$2;
+	parser$2 = parser;
 	BottleneckError$1 = BottleneckError_1;
 
 	LocalDatastore =
@@ -1447,7 +1530,7 @@
 	    this.instance = instance;
 	    this.storeOptions = storeOptions;
 	    this.clientId = this.instance._randomIndex();
-	    parser$1.load(storeInstanceOptions, storeInstanceOptions, this);
+	    parser$2.load(storeInstanceOptions, storeInstanceOptions, this);
 	    this._nextRequest = this._lastReservoirRefresh = this._lastReservoirIncrease = Date.now();
 	    this._running = 0;
 	    this._done = 0;
@@ -1580,7 +1663,7 @@
 	                return this.yieldLoop();
 
 	              case 2:
-	                parser$1.overwrite(options, options, this.storeOptions);
+	                parser$2.overwrite(options, options, this.storeOptions);
 
 	                this._startHeartbeat();
 
@@ -2188,8 +2271,8 @@
 	var Scripts_3 = Scripts.keys;
 	var Scripts_4 = Scripts.payload;
 
-	var Events$2, RedisConnection, Scripts$1, parser$2;
-	parser$2 = parser;
+	var Events$2, RedisConnection, Scripts$1, parser$3;
+	parser$3 = parser;
 	Events$2 = Events_1;
 	Scripts$1 = Scripts;
 
@@ -2207,7 +2290,7 @@
 	      var Redis;
 	      Redis = eval("require")("redis"); // Obfuscated or else Webpack/Angular will try to inline the optional redis module
 
-	      parser$2.load(options, this.defaults, this);
+	      parser$3.load(options, this.defaults, this);
 
 	      if (this.Events == null) {
 	        this.Events = new Events$2(this);
@@ -2441,8 +2524,8 @@
 
 	var RedisConnection_1 = RedisConnection;
 
-	var Events$3, IORedisConnection, Scripts$2, parser$3;
-	parser$3 = parser;
+	var Events$3, IORedisConnection, Scripts$2, parser$4;
+	parser$4 = parser;
 	Events$3 = Events_1;
 	Scripts$2 = Scripts;
 
@@ -2460,7 +2543,7 @@
 	      var Redis;
 	      Redis = eval("require")("ioredis"); // Obfuscated or else Webpack/Angular will try to inline the optional ioredis module
 
-	      parser$3.load(options, this.defaults, this);
+	      parser$4.load(options, this.defaults, this);
 
 	      if (this.Events == null) {
 	        this.Events = new Events$3(this);
@@ -2670,8 +2753,8 @@
 
 	var IORedisConnection_1 = IORedisConnection;
 
-	var BottleneckError$2, IORedisConnection$1, RedisConnection$1, RedisDatastore, parser$4;
-	parser$4 = parser;
+	var BottleneckError$2, IORedisConnection$1, RedisConnection$1, RedisDatastore, parser$5;
+	parser$5 = parser;
 	BottleneckError$2 = BottleneckError_1;
 	RedisConnection$1 = RedisConnection_1;
 	IORedisConnection$1 = IORedisConnection_1;
@@ -2688,7 +2771,7 @@
 	    this.storeOptions = storeOptions;
 	    this.originalId = this.instance.id;
 	    this.clientId = this.instance._randomIndex();
-	    parser$4.load(storeInstanceOptions, storeInstanceOptions, this);
+	    parser$5.load(storeInstanceOptions, storeInstanceOptions, this);
 	    this.clients = {};
 	    this.capacityPriorityCounters = {};
 	    this.sharedConnection = this.connection != null;
@@ -3050,7 +3133,7 @@
 	                return this.runScript("update_settings", this.prepareObject(options));
 
 	              case 2:
-	                return _context5.abrupt("return", parser$4.overwrite(options, options, this.storeOptions));
+	                return _context5.abrupt("return", parser$5.overwrite(options, options, this.storeOptions));
 
 	              case 3:
 	              case "end":
@@ -3515,8 +3598,8 @@
 		default: version$1
 	});
 
-	var Events$4, Group, IORedisConnection$2, RedisConnection$2, Scripts$3, parser$5;
-	parser$5 = parser;
+	var Events$4, Group, IORedisConnection$2, RedisConnection$2, Scripts$3, parser$6;
+	parser$6 = parser;
 	Events$4 = Events_1;
 	RedisConnection$2 = RedisConnection_1;
 	IORedisConnection$2 = IORedisConnection_1;
@@ -3534,7 +3617,7 @@
 	      this.deleteKey = this.deleteKey.bind(this);
 	      this.updateSettings = this.updateSettings.bind(this);
 	      this.limiterOptions = limiterOptions;
-	      parser$5.load(this.limiterOptions, this.defaults, this);
+	      parser$6.load(this.limiterOptions, this.defaults, this);
 	      this.Events = new Events$4(this);
 	      this.instances = {};
 	      this.Bottleneck = Bottleneck_1;
@@ -3792,8 +3875,8 @@
 	      key: "updateSettings",
 	      value: function updateSettings() {
 	        var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-	        parser$5.overwrite(options, this.defaults, this);
-	        parser$5.overwrite(options, options, this.limiterOptions);
+	        parser$6.overwrite(options, this.defaults, this);
+	        parser$6.overwrite(options, options, this.limiterOptions);
 
 	        if (options.timeout != null) {
 	          return this._startAutoCleanup();
@@ -3824,8 +3907,8 @@
 
 	var Group_1 = Group;
 
-	var Batcher, Events$5, parser$6;
-	parser$6 = parser;
+	var Batcher, Events$5, parser$7;
+	parser$7 = parser;
 	Events$5 = Events_1;
 
 	Batcher = function () {
@@ -3838,7 +3921,7 @@
 	      _classCallCheck(this, Batcher);
 
 	      this.options = options;
-	      parser$6.load(this.options, this.defaults, this);
+	      parser$7.load(this.options, this.defaults, this);
 	      this.Events = new Events$5(this);
 	      this._arr = [];
 
@@ -3903,23 +3986,25 @@
 
 	var Batcher_1 = Batcher;
 
-	var require$$7 = getCjsExportFromNamespace(version$2);
+	var require$$8 = getCjsExportFromNamespace(version$2);
 
 	var Bottleneck,
 	    DEFAULT_PRIORITY,
 	    Events$6,
+	    Job$1,
 	    LocalDatastore$1,
 	    NUM_PRIORITIES,
 	    Queues$1,
 	    RedisDatastore$1,
 	    States$1,
 	    Sync$1,
-	    parser$7,
+	    parser$8,
 	    splice$1 = [].splice;
 	NUM_PRIORITIES = 10;
 	DEFAULT_PRIORITY = 5;
-	parser$7 = parser;
+	parser$8 = parser;
 	Queues$1 = Queues_1;
+	Job$1 = Job_1;
 	LocalDatastore$1 = LocalDatastore_1;
 	RedisDatastore$1 = RedisDatastore_1;
 	Events$6 = Events_1;
@@ -3950,7 +4035,7 @@
 
 	      this._validateOptions(options, invalid);
 
-	      parser$7.load(options, this.instanceDefaults, this);
+	      parser$8.load(options, this.instanceDefaults, this);
 	      this._queues = new Queues$1(NUM_PRIORITIES);
 	      this._scheduled = {};
 	      this._states = new States$1(["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(this.trackDoneStatus ? ["DONE"] : []));
@@ -3958,14 +4043,14 @@
 	      this.Events = new Events$6(this);
 	      this._submitLock = new Sync$1("submit", this.Promise);
 	      this._registerLock = new Sync$1("register", this.Promise);
-	      storeOptions = parser$7.load(options, this.storeDefaults, {});
+	      storeOptions = parser$8.load(options, this.storeDefaults, {});
 
 	      this._store = function () {
 	        if (this.datastore === "redis" || this.datastore === "ioredis" || this.connection != null) {
-	          storeInstanceOptions = parser$7.load(options, this.redisStoreDefaults, {});
+	          storeInstanceOptions = parser$8.load(options, this.redisStoreDefaults, {});
 	          return new RedisDatastore$1(this, storeOptions, storeInstanceOptions);
 	        } else if (this.datastore === "local") {
-	          storeInstanceOptions = parser$7.load(options, this.localStoreDefaults, {});
+	          storeInstanceOptions = parser$8.load(options, this.localStoreDefaults, {});
 	          return new LocalDatastore$1(this, storeOptions, storeInstanceOptions);
 	        } else {
 	          throw new Bottleneck.prototype.BottleneckError("Invalid datastore type: ".concat(this.datastore));
@@ -4068,20 +4153,6 @@
 	        return this._states.statusCounts();
 	      }
 	    }, {
-	      key: "_sanitizePriority",
-	      value: function _sanitizePriority(priority) {
-	        var sProperty;
-	        sProperty = ~~priority !== priority ? DEFAULT_PRIORITY : priority;
-
-	        if (sProperty < 0) {
-	          return 0;
-	        } else if (sProperty > NUM_PRIORITIES - 1) {
-	          return NUM_PRIORITIES - 1;
-	        } else {
-	          return sProperty;
-	        }
-	      }
-	    }, {
 	      key: "_randomIndex",
 	      value: function _randomIndex() {
 	        return Math.random().toString(36).slice(2);
@@ -4093,144 +4164,149 @@
 	        return this._store.__check__(weight);
 	      }
 	    }, {
+	      key: "_handler",
+	      value: function () {
+	        var _handler2 = _asyncToGenerator(
+	        /*#__PURE__*/
+	        regeneratorRuntime.mark(function _callee(index, job, error, passed) {
+	          var args, e, eventInfo, options, retry, retryAfter, retryCount, running, _ref;
+
+	          return regeneratorRuntime.wrap(function _callee$(_context) {
+	            while (1) {
+	              switch (_context.prev = _context.next) {
+	                case 0:
+	                  _context.prev = 0;
+
+	                  if (!(this._scheduled[index] == null)) {
+	                    _context.next = 3;
+	                    break;
+	                  }
+
+	                  return _context.abrupt("return");
+
+	                case 3:
+	                  args = job.args;
+	                  options = job.options;
+	                  retryCount = job.retryCount;
+	                  clearTimeout(this._scheduled[index].expiration);
+	                  delete this._scheduled[index];
+	                  eventInfo = {
+	                    args: args,
+	                    options: options,
+	                    retryCount: retryCount
+	                  };
+
+	                  if (!(error != null)) {
+	                    _context.next = 18;
+	                    break;
+	                  }
+
+	                  _context.next = 12;
+	                  return this.Events.trigger("failed", error, eventInfo);
+
+	                case 12:
+	                  retry = _context.sent;
+
+	                  if (!(retry != null)) {
+	                    _context.next = 18;
+	                    break;
+	                  }
+
+	                  retryAfter = ~~retry;
+	                  this.Events.trigger("retry", "Retrying ".concat(options.id, " after ").concat(retryAfter, " ms"), eventInfo);
+	                  job.retryCount++;
+	                  return _context.abrupt("return", this._run(job, retryAfter, index));
+
+	                case 18:
+	                  this._states.next(options.id); // DONE
+
+
+	                  this.Events.trigger("debug", "Completed ".concat(options.id), eventInfo);
+	                  this.Events.trigger("done", "Completed ".concat(options.id), eventInfo);
+	                  _context.next = 23;
+	                  return this._store.__free__(index, options.weight);
+
+	                case 23:
+	                  _ref = _context.sent;
+	                  running = _ref.running;
+	                  this.Events.trigger("debug", "Freed ".concat(options.id), eventInfo);
+
+	                  if (running === 0 && this.empty()) {
+	                    this.Events.trigger("idle");
+	                  }
+
+	                  return _context.abrupt("return", job.done(error, passed));
+
+	                case 30:
+	                  _context.prev = 30;
+	                  _context.t0 = _context["catch"](0);
+	                  e = _context.t0;
+	                  return _context.abrupt("return", this.Events.trigger("error", e));
+
+	                case 34:
+	                case "end":
+	                  return _context.stop();
+	              }
+	            }
+	          }, _callee, this, [[0, 30]]);
+	        }));
+
+	        return function _handler(_x, _x2, _x3, _x4) {
+	          return _handler2.apply(this, arguments);
+	        };
+	      }()
+	    }, {
 	      key: "_run",
-	      value: function _run(next, wait, index, retryCount) {
+	      value: function _run(job, wait, index) {
 	        var _this2 = this;
 
-	        var completed, done;
-	        this.Events.trigger("debug", "Scheduling ".concat(next.options.id), {
-	          args: next.args,
-	          options: next.options
+	        var args, options, retryCount, task;
+	        task = job.task;
+	        args = job.args;
+	        options = job.options;
+	        retryCount = job.retryCount;
+	        this.Events.trigger("debug", "Scheduling ".concat(options.id), {
+	          args: args,
+	          options: options
 	        });
-	        done = false;
-
-	        completed =
-	        /*#__PURE__*/
-	        function () {
-	          var _ref = _asyncToGenerator(
-	          /*#__PURE__*/
-	          regeneratorRuntime.mark(function _callee() {
-	            var e,
-	                error,
-	                eventInfo,
-	                retry,
-	                retryAfter,
-	                running,
-	                _ref2,
-	                _args = arguments;
-
-	            return regeneratorRuntime.wrap(function _callee$(_context) {
-	              while (1) {
-	                switch (_context.prev = _context.next) {
-	                  case 0:
-	                    if (done) {
-	                      _context.next = 30;
-	                      break;
-	                    }
-
-	                    _context.prev = 1;
-	                    done = true;
-	                    clearTimeout(_this2._scheduled[index].expiration);
-	                    delete _this2._scheduled[index];
-	                    eventInfo = {
-	                      args: next.args,
-	                      options: next.options,
-	                      retryCount: retryCount
-	                    };
-
-	                    if (!((error = _args.length <= 0 ? undefined : _args[0]) != null)) {
-	                      _context.next = 14;
-	                      break;
-	                    }
-
-	                    _context.next = 9;
-	                    return _this2.Events.trigger("failed", error, eventInfo);
-
-	                  case 9:
-	                    retry = _context.sent;
-
-	                    if (!(retry != null)) {
-	                      _context.next = 14;
-	                      break;
-	                    }
-
-	                    retryAfter = ~~retry;
-
-	                    _this2.Events.trigger("retry", "Retrying ".concat(next.options.id, " after ").concat(retryAfter, " ms"), eventInfo);
-
-	                    return _context.abrupt("return", _this2._run(next, retryAfter, index, retryCount + 1));
-
-	                  case 14:
-	                    _this2._states.next(next.options.id); // DONE
-
-
-	                    _this2.Events.trigger("debug", "Completed ".concat(next.options.id), eventInfo);
-
-	                    _this2.Events.trigger("done", "Completed ".concat(next.options.id), eventInfo);
-
-	                    _context.next = 19;
-	                    return _this2._store.__free__(index, next.options.weight);
-
-	                  case 19:
-	                    _ref2 = _context.sent;
-	                    running = _ref2.running;
-
-	                    _this2.Events.trigger("debug", "Freed ".concat(next.options.id), eventInfo);
-
-	                    if (running === 0 && _this2.empty()) {
-	                      _this2.Events.trigger("idle");
-	                    }
-
-	                    return _context.abrupt("return", typeof next.cb === "function" ? next.cb.apply(next, _args) : void 0);
-
-	                  case 26:
-	                    _context.prev = 26;
-	                    _context.t0 = _context["catch"](1);
-	                    e = _context.t0;
-	                    return _context.abrupt("return", _this2.Events.trigger("error", e));
-
-	                  case 30:
-	                  case "end":
-	                    return _context.stop();
-	                }
-	              }
-	            }, _callee, this, [[1, 26]]);
-	          }));
-
-	          return function completed() {
-	            return _ref.apply(this, arguments);
-	          };
-	        }();
 
 	        if (retryCount === 0) {
 	          // RUNNING
-	          this._states.next(next.options.id);
+	          this._states.next(options.id);
 	        }
 
 	        return this._scheduled[index] = {
 	          timeout: setTimeout(function () {
-	            _this2.Events.trigger("debug", "Executing ".concat(next.options.id), {
-	              args: next.args,
-	              options: next.options
+	            var handler;
+
+	            _this2.Events.trigger("debug", "Executing ".concat(options.id), {
+	              args: args,
+	              options: options
 	            });
 
 	            if (retryCount === 0) {
 	              // EXECUTING
-	              _this2._states.next(next.options.id);
+	              _this2._states.next(options.id);
 	            }
+
+	            handler = _this2._handler.bind(_this2, index, job);
 
 	            if (_this2._limiter != null) {
 	              var _this2$_limiter;
 
-	              return (_this2$_limiter = _this2._limiter).submit.apply(_this2$_limiter, [next.options, next.task].concat(_toConsumableArray(next.args), [completed]));
+	              return (_this2$_limiter = _this2._limiter).schedule.apply(_this2$_limiter, [options, task].concat(_toConsumableArray(args))).then(function (passed) {
+	                return handler(null, passed);
+	              }).catch(function (error) {
+	                return handler(error);
+	              });
 	            } else {
-	              return next.task.apply(next, _toConsumableArray(next.args).concat([completed]));
+	              return job.execute(handler);
 	            }
 	          }, wait),
-	          expiration: next.options.expiration != null ? setTimeout(function () {
-	            return completed(new Bottleneck.prototype.BottleneckError("This job timed out after ".concat(next.options.expiration, " ms.")));
-	          }, wait + next.options.expiration) : void 0,
-	          job: next
+	          expiration: options.expiration != null ? setTimeout(function () {
+	            return _this2._handler(index, job, new Bottleneck.prototype.BottleneckError("This job timed out after ".concat(options.expiration, " ms.")));
+	          }, wait + options.expiration) : void 0,
+	          job: job
 	        };
 	      }
 	    }, {
@@ -4262,10 +4338,10 @@
 	          });
 
 	          index = _this3._randomIndex();
-	          return _this3._store.__register__(index, options.weight, options.expiration).then(function (_ref3) {
-	            var success = _ref3.success,
-	                wait = _ref3.wait,
-	                reservoir = _ref3.reservoir;
+	          return _this3._store.__register__(index, options.weight, options.expiration).then(function (_ref2) {
+	            var success = _ref2.success,
+	                wait = _ref2.wait,
+	                reservoir = _ref2.reservoir;
 	            var empty;
 
 	            _this3.Events.trigger("debug", "Drained ".concat(options.id), {
@@ -4286,7 +4362,7 @@
 	                _this3.Events.trigger("depleted", empty);
 	              }
 
-	              _this3._run(next, wait, index, 0);
+	              _this3._run(next, wait, index);
 
 	              return _this3.Promise.resolve(options.weight);
 	            } else {
@@ -4321,9 +4397,7 @@
 
 	        if (this._states.remove(job.options.id)) {
 	          if (this.rejectOnDrop) {
-	            if (typeof job.cb === "function") {
-	              job.cb(new Bottleneck.prototype.BottleneckError(message));
-	            }
+	            job.reject(new Bottleneck.prototype.BottleneckError(message));
 	          }
 
 	          return this.Events.trigger("dropped", job);
@@ -4345,7 +4419,7 @@
 
 	        var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 	        var done, waitForExecuting;
-	        options = parser$7.load(options, this.stopDefaults);
+	        options = parser$8.load(options, this.stopDefaults);
 
 	        waitForExecuting = function waitForExecuting(at) {
 	          var finished;
@@ -4402,16 +4476,8 @@
 	          return waitForExecuting(1);
 	        });
 
-	        this.submit = function () {
-	          var _ref4, _ref5, _splice$call, _splice$call2;
-
-	          for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-	            args[_key2] = arguments[_key2];
-	          }
-
-	          var cb, ref;
-	          ref = args, (_ref4 = ref, _ref5 = _toArray(_ref4), args = _ref5.slice(0), _ref4), (_splice$call = splice$1.call(args, -1), _splice$call2 = _slicedToArray(_splice$call, 1), cb = _splice$call2[0], _splice$call);
-	          return typeof cb === "function" ? cb(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage)) : void 0;
+	        this._addToQueue = function (job) {
+	          return job.reject(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage));
 	        };
 
 	        this.stop = function () {
@@ -4421,45 +4487,17 @@
 	        return done;
 	      }
 	    }, {
-	      key: "submit",
-	      value: function submit() {
+	      key: "_addToQueue",
+	      value: function _addToQueue(job) {
 	        var _this7 = this;
 
-	        for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
-	          args[_key3] = arguments[_key3];
-	        }
-
-	        var cb, job, options, ref, ref1, task;
-
-	        if (typeof args[0] === "function") {
-	          var _ref6, _ref7, _splice$call3, _splice$call4;
-
-	          ref = args, (_ref6 = ref, _ref7 = _toArray(_ref6), task = _ref7[0], args = _ref7.slice(1), _ref6), (_splice$call3 = splice$1.call(args, -1), _splice$call4 = _slicedToArray(_splice$call3, 1), cb = _splice$call4[0], _splice$call3);
-	          options = parser$7.load({}, this.jobDefaults, {});
-	        } else {
-	          var _ref8, _ref9, _splice$call5, _splice$call6;
-
-	          ref1 = args, (_ref8 = ref1, _ref9 = _toArray(_ref8), options = _ref9[0], task = _ref9[1], args = _ref9.slice(2), _ref8), (_splice$call5 = splice$1.call(args, -1), _splice$call6 = _slicedToArray(_splice$call5, 1), cb = _splice$call6[0], _splice$call5);
-	          options = parser$7.load(options, this.jobDefaults);
-	        }
-
-	        job = {
-	          options: options,
-	          task: task,
-	          args: args,
-	          cb: cb
-	        };
-	        options.priority = this._sanitizePriority(options.priority);
-
-	        if (options.id === this.jobDefaults.id) {
-	          options.id = "".concat(options.id, "-").concat(this._randomIndex());
-	        }
+	        var args, options, reject;
+	        args = job.args;
+	        options = job.options;
+	        reject = job.reject;
 
 	        if (this.jobStatus(options.id) != null) {
-	          if (typeof job.cb === "function") {
-	            job.cb(new Bottleneck.prototype.BottleneckError("A job with the same id already exists (id=".concat(options.id, ")")));
-	          }
-
+	          reject(new Bottleneck.prototype.BottleneckError("A job with the same id already exists (id=".concat(options.id, ")")));
 	          return false;
 	        }
 
@@ -4475,7 +4513,7 @@
 	        _asyncToGenerator(
 	        /*#__PURE__*/
 	        regeneratorRuntime.mark(function _callee2() {
-	          var blocked, e, reachedHWM, shifted, strategy, _ref11;
+	          var blocked, e, reachedHWM, shifted, strategy, _ref4;
 
 	          return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	            while (1) {
@@ -4486,10 +4524,10 @@
 	                  return _this7._store.__submit__(_this7.queued(), options.weight);
 
 	                case 3:
-	                  _ref11 = _context2.sent;
-	                  reachedHWM = _ref11.reachedHWM;
-	                  blocked = _ref11.blocked;
-	                  strategy = _ref11.strategy;
+	                  _ref4 = _context2.sent;
+	                  reachedHWM = _ref4.reachedHWM;
+	                  blocked = _ref4.blocked;
+	                  strategy = _ref4.strategy;
 
 	                  _this7.Events.trigger("debug", "Queued ".concat(options.id), {
 	                    args: args,
@@ -4514,10 +4552,7 @@
 	                    error: e
 	                  });
 
-	                  if (typeof job.cb === "function") {
-	                    job.cb(e);
-	                  }
-
+	                  reject(e);
 	                  return _context2.abrupt("return", false);
 
 	                case 17:
@@ -4554,7 +4589,7 @@
 	                  return _context2.abrupt("return", reachedHWM);
 
 	                case 28:
-	                  _this7._states.next(job.options.id); // QUEUED
+	                  _this7._states.next(options.id); // QUEUED
 
 
 	                  _this7._queues.push(options.priority, job);
@@ -4574,15 +4609,64 @@
 	        })));
 	      }
 	    }, {
-	      key: "schedule",
-	      value: function schedule() {
+	      key: "submit",
+	      value: function submit() {
 	        var _this8 = this;
 
-	        for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
-	          args[_key4] = arguments[_key4];
+	        for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+	          args[_key2] = arguments[_key2];
 	        }
 
-	        var options, task, wrapped;
+	        var cb, fn, job, options, ref, ref1, task;
+
+	        if (typeof args[0] === "function") {
+	          var _ref5, _ref6, _splice$call, _splice$call2;
+
+	          ref = args, (_ref5 = ref, _ref6 = _toArray(_ref5), fn = _ref6[0], args = _ref6.slice(1), _ref5), (_splice$call = splice$1.call(args, -1), _splice$call2 = _slicedToArray(_splice$call, 1), cb = _splice$call2[0], _splice$call);
+	          options = parser$8.load({}, this.jobDefaults);
+	        } else {
+	          var _ref7, _ref8, _splice$call3, _splice$call4;
+
+	          ref1 = args, (_ref7 = ref1, _ref8 = _toArray(_ref7), options = _ref8[0], fn = _ref8[1], args = _ref8.slice(2), _ref7), (_splice$call3 = splice$1.call(args, -1), _splice$call4 = _slicedToArray(_splice$call3, 1), cb = _splice$call4[0], _splice$call3);
+	          options = parser$8.load(options, this.jobDefaults);
+	        }
+
+	        task = function task() {
+	          for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+	            args[_key3] = arguments[_key3];
+	          }
+
+	          return new _this8.Promise(function (resolve, reject) {
+	            return fn.apply(void 0, args.concat([function () {
+	              for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+	                args[_key4] = arguments[_key4];
+	              }
+
+	              return (args[0] != null ? reject : resolve)(args);
+	            }]));
+	          });
+	        };
+
+	        job = new Job$1(task, args, options, this.jobDefaults, this.Promise, NUM_PRIORITIES, DEFAULT_PRIORITY);
+	        job.promise.then(function (args) {
+	          return typeof cb === "function" ? cb.apply(void 0, _toConsumableArray(args)) : void 0;
+	        }).catch(function (args) {
+	          if (Array.isArray(args)) {
+	            return typeof cb === "function" ? cb.apply(void 0, _toConsumableArray(args)) : void 0;
+	          } else {
+	            return typeof cb === "function" ? cb(args) : void 0;
+	          }
+	        });
+	        return this._addToQueue(job);
+	      }
+	    }, {
+	      key: "schedule",
+	      value: function schedule() {
+	        for (var _len5 = arguments.length, args = new Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
+	          args[_key5] = arguments[_key5];
+	        }
+
+	        var job, options, task;
 
 	        if (typeof args[0] === "function") {
 	          var _args3 = args;
@@ -4591,7 +4675,7 @@
 
 	          task = _args4[0];
 	          args = _args4.slice(1);
-	          options = parser$7.load({}, this.jobDefaults, {});
+	          options = {};
 	        } else {
 	          var _args5 = args;
 
@@ -4600,50 +4684,13 @@
 	          options = _args6[0];
 	          task = _args6[1];
 	          args = _args6.slice(2);
-	          options = parser$7.load(options, this.jobDefaults);
 	        }
 
-	        wrapped = function wrapped() {
-	          var _ref12, _ref13, _splice$call7, _splice$call8;
+	        job = new Job$1(task, args, options, this.jobDefaults, this.Promise, NUM_PRIORITIES, DEFAULT_PRIORITY);
 
-	          for (var _len5 = arguments.length, args = new Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
-	            args[_key5] = arguments[_key5];
-	          }
+	        this._addToQueue(job);
 
-	          var cb, e, ref, returned;
-	          ref = args, (_ref12 = ref, _ref13 = _toArray(_ref12), args = _ref13.slice(0), _ref12), (_splice$call7 = splice$1.call(args, -1), _splice$call8 = _slicedToArray(_splice$call7, 1), cb = _splice$call8[0], _splice$call7);
-
-	          returned = function () {
-	            try {
-	              return task.apply(void 0, _toConsumableArray(args));
-	            } catch (error1) {
-	              e = error1;
-	              return this.Promise.reject(e);
-	            }
-	          }.call(_this8);
-
-	          return (!((returned != null ? returned.then : void 0) != null && typeof returned.then === "function") ? _this8.Promise.resolve(returned) : returned).then(function () {
-	            for (var _len6 = arguments.length, args = new Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
-	              args[_key6] = arguments[_key6];
-	            }
-
-	            return cb.apply(void 0, [null].concat(args));
-	          }).catch(function () {
-	            return cb.apply(void 0, arguments);
-	          });
-	        };
-
-	        return new this.Promise(function (resolve, reject) {
-	          return _this8.submit.apply(_this8, [options, wrapped].concat(_toConsumableArray(args), [function () {
-	            for (var _len7 = arguments.length, args = new Array(_len7), _key7 = 0; _key7 < _len7; _key7++) {
-	              args[_key7] = arguments[_key7];
-	            }
-
-	            return (args[0] != null ? reject : (args.shift(), resolve)).apply(void 0, args);
-	          }])).catch(function (e) {
-	            return _this8.Events.trigger("error", e);
-	          });
-	        });
+	        return job.promise;
 	      }
 	    }, {
 	      key: "wrap",
@@ -4652,16 +4699,16 @@
 	        schedule = this.schedule;
 
 	        wrapped = function wrapped() {
-	          for (var _len8 = arguments.length, args = new Array(_len8), _key8 = 0; _key8 < _len8; _key8++) {
-	            args[_key8] = arguments[_key8];
+	          for (var _len6 = arguments.length, args = new Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
+	            args[_key6] = arguments[_key6];
 	          }
 
 	          return schedule.apply(void 0, [fn.bind(this)].concat(args));
 	        };
 
 	        wrapped.withOptions = function (options) {
-	          for (var _len9 = arguments.length, args = new Array(_len9 > 1 ? _len9 - 1 : 0), _key9 = 1; _key9 < _len9; _key9++) {
-	            args[_key9 - 1] = arguments[_key9];
+	          for (var _len7 = arguments.length, args = new Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
+	            args[_key7 - 1] = arguments[_key7];
 	          }
 
 	          return schedule.apply(void 0, [options, fn].concat(args));
@@ -4683,10 +4730,10 @@
 	                case 0:
 	                  options = _args7.length > 0 && _args7[0] !== undefined ? _args7[0] : {};
 	                  _context3.next = 3;
-	                  return this._store.__updateSettings__(parser$7.overwrite(options, this.storeDefaults));
+	                  return this._store.__updateSettings__(parser$8.overwrite(options, this.storeDefaults));
 
 	                case 3:
-	                  parser$7.overwrite(options, this.instanceDefaults, this);
+	                  parser$8.overwrite(options, this.instanceDefaults, this);
 	                  return _context3.abrupt("return", this);
 
 	                case 5:
@@ -4718,7 +4765,7 @@
 	  }();
 	  Bottleneck.default = Bottleneck;
 	  Bottleneck.Events = Events$6;
-	  Bottleneck.version = Bottleneck.prototype.version = require$$7.version;
+	  Bottleneck.version = Bottleneck.prototype.version = require$$8.version;
 	  Bottleneck.strategy = Bottleneck.prototype.strategy = {
 	    LEAK: 1,
 	    OVERFLOW: 2,

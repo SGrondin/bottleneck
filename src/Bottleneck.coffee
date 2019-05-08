@@ -3,6 +3,7 @@ DEFAULT_PRIORITY = 5
 
 parser = require "./parser"
 Queues = require "./Queues"
+Job = require "./Job"
 LocalDatastore = require "./LocalDatastore"
 RedisDatastore = require "./RedisDatastore"
 Events = require "./Events"
@@ -119,53 +120,56 @@ class Bottleneck
 
   counts: -> @_states.statusCounts()
 
-  _sanitizePriority: (priority) ->
-    sProperty = if ~~priority != priority then DEFAULT_PRIORITY else priority
-    if sProperty < 0 then 0 else if sProperty > NUM_PRIORITIES-1 then NUM_PRIORITIES-1 else sProperty
-
   _randomIndex: -> Math.random().toString(36).slice(2)
 
   check: (weight=1) -> @_store.__check__ weight
 
-  _run: (next, wait, index, retryCount) ->
-    @Events.trigger "debug", "Scheduling #{next.options.id}", { args: next.args, options: next.options }
-    done = false
-    completed = (args...) =>
-      if not done
-        try
-          done = true
-          clearTimeout @_scheduled[index].expiration
-          delete @_scheduled[index]
-          eventInfo = { args: next.args, options: next.options, retryCount }
+  _handler: (index, job, error, passed) ->
+    try
+      unless @_scheduled[index]? then return
 
-          if (error = args[0])?
-            retry = await @Events.trigger "failed", error, eventInfo
-            if retry?
-              retryAfter = ~~retry
-              @Events.trigger "retry", "Retrying #{next.options.id} after #{retryAfter} ms", eventInfo
-              return @_run next, retryAfter, index, retryCount + 1
+      { args, options, retryCount } = job
+      clearTimeout @_scheduled[index].expiration
+      delete @_scheduled[index]
+      eventInfo = { args, options, retryCount }
 
-          @_states.next next.options.id # DONE
-          @Events.trigger "debug", "Completed #{next.options.id}", eventInfo
-          @Events.trigger "done", "Completed #{next.options.id}", eventInfo
-          { running } = await @_store.__free__ index, next.options.weight
-          @Events.trigger "debug", "Freed #{next.options.id}", eventInfo
-          if running == 0 and @empty() then @Events.trigger "idle"
-          next.cb? args...
-        catch e
-          @Events.trigger "error", e
-    @_states.next next.options.id if retryCount == 0 # RUNNING
+      if error?
+        retry = await @Events.trigger "failed", error, eventInfo
+        if retry?
+          retryAfter = ~~retry
+          @Events.trigger "retry", "Retrying #{options.id} after #{retryAfter} ms", eventInfo
+          job.retryCount++
+          return @_run job, retryAfter, index
+
+      @_states.next options.id # DONE
+      @Events.trigger "debug", "Completed #{options.id}", eventInfo
+      @Events.trigger "done", "Completed #{options.id}", eventInfo
+      { running } = await @_store.__free__ index, options.weight
+      @Events.trigger "debug", "Freed #{options.id}", eventInfo
+      if running == 0 and @empty() then @Events.trigger "idle"
+      job.done error, passed
+    catch e
+      @Events.trigger "error", e
+
+  _run: (job, wait, index) ->
+    { task, args, options, retryCount } = job
+    @Events.trigger "debug", "Scheduling #{options.id}", { args, options }
+    @_states.next options.id if retryCount == 0 # RUNNING
     @_scheduled[index] =
       timeout: setTimeout =>
-        @Events.trigger "debug", "Executing #{next.options.id}", { args: next.args, options: next.options }
-        @_states.next next.options.id if retryCount == 0 # EXECUTING
-        if @_limiter? then @_limiter.submit next.options, next.task, next.args..., completed
-        else next.task next.args..., completed
+        @Events.trigger "debug", "Executing #{options.id}", { args, options }
+        @_states.next options.id if retryCount == 0 # EXECUTING
+        handler = @_handler.bind @, index, job
+        if @_limiter?
+          @_limiter.schedule(options, task, args...)
+          .then (passed) -> handler null, passed
+          .catch (error) -> handler error
+        else job.execute handler
       , wait
-      expiration: if next.options.expiration? then setTimeout =>
-        completed new Bottleneck::BottleneckError "This job timed out after #{next.options.expiration} ms."
-      , wait + next.options.expiration
-      job: next
+      expiration: if options.expiration? then setTimeout =>
+        @_handler index, job, new Bottleneck::BottleneckError "This job timed out after #{options.expiration} ms."
+      , wait + options.expiration
+      job: job
 
   _drainOne: (capacity) =>
     @_registerLock.schedule =>
@@ -183,7 +187,7 @@ class Bottleneck
           empty = @empty()
           if empty then @Events.trigger "empty"
           if reservoir == 0 then @Events.trigger "depleted", empty
-          @_run next, wait, index, 0
+          @_run next, wait, index
           @Promise.resolve options.weight
         else
           @Promise.resolve null
@@ -199,7 +203,7 @@ class Bottleneck
 
   _drop: (job, message="This job has been dropped by Bottleneck") ->
     if @_states.remove job.options.id
-      if @rejectOnDrop then job.cb? new Bottleneck::BottleneckError message
+      if @rejectOnDrop then job.reject new Bottleneck::BottleneckError message
       @Events.trigger "dropped", job
 
   _dropAllQueued: (message) ->
@@ -231,28 +235,19 @@ class Bottleneck
         waitForExecuting(0)
     else
       @schedule { priority: NUM_PRIORITIES - 1, weight: 0 }, => waitForExecuting(1)
-    @submit = (args..., cb) => cb? new Bottleneck::BottleneckError options.enqueueErrorMessage
+    @_addToQueue = (job) => job.reject new Bottleneck::BottleneckError options.enqueueErrorMessage
     @stop = => @Promise.reject new Bottleneck::BottleneckError "stop() has already been called"
     done
 
-  submit: (args...) =>
-    if typeof args[0] == "function"
-      [task, args..., cb] = args
-      options = parser.load {}, @jobDefaults, {}
-    else
-      [options, task, args..., cb] = args
-      options = parser.load options, @jobDefaults
-    job = { options, task, args, cb }
-    options.priority = @_sanitizePriority options.priority
-    if options.id == @jobDefaults.id then options.id = "#{options.id}-#{@_randomIndex()}"
-
+  _addToQueue: (job) ->
+    { args, options, reject } = job
     if @jobStatus(options.id)?
-      job.cb? new Bottleneck::BottleneckError "A job with the same id already exists (id=#{options.id})"
+      reject new Bottleneck::BottleneckError "A job with the same id already exists (id=#{options.id})"
       return false
 
     @_states.start options.id # RECEIVED
-
     @Events.trigger "debug", "Queueing #{options.id}", { args, options }
+
     @_submitLock.schedule =>
       try
         { reachedHWM, blocked, strategy } = await @_store.__submit__ @queued(), options.weight
@@ -260,7 +255,7 @@ class Bottleneck
       catch e
         @_states.remove options.id
         @Events.trigger "debug", "Could not queue #{options.id}", { args, options, error: e }
-        job.cb? e
+        reject e
         return false
 
       if blocked
@@ -275,28 +270,39 @@ class Bottleneck
           if not shifted? then @_drop job
           return reachedHWM
 
-      @_states.next job.options.id # QUEUED
+      @_states.next options.id # QUEUED
       @_queues.push options.priority, job
       await @_drainAll()
       reachedHWM
 
+  submit: (args...) =>
+    if typeof args[0] == "function"
+      [fn, args..., cb] = args
+      options = parser.load {}, @jobDefaults
+    else
+      [options, fn, args..., cb] = args
+      options = parser.load options, @jobDefaults
+
+    task = (args...) =>
+      new @Promise (resolve, reject) =>
+        fn args..., (args...) ->
+          (if args[0]? then reject else resolve) args
+
+    job = new Job task, args, options, @jobDefaults, @Promise, NUM_PRIORITIES, DEFAULT_PRIORITY
+    job.promise
+    .then (args) -> cb? args...
+    .catch (args) -> if Array.isArray args then cb? args... else cb? args
+    @_addToQueue job
+
   schedule: (args...) =>
     if typeof args[0] == "function"
       [task, args...] = args
-      options = parser.load {}, @jobDefaults, {}
+      options = {}
     else
       [options, task, args...] = args
-      options = parser.load options, @jobDefaults
-    wrapped = (args..., cb) =>
-      returned = try task args...
-      catch e then @Promise.reject e
-      (unless returned?.then? and typeof returned.then == "function" then @Promise.resolve(returned) else returned)
-      .then (args...) -> cb null, args...
-      .catch (args...) -> cb args...
-    new @Promise (resolve, reject) =>
-      @submit options, wrapped, args..., (args...) ->
-        (if args[0]? then reject else args.shift(); resolve) args...
-      .catch (e) => @Events.trigger "error", e
+    job = new Job task, args, options, @jobDefaults, @Promise, NUM_PRIORITIES, DEFAULT_PRIORITY
+    @_addToQueue job
+    job.promise
 
   wrap: (fn) ->
     schedule = @schedule

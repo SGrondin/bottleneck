@@ -274,15 +274,81 @@
 
 	var Queues_1 = Queues;
 
+	var Job, parser$1;
+
+	parser$1 = parser;
+
+	Job = class Job {
+	  constructor(task, args, options, jobDefaults, Promise, NUM_PRIORITIES, DEFAULT_PRIORITY) {
+	    this.task = task;
+	    this.args = args;
+	    this.Promise = Promise;
+	    this.options = parser$1.load(options, jobDefaults);
+	    this.options.priority = this._sanitizePriority(this.options.priority);
+	    if (this.options.id === jobDefaults.id) {
+	      this.options.id = `${this.options.id}-${this._randomIndex()}`;
+	    }
+	    this.promise = new this.Promise((resolve, reject) => {
+	      this.resolve = resolve;
+	      this.reject = reject;
+	    });
+	    this.retryCount = 0;
+	  }
+
+	  _sanitizePriority(priority, NUM_PRIORITIES, DEFAULT_PRIORITY) {
+	    var sProperty;
+	    sProperty = ~~priority !== priority ? DEFAULT_PRIORITY : priority;
+	    if (sProperty < 0) {
+	      return 0;
+	    } else if (sProperty > NUM_PRIORITIES - 1) {
+	      return NUM_PRIORITIES - 1;
+	    } else {
+	      return sProperty;
+	    }
+	  }
+
+	  _randomIndex() {
+	    return Math.random().toString(36).slice(2);
+	  }
+
+	  execute(cb) {
+	    var e, returned;
+	    returned = (function() {
+	      try {
+	        return this.task(...this.args);
+	      } catch (error) {
+	        e = error;
+	        return this.Promise.reject(e);
+	      }
+	    }).call(this);
+	    return (!(((returned != null ? returned.then : void 0) != null) && typeof returned.then === "function") ? this.Promise.resolve(returned) : returned).then(function(passed) {
+	      return cb(null, passed);
+	    }).catch(function(err) {
+	      return cb(err);
+	    });
+	  }
+
+	  done(err, passed) {
+	    if (err != null) {
+	      return this.reject(err);
+	    } else {
+	      return this.resolve(passed);
+	    }
+	  }
+
+	};
+
+	var Job_1 = Job;
+
 	var BottleneckError;
 
 	BottleneckError = class BottleneckError extends Error {};
 
 	var BottleneckError_1 = BottleneckError;
 
-	var BottleneckError$1, LocalDatastore, parser$1;
+	var BottleneckError$1, LocalDatastore, parser$2;
 
-	parser$1 = parser;
+	parser$2 = parser;
 
 	BottleneckError$1 = BottleneckError_1;
 
@@ -291,7 +357,7 @@
 	    this.instance = instance;
 	    this.storeOptions = storeOptions;
 	    this.clientId = this.instance._randomIndex();
-	    parser$1.load(storeInstanceOptions, storeInstanceOptions, this);
+	    parser$2.load(storeInstanceOptions, storeInstanceOptions, this);
 	    this._nextRequest = this._lastReservoirRefresh = this._lastReservoirIncrease = Date.now();
 	    this._running = 0;
 	    this._done = 0;
@@ -355,7 +421,7 @@
 
 	  async __updateSettings__(options) {
 	    await this.yieldLoop();
-	    parser$1.overwrite(options, options, this.storeOptions);
+	    parser$2.overwrite(options, options, this.storeOptions);
 	    this._startHeartbeat();
 	    this.instance._drainAll(this.computeCapacity());
 	    return true;
@@ -648,9 +714,9 @@
 
 	var require$$4 = () => console.log('You must import the full version of Bottleneck in order to use this feature.');
 
-	var Events$2, Group, IORedisConnection$1, RedisConnection$1, Scripts$1, parser$2;
+	var Events$2, Group, IORedisConnection$1, RedisConnection$1, Scripts$1, parser$3;
 
-	parser$2 = parser;
+	parser$3 = parser;
 
 	Events$2 = Events_1;
 
@@ -666,7 +732,7 @@
 	      this.deleteKey = this.deleteKey.bind(this);
 	      this.updateSettings = this.updateSettings.bind(this);
 	      this.limiterOptions = limiterOptions;
-	      parser$2.load(this.limiterOptions, this.defaults, this);
+	      parser$3.load(this.limiterOptions, this.defaults, this);
 	      this.Events = new Events$2(this);
 	      this.instances = {};
 	      this.Bottleneck = Bottleneck_1;
@@ -772,8 +838,8 @@
 	    }
 
 	    updateSettings(options = {}) {
-	      parser$2.overwrite(options, this.defaults, this);
-	      parser$2.overwrite(options, options, this.limiterOptions);
+	      parser$3.overwrite(options, this.defaults, this);
+	      parser$3.overwrite(options, options, this.limiterOptions);
 	      if (options.timeout != null) {
 	        return this._startAutoCleanup();
 	      }
@@ -800,9 +866,9 @@
 
 	var Group_1 = Group;
 
-	var Batcher, Events$3, parser$3;
+	var Batcher, Events$3, parser$4;
 
-	parser$3 = parser;
+	parser$4 = parser;
 
 	Events$3 = Events_1;
 
@@ -810,7 +876,7 @@
 	  class Batcher {
 	    constructor(options = {}) {
 	      this.options = options;
-	      parser$3.load(this.options, this.defaults, this);
+	      parser$4.load(this.options, this.defaults, this);
 	      this.Events = new Events$3(this);
 	      this._arr = [];
 	      this._resetPromise();
@@ -859,24 +925,26 @@
 
 	var Batcher_1 = Batcher;
 
-	var require$$3$1 = () => console.log('You must import the full version of Bottleneck in order to use this feature.');
+	var require$$4$1 = () => console.log('You must import the full version of Bottleneck in order to use this feature.');
 
-	var require$$7 = getCjsExportFromNamespace(version$2);
+	var require$$8 = getCjsExportFromNamespace(version$2);
 
-	var Bottleneck, DEFAULT_PRIORITY, Events$4, LocalDatastore$1, NUM_PRIORITIES, Queues$1, RedisDatastore$1, States$1, Sync$1, parser$4,
+	var Bottleneck, DEFAULT_PRIORITY, Events$4, Job$1, LocalDatastore$1, NUM_PRIORITIES, Queues$1, RedisDatastore$1, States$1, Sync$1, parser$5,
 	  splice$1 = [].splice;
 
 	NUM_PRIORITIES = 10;
 
 	DEFAULT_PRIORITY = 5;
 
-	parser$4 = parser;
+	parser$5 = parser;
 
 	Queues$1 = Queues_1;
 
+	Job$1 = Job_1;
+
 	LocalDatastore$1 = LocalDatastore_1;
 
-	RedisDatastore$1 = require$$3$1;
+	RedisDatastore$1 = require$$4$1;
 
 	Events$4 = Events_1;
 
@@ -894,7 +962,7 @@
 	      this.updateSettings = this.updateSettings.bind(this);
 	      this.incrementReservoir = this.incrementReservoir.bind(this);
 	      this._validateOptions(options, invalid);
-	      parser$4.load(options, this.instanceDefaults, this);
+	      parser$5.load(options, this.instanceDefaults, this);
 	      this._queues = new Queues$1(NUM_PRIORITIES);
 	      this._scheduled = {};
 	      this._states = new States$1(["RECEIVED", "QUEUED", "RUNNING", "EXECUTING"].concat(this.trackDoneStatus ? ["DONE"] : []));
@@ -902,13 +970,13 @@
 	      this.Events = new Events$4(this);
 	      this._submitLock = new Sync$1("submit", this.Promise);
 	      this._registerLock = new Sync$1("register", this.Promise);
-	      storeOptions = parser$4.load(options, this.storeDefaults, {});
+	      storeOptions = parser$5.load(options, this.storeDefaults, {});
 	      this._store = (function() {
 	        if (this.datastore === "redis" || this.datastore === "ioredis" || (this.connection != null)) {
-	          storeInstanceOptions = parser$4.load(options, this.redisStoreDefaults, {});
+	          storeInstanceOptions = parser$5.load(options, this.redisStoreDefaults, {});
 	          return new RedisDatastore$1(this, storeOptions, storeInstanceOptions);
 	        } else if (this.datastore === "local") {
-	          storeInstanceOptions = parser$4.load(options, this.localStoreDefaults, {});
+	          storeInstanceOptions = parser$5.load(options, this.localStoreDefaults, {});
 	          return new LocalDatastore$1(this, storeOptions, storeInstanceOptions);
 	        } else {
 	          throw new Bottleneck.prototype.BottleneckError(`Invalid datastore type: ${this.datastore}`);
@@ -991,18 +1059,6 @@
 	      return this._states.statusCounts();
 	    }
 
-	    _sanitizePriority(priority) {
-	      var sProperty;
-	      sProperty = ~~priority !== priority ? DEFAULT_PRIORITY : priority;
-	      if (sProperty < 0) {
-	        return 0;
-	      } else if (sProperty > NUM_PRIORITIES - 1) {
-	        return NUM_PRIORITIES - 1;
-	      } else {
-	        return sProperty;
-	      }
-	    }
-
 	    _randomIndex() {
 	      return Math.random().toString(36).slice(2);
 	    }
@@ -1011,70 +1067,69 @@
 	      return this._store.__check__(weight);
 	    }
 
-	    _run(next, wait, index, retryCount) {
-	      var completed, done;
-	      this.Events.trigger("debug", `Scheduling ${next.options.id}`, {
-	        args: next.args,
-	        options: next.options
-	      });
-	      done = false;
-	      completed = async(...args) => {
-	        var e, error, eventInfo, retry, retryAfter, running;
-	        if (!done) {
-	          try {
-	            done = true;
-	            clearTimeout(this._scheduled[index].expiration);
-	            delete this._scheduled[index];
-	            eventInfo = {
-	              args: next.args,
-	              options: next.options,
-	              retryCount
-	            };
-	            if ((error = args[0]) != null) {
-	              retry = (await this.Events.trigger("failed", error, eventInfo));
-	              if (retry != null) {
-	                retryAfter = ~~retry;
-	                this.Events.trigger("retry", `Retrying ${next.options.id} after ${retryAfter} ms`, eventInfo);
-	                return this._run(next, retryAfter, index, retryCount + 1);
-	              }
-	            }
-	            this._states.next(next.options.id); // DONE
-	            this.Events.trigger("debug", `Completed ${next.options.id}`, eventInfo);
-	            this.Events.trigger("done", `Completed ${next.options.id}`, eventInfo);
-	            ({running} = (await this._store.__free__(index, next.options.weight)));
-	            this.Events.trigger("debug", `Freed ${next.options.id}`, eventInfo);
-	            if (running === 0 && this.empty()) {
-	              this.Events.trigger("idle");
-	            }
-	            return typeof next.cb === "function" ? next.cb(...args) : void 0;
-	          } catch (error1) {
-	            e = error1;
-	            return this.Events.trigger("error", e);
+	    async _handler(index, job, error, passed) {
+	      var args, e, eventInfo, options, retry, retryAfter, retryCount, running;
+	      try {
+	        if (this._scheduled[index] == null) {
+	          return;
+	        }
+	        ({args, options, retryCount} = job);
+	        clearTimeout(this._scheduled[index].expiration);
+	        delete this._scheduled[index];
+	        eventInfo = {args, options, retryCount};
+	        if (error != null) {
+	          retry = (await this.Events.trigger("failed", error, eventInfo));
+	          if (retry != null) {
+	            retryAfter = ~~retry;
+	            this.Events.trigger("retry", `Retrying ${options.id} after ${retryAfter} ms`, eventInfo);
+	            job.retryCount++;
+	            return this._run(job, retryAfter, index);
 	          }
 	        }
-	      };
+	        this._states.next(options.id); // DONE
+	        this.Events.trigger("debug", `Completed ${options.id}`, eventInfo);
+	        this.Events.trigger("done", `Completed ${options.id}`, eventInfo);
+	        ({running} = (await this._store.__free__(index, options.weight)));
+	        this.Events.trigger("debug", `Freed ${options.id}`, eventInfo);
+	        if (running === 0 && this.empty()) {
+	          this.Events.trigger("idle");
+	        }
+	        return job.done(error, passed);
+	      } catch (error1) {
+	        e = error1;
+	        return this.Events.trigger("error", e);
+	      }
+	    }
+
+	    _run(job, wait, index) {
+	      var args, options, retryCount, task;
+	      ({task, args, options, retryCount} = job);
+	      this.Events.trigger("debug", `Scheduling ${options.id}`, {args, options});
 	      if (retryCount === 0) { // RUNNING
-	        this._states.next(next.options.id);
+	        this._states.next(options.id);
 	      }
 	      return this._scheduled[index] = {
 	        timeout: setTimeout(() => {
-	          this.Events.trigger("debug", `Executing ${next.options.id}`, {
-	            args: next.args,
-	            options: next.options
-	          });
+	          var handler;
+	          this.Events.trigger("debug", `Executing ${options.id}`, {args, options});
 	          if (retryCount === 0) { // EXECUTING
-	            this._states.next(next.options.id);
+	            this._states.next(options.id);
 	          }
+	          handler = this._handler.bind(this, index, job);
 	          if (this._limiter != null) {
-	            return this._limiter.submit(next.options, next.task, ...next.args, completed);
+	            return this._limiter.schedule(options, task, ...args).then(function(passed) {
+	              return handler(null, passed);
+	            }).catch(function(error) {
+	              return handler(error);
+	            });
 	          } else {
-	            return next.task(...next.args, completed);
+	            return job.execute(handler);
 	          }
 	        }, wait),
-	        expiration: next.options.expiration != null ? setTimeout(() => {
-	          return completed(new Bottleneck.prototype.BottleneckError(`This job timed out after ${next.options.expiration} ms.`));
-	        }, wait + next.options.expiration) : void 0,
-	        job: next
+	        expiration: options.expiration != null ? setTimeout(() => {
+	          return this._handler(index, job, new Bottleneck.prototype.BottleneckError(`This job timed out after ${options.expiration} ms.`));
+	        }, wait + options.expiration) : void 0,
+	        job: job
 	      };
 	    }
 
@@ -1103,7 +1158,7 @@
 	            if (reservoir === 0) {
 	              this.Events.trigger("depleted", empty);
 	            }
-	            this._run(next, wait, index, 0);
+	            this._run(next, wait, index);
 	            return this.Promise.resolve(options.weight);
 	          } else {
 	            return this.Promise.resolve(null);
@@ -1129,9 +1184,7 @@
 	    _drop(job, message = "This job has been dropped by Bottleneck") {
 	      if (this._states.remove(job.options.id)) {
 	        if (this.rejectOnDrop) {
-	          if (typeof job.cb === "function") {
-	            job.cb(new Bottleneck.prototype.BottleneckError(message));
-	          }
+	          job.reject(new Bottleneck.prototype.BottleneckError(message));
 	        }
 	        return this.Events.trigger("dropped", job);
 	      }
@@ -1145,7 +1198,7 @@
 
 	    stop(options = {}) {
 	      var done, waitForExecuting;
-	      options = parser$4.load(options, this.stopDefaults);
+	      options = parser$5.load(options, this.stopDefaults);
 	      waitForExecuting = (at) => {
 	        var finished;
 	        finished = () => {
@@ -1191,10 +1244,8 @@
 	      }, () => {
 	        return waitForExecuting(1);
 	      });
-	      this.submit = (...args) => {
-	        var cb, ref;
-	        ref = args, [...args] = ref, [cb] = splice$1.call(args, -1);
-	        return typeof cb === "function" ? cb(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage)) : void 0;
+	      this._addToQueue = (job) => {
+	        return job.reject(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage));
 	      };
 	      this.stop = () => {
 	        return this.Promise.reject(new Bottleneck.prototype.BottleneckError("stop() has already been called"));
@@ -1202,24 +1253,11 @@
 	      return done;
 	    }
 
-	    submit(...args) {
-	      var cb, job, options, ref, ref1, task;
-	      if (typeof args[0] === "function") {
-	        ref = args, [task, ...args] = ref, [cb] = splice$1.call(args, -1);
-	        options = parser$4.load({}, this.jobDefaults, {});
-	      } else {
-	        ref1 = args, [options, task, ...args] = ref1, [cb] = splice$1.call(args, -1);
-	        options = parser$4.load(options, this.jobDefaults);
-	      }
-	      job = {options, task, args, cb};
-	      options.priority = this._sanitizePriority(options.priority);
-	      if (options.id === this.jobDefaults.id) {
-	        options.id = `${options.id}-${this._randomIndex()}`;
-	      }
+	    _addToQueue(job) {
+	      var args, options, reject;
+	      ({args, options, reject} = job);
 	      if (this.jobStatus(options.id) != null) {
-	        if (typeof job.cb === "function") {
-	          job.cb(new Bottleneck.prototype.BottleneckError(`A job with the same id already exists (id=${options.id})`));
-	        }
+	        reject(new Bottleneck.prototype.BottleneckError(`A job with the same id already exists (id=${options.id})`));
 	        return false;
 	      }
 	      this._states.start(options.id); // RECEIVED
@@ -1237,9 +1275,7 @@
 	            options,
 	            error: e
 	          });
-	          if (typeof job.cb === "function") {
-	            job.cb(e);
-	          }
+	          reject(e);
 	          return false;
 	        }
 	        if (blocked) {
@@ -1257,46 +1293,53 @@
 	            return reachedHWM;
 	          }
 	        }
-	        this._states.next(job.options.id); // QUEUED
+	        this._states.next(options.id); // QUEUED
 	        this._queues.push(options.priority, job);
 	        await this._drainAll();
 	        return reachedHWM;
 	      });
 	    }
 
-	    schedule(...args) {
-	      var options, task, wrapped;
+	    submit(...args) {
+	      var cb, fn, job, options, ref, ref1, task;
 	      if (typeof args[0] === "function") {
-	        [task, ...args] = args;
-	        options = parser$4.load({}, this.jobDefaults, {});
+	        ref = args, [fn, ...args] = ref, [cb] = splice$1.call(args, -1);
+	        options = parser$5.load({}, this.jobDefaults);
 	      } else {
-	        [options, task, ...args] = args;
-	        options = parser$4.load(options, this.jobDefaults);
+	        ref1 = args, [options, fn, ...args] = ref1, [cb] = splice$1.call(args, -1);
+	        options = parser$5.load(options, this.jobDefaults);
 	      }
-	      wrapped = (...args) => {
-	        var cb, e, ref, returned;
-	        ref = args, [...args] = ref, [cb] = splice$1.call(args, -1);
-	        returned = (function() {
-	          try {
-	            return task(...args);
-	          } catch (error1) {
-	            e = error1;
-	            return this.Promise.reject(e);
-	          }
-	        }).call(this);
-	        return (!(((returned != null ? returned.then : void 0) != null) && typeof returned.then === "function") ? this.Promise.resolve(returned) : returned).then(function(...args) {
-	          return cb(null, ...args);
-	        }).catch(function(...args) {
-	          return cb(...args);
+	      task = (...args) => {
+	        return new this.Promise((resolve, reject) => {
+	          return fn(...args, function(...args) {
+	            return (args[0] != null ? reject : resolve)(args);
+	          });
 	        });
 	      };
-	      return new this.Promise((resolve, reject) => {
-	        return this.submit(options, wrapped, ...args, function(...args) {
-	          return (args[0] != null ? reject : (args.shift(), resolve))(...args);
-	        }).catch((e) => {
-	          return this.Events.trigger("error", e);
-	        });
+	      job = new Job$1(task, args, options, this.jobDefaults, this.Promise, NUM_PRIORITIES, DEFAULT_PRIORITY);
+	      job.promise.then(function(args) {
+	        return typeof cb === "function" ? cb(...args) : void 0;
+	      }).catch(function(args) {
+	        if (Array.isArray(args)) {
+	          return typeof cb === "function" ? cb(...args) : void 0;
+	        } else {
+	          return typeof cb === "function" ? cb(args) : void 0;
+	        }
 	      });
+	      return this._addToQueue(job);
+	    }
+
+	    schedule(...args) {
+	      var job, options, task;
+	      if (typeof args[0] === "function") {
+	        [task, ...args] = args;
+	        options = {};
+	      } else {
+	        [options, task, ...args] = args;
+	      }
+	      job = new Job$1(task, args, options, this.jobDefaults, this.Promise, NUM_PRIORITIES, DEFAULT_PRIORITY);
+	      this._addToQueue(job);
+	      return job.promise;
 	    }
 
 	    wrap(fn) {
@@ -1312,8 +1355,8 @@
 	    }
 
 	    async updateSettings(options = {}) {
-	      await this._store.__updateSettings__(parser$4.overwrite(options, this.storeDefaults));
-	      parser$4.overwrite(options, this.instanceDefaults, this);
+	      await this._store.__updateSettings__(parser$5.overwrite(options, this.storeDefaults));
+	      parser$5.overwrite(options, this.instanceDefaults, this);
 	      return this;
 	    }
 
@@ -1330,7 +1373,7 @@
 
 	  Bottleneck.Events = Events$4;
 
-	  Bottleneck.version = Bottleneck.prototype.version = require$$7.version;
+	  Bottleneck.version = Bottleneck.prototype.version = require$$8.version;
 
 	  Bottleneck.strategy = Bottleneck.prototype.strategy = {
 	    LEAK: 1,

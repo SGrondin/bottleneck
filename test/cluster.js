@@ -768,9 +768,11 @@ if (process.env.DATASTORE === 'redis' || process.env.DATASTORE === 'ioredis') {
     })
 
     it('Should chain local and distributed limiters (total concurrency)', function () {
-      c = makeTest({ maxConcurrent: 3 })
-      var limiter2 = new Bottleneck({ maxConcurrent: 1 })
-      var limiter3 = new Bottleneck({ maxConcurrent: 2 })
+      c = makeTest({ id: 'limiter1', maxConcurrent: 3 })
+      var limiter2 = new Bottleneck({ id: 'limiter2', maxConcurrent: 1 })
+      var limiter3 = new Bottleneck({ id: 'limiter3', maxConcurrent: 2 })
+
+      limiter2.on('error', (err) => console.log(err))
 
       limiter2.chain(c.limiter)
       limiter3.chain(c.limiter)

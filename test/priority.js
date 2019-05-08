@@ -38,7 +38,7 @@ describe('Priority', function () {
     c.limiter.on('dropped', function (dropped) {
       c.mustExist(dropped.task)
       c.mustExist(dropped.args)
-      c.mustExist(dropped.cb)
+      c.mustExist(dropped.promise)
       called = true
     })
 
@@ -70,7 +70,7 @@ describe('Priority', function () {
     c.limiter.on('dropped', function (dropped) {
       c.mustExist(dropped.task)
       c.mustExist(dropped.args)
-      c.mustExist(dropped.cb)
+      c.mustExist(dropped.promise)
       called = true
     })
 
@@ -105,7 +105,7 @@ describe('Priority', function () {
     c.limiter.on('dropped', function (dropped) {
       c.mustExist(dropped.task)
       c.mustExist(dropped.args)
-      c.mustExist(dropped.cb)
+      c.mustExist(dropped.promise)
       called = true
     })
 
@@ -141,7 +141,7 @@ describe('Priority', function () {
     c.limiter.on('dropped', function (dropped) {
       c.mustExist(dropped.task)
       c.mustExist(dropped.args)
-      c.mustExist(dropped.cb)
+      c.mustExist(dropped.promise)
       called++
       if (called === 3) {
         c.limiter.updateSettings({ highWater: null })

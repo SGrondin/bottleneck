@@ -59,6 +59,17 @@ describe('General', function () {
     c.mustEqual(7, await c.limiter.wrap(job.action.bind(job))(2))
   })
 
+  it('Should pass multiple arguments back even on errors when using submit()', function (done) {
+    c = makeTest({ maxConcurrent: 1 })
+
+    c.limiter.submit(c.job, new Error('welp'), 1, 2, function (err, x, y) {
+      c.mustEqual(err.message, 'welp')
+      c.mustEqual(x, 1)
+      c.mustEqual(y, 2)
+      done()
+    })
+  })
+
   it('Should expose the Events library', function (cb) {
     c = makeTest()
 
@@ -539,9 +550,9 @@ describe('General', function () {
       var t0 = Date.now()
 
       return Promise.all([
-        c.pNoErrVal(c.limiter.schedule(c.slowPromise, 150, null, 1), 1),
+        c.pNoErrVal(c.limiter.schedule({ id: 'very-slow-no-expiration' }, c.slowPromise, 150, null, 1), 1),
 
-        c.limiter.schedule({ expiration: 50 }, c.slowPromise, 75, null, 2)
+        c.limiter.schedule({ expiration: 50, id: 'slow-with-expiration' }, c.slowPromise, 75, null, 2)
         .then(function () {
           return Promise.reject(new Error("Should have timed out."))
         })

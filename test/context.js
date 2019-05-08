@@ -74,7 +74,7 @@ module.exports = function (options={}) {
         if (process.env.DEBUG) console.log('In c.promise. Result: ', result)
         calls.push({err: err, result: result, time: Date.now()-start})
         if (process.env.DEBUG) console.log(result, calls)
-        if (err == null) {
+        if (err === null) {
           return resolve(result)
         } else {
           return reject(err)
@@ -87,7 +87,7 @@ module.exports = function (options={}) {
           if (process.env.DEBUG) console.log('In c.slowPromise. Result: ', result)
           calls.push({err: err, result: result, time: Date.now()-start})
           if (process.env.DEBUG) console.log(result, calls)
-          if (err == null) {
+          if (err === null) {
             return resolve(result)
           } else {
             return reject(err)
