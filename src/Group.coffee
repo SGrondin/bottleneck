@@ -68,7 +68,7 @@ class Group
         catch e then v.Events.trigger "error", e
     , (@timeout / 2)).unref?()
 
-  updateSettings: (options={}) =>
+  updateSettings: (options={}) ->
     parser.overwrite options, @defaults, @
     parser.overwrite options, options, @limiterOptions
     @_startAutoCleanup() if options.timeout?

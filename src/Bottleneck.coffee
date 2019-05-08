@@ -129,8 +129,7 @@ class Bottleneck
       clearTimeout @_scheduled[index].expiration
       delete @_scheduled[index]
       true
-    else
-      false
+    else false
 
   _free: (index, job, options, eventInfo) ->
     try
@@ -142,20 +141,20 @@ class Bottleneck
 
   _run: (index, job, wait) ->
     job.doRun()
-    clearGlobalState = @_clearGlobalState.bind(@, index)
-    run = @_run.bind(@, index, job)
-    free = @_free.bind(@, index, job)
+    clearGlobalState = @_clearGlobalState.bind @, index
+    run = @_run.bind @, index, job
+    free = @_free.bind @, index, job
 
     @_scheduled[index] =
       timeout: setTimeout =>
         job.doExecute @_limiter, clearGlobalState, run, free
       , wait
       expiration: if job.options.expiration? then setTimeout ->
-        job.doExpire(clearGlobalState, run, free)
+        job.doExpire clearGlobalState, run, free
       , wait + job.options.expiration
       job: job
 
-  _drainOne: (capacity) =>
+  _drainOne: (capacity) ->
     @_registerLock.schedule =>
       if @queued() == 0 then return @Promise.resolve null
       queue = @_queues.getFirst()
@@ -213,40 +212,42 @@ class Bottleneck
         waitForExecuting(0)
     else
       @schedule { priority: NUM_PRIORITIES - 1, weight: 0 }, => waitForExecuting(1)
-    @_addToQueue = (job) -> job._reject new Bottleneck::BottleneckError options.enqueueErrorMessage
+    @_receive = (job) -> job._reject new Bottleneck::BottleneckError options.enqueueErrorMessage
     @stop = => @Promise.reject new Bottleneck::BottleneckError "stop() has already been called"
     done
 
-  _addToQueue: (job) ->
+  _addToQueue: (job) =>
     { args, options } = job
-    if not job.doReceive() then return false
+    try
+      { reachedHWM, blocked, strategy } = await @_store.__submit__ @queued(), options.weight
+    catch error
+      @Events.trigger "debug", "Could not queue #{options.id}", { args, options, error }
+      job.doDrop { error }
+      return false
 
-    @_submitLock.schedule =>
-      try
-        { reachedHWM, blocked, strategy } = await @_store.__submit__ @queued(), options.weight
-      catch error
-        @Events.trigger "debug", "Could not queue #{options.id}", { args, options, error }
-        job.doDrop { error }
-        return false
+    if blocked
+      job.doDrop()
+      return true
+    else if reachedHWM
+      shifted = if strategy == Bottleneck::strategy.LEAK then @_queues.shiftLastFrom(options.priority)
+      else if strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_queues.shiftLastFrom(options.priority + 1)
+      else if strategy == Bottleneck::strategy.OVERFLOW then job
+      if shifted? then shifted.doDrop()
+      if not shifted? or strategy == Bottleneck::strategy.OVERFLOW
+        if not shifted? then job.doDrop()
+        return reachedHWM
 
-      if blocked
-        job.doDrop()
-        return true
-      else if reachedHWM
-        shifted = if strategy == Bottleneck::strategy.LEAK then @_queues.shiftLastFrom(options.priority)
-        else if strategy == Bottleneck::strategy.OVERFLOW_PRIORITY then @_queues.shiftLastFrom(options.priority + 1)
-        else if strategy == Bottleneck::strategy.OVERFLOW then job
-        if shifted? then shifted.doDrop()
-        if not shifted? or strategy == Bottleneck::strategy.OVERFLOW
-          if not shifted? then job.doDrop()
-          return reachedHWM
+    job.doQueue reachedHWM, blocked
+    @_queues.push job
+    await @_drainAll()
+    reachedHWM
 
-      job.doQueue(reachedHWM, blocked)
-      @_queues.push job
-      await @_drainAll()
-      reachedHWM
+  _receive: (job) ->
+    if job.doReceive()
+      @_submitLock.schedule @_addToQueue, job
+    else false
 
-  submit: (args...) =>
+  submit: (args...) ->
     if typeof args[0] == "function"
       [fn, args..., cb] = args
       options = parser.load {}, @jobDefaults
@@ -263,31 +264,31 @@ class Bottleneck
     job.promise
     .then (args) -> cb? args...
     .catch (args) -> if Array.isArray args then cb? args... else cb? args
-    @_addToQueue job
+    @_receive job
 
-  schedule: (args...) =>
+  schedule: (args...) ->
     if typeof args[0] == "function"
       [task, args...] = args
       options = {}
     else
       [options, task, args...] = args
     job = new Job task, args, options, @jobDefaults, @rejectOnDrop, @Events, @_states, @Promise
-    @_addToQueue job
+    @_receive job
     job.promise
 
   wrap: (fn) ->
-    schedule = @schedule
+    schedule = @schedule.bind @
     wrapped = (args...) -> schedule fn.bind(@), args...
-    wrapped.withOptions = (options, args...) => schedule options, fn, args...
+    wrapped.withOptions = (options, args...) -> schedule options, fn, args...
     wrapped
 
-  updateSettings: (options={}) =>
+  updateSettings: (options={}) ->
     await @_store.__updateSettings__ parser.overwrite options, @storeDefaults
     parser.overwrite options, @instanceDefaults, @
     @
 
   currentReservoir: -> @_store.__currentReservoir__()
 
-  incrementReservoir: (incr=0) => @_store.__incrementReservoir__ incr
+  incrementReservoir: (incr=0) -> @_store.__incrementReservoir__ incr
 
 module.exports = Bottleneck

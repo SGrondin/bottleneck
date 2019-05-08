@@ -3689,9 +3689,7 @@
 
 	var States_1 = States;
 
-	var DLList$2,
-	    Sync,
-	    splice = [].splice;
+	var DLList$2, Sync;
 	DLList$2 = DLList_1;
 
 	Sync =
@@ -3700,7 +3698,7 @@
 	  function Sync(name, Promise) {
 	    _classCallCheck(this, Sync);
 
-	    this.submit = this.submit.bind(this);
+	    this.schedule = this.schedule.bind(this);
 	    this.name = name;
 	    this.Promise = Promise;
 	    this._running = 0;
@@ -3714,87 +3712,105 @@
 	    }
 	  }, {
 	    key: "_tryToRun",
-	    value: function _tryToRun() {
-	      var _this = this;
+	    value: function () {
+	      var _tryToRun2 = _asyncToGenerator(
+	      /*#__PURE__*/
+	      regeneratorRuntime.mark(function _callee2() {
+	        var args, cb, error, reject, resolve, returned, task, _this$_queue$shift;
 
-	      var next;
+	        return regeneratorRuntime.wrap(function _callee2$(_context2) {
+	          while (1) {
+	            switch (_context2.prev = _context2.next) {
+	              case 0:
+	                if (!(this._running < 1 && this._queue.length > 0)) {
+	                  _context2.next = 13;
+	                  break;
+	                }
 
-	      if (this._running < 1 && this._queue.length > 0) {
-	        var _next;
+	                this._running++;
+	                _this$_queue$shift = this._queue.shift();
+	                task = _this$_queue$shift.task;
+	                args = _this$_queue$shift.args;
+	                resolve = _this$_queue$shift.resolve;
+	                reject = _this$_queue$shift.reject;
+	                _context2.next = 9;
+	                return _asyncToGenerator(
+	                /*#__PURE__*/
+	                regeneratorRuntime.mark(function _callee() {
+	                  return regeneratorRuntime.wrap(function _callee$(_context) {
+	                    while (1) {
+	                      switch (_context.prev = _context.next) {
+	                        case 0:
+	                          _context.prev = 0;
+	                          _context.next = 3;
+	                          return task.apply(void 0, _toConsumableArray(args));
 
-	        this._running++;
-	        next = this._queue.shift();
-	        return (_next = next).task.apply(_next, _toConsumableArray(next.args).concat([function () {
-	          var _next2;
+	                        case 3:
+	                          returned = _context.sent;
+	                          return _context.abrupt("return", function () {
+	                            return resolve(returned);
+	                          });
 
-	          _this._running--;
+	                        case 7:
+	                          _context.prev = 7;
+	                          _context.t0 = _context["catch"](0);
+	                          error = _context.t0;
+	                          return _context.abrupt("return", function () {
+	                            return reject(error);
+	                          });
 
-	          _this._tryToRun();
+	                        case 11:
+	                        case "end":
+	                          return _context.stop();
+	                      }
+	                    }
+	                  }, _callee, this, [[0, 7]]);
+	                }))();
 
-	          return typeof next.cb === "function" ? (_next2 = next).cb.apply(_next2, arguments) : void 0;
-	        }]));
-	      }
-	    }
+	              case 9:
+	                cb = _context2.sent;
+	                this._running--;
+
+	                this._tryToRun();
+
+	                return _context2.abrupt("return", cb());
+
+	              case 13:
+	              case "end":
+	                return _context2.stop();
+	            }
+	          }
+	        }, _callee2, this);
+	      }));
+
+	      return function _tryToRun() {
+	        return _tryToRun2.apply(this, arguments);
+	      };
+	    }()
 	  }, {
-	    key: "submit",
-	    value: function submit(task) {
-	      var _ref, _ref2, _splice$call, _splice$call2;
-
+	    key: "schedule",
+	    value: function schedule(task) {
 	      for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
 	        args[_key - 1] = arguments[_key];
 	      }
 
-	      var cb, ref;
-	      ref = args, (_ref = ref, _ref2 = _toArray(_ref), args = _ref2.slice(0), _ref), (_splice$call = splice.call(args, -1), _splice$call2 = _slicedToArray(_splice$call, 1), cb = _splice$call2[0], _splice$call);
+	      var promise, reject, resolve;
+	      resolve = reject = null;
+	      promise = new this.Promise(function (_resolve, _reject) {
+	        resolve = _resolve;
+	        return reject = _reject;
+	      });
 
 	      this._queue.push({
 	        task: task,
 	        args: args,
-	        cb: cb
+	        resolve: resolve,
+	        reject: reject
 	      });
 
-	      return this._tryToRun();
-	    }
-	  }, {
-	    key: "schedule",
-	    value: function schedule(task) {
-	      var _this2 = this;
+	      this._tryToRun();
 
-	      for (var _len2 = arguments.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
-	        args[_key2 - 1] = arguments[_key2];
-	      }
-
-	      var wrapped;
-
-	      wrapped = function wrapped() {
-	        var _ref3, _ref4, _splice$call3, _splice$call4;
-
-	        for (var _len3 = arguments.length, args = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
-	          args[_key3] = arguments[_key3];
-	        }
-
-	        var cb, ref;
-	        ref = args, (_ref3 = ref, _ref4 = _toArray(_ref3), args = _ref4.slice(0), _ref3), (_splice$call3 = splice.call(args, -1), _splice$call4 = _slicedToArray(_splice$call3, 1), cb = _splice$call4[0], _splice$call3);
-	        return task.apply(void 0, _toConsumableArray(args)).then(function () {
-	          for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
-	            args[_key4] = arguments[_key4];
-	          }
-
-	          return cb.apply(void 0, [null].concat(args));
-	        }).catch(function () {
-	          return cb.apply(void 0, arguments);
-	        });
-	      };
-
-	      return new this.Promise(function (resolve, reject) {
-	        return _this2.submit.apply(_this2, [wrapped].concat(args, [function () {
-	          for (var _len5 = arguments.length, args = new Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
-	            args[_key5] = arguments[_key5];
-	          }
-
-	          return (args[0] != null ? reject : (args.shift(), resolve)).apply(void 0, args);
-	        }]));
-	      });
+	      return promise;
 	    }
 	  }]);
 
@@ -3830,7 +3846,6 @@
 	      _classCallCheck(this, Group);
 
 	      this.deleteKey = this.deleteKey.bind(this);
-	      this.updateSettings = this.updateSettings.bind(this);
 	      this.limiterOptions = limiterOptions;
 	      parser$6.load(this.limiterOptions, this.defaults, this);
 	      this.Events = new Events$4(this);
@@ -4214,7 +4229,7 @@
 	    States$1,
 	    Sync$1,
 	    parser$8,
-	    splice$1 = [].splice;
+	    splice = [].splice;
 	NUM_PRIORITIES$1 = 10;
 	DEFAULT_PRIORITY$1 = 5;
 	parser$8 = parser;
@@ -4238,11 +4253,7 @@
 	      _classCallCheck(this, Bottleneck);
 
 	      var storeInstanceOptions, storeOptions;
-	      this._drainOne = this._drainOne.bind(this);
-	      this.submit = this.submit.bind(this);
-	      this.schedule = this.schedule.bind(this);
-	      this.updateSettings = this.updateSettings.bind(this);
-	      this.incrementReservoir = this.incrementReservoir.bind(this);
+	      this._addToQueue = this._addToQueue.bind(this);
 
 	      for (var _len = arguments.length, invalid = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
 	        invalid[_key - 1] = arguments[_key];
@@ -4616,7 +4627,7 @@
 	          return waitForExecuting(1);
 	        });
 
-	        this._addToQueue = function (job) {
+	        this._receive = function (job) {
 	          return job._reject(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage));
 	        };
 
@@ -4628,79 +4639,67 @@
 	      }
 	    }, {
 	      key: "_addToQueue",
-	      value: function _addToQueue(job) {
-	        var _this6 = this;
-
-	        var args, options;
-	        args = job.args;
-	        options = job.options;
-
-	        if (!job.doReceive()) {
-	          return false;
-	        }
-
-	        return this._submitLock.schedule(
+	      value: function () {
+	        var _addToQueue2 = _asyncToGenerator(
 	        /*#__PURE__*/
-	        _asyncToGenerator(
-	        /*#__PURE__*/
-	        regeneratorRuntime.mark(function _callee2() {
-	          var blocked, error, reachedHWM, shifted, strategy, _ref4;
+	        regeneratorRuntime.mark(function _callee2(job) {
+	          var args, blocked, error, options, reachedHWM, shifted, strategy, _ref3;
 
 	          return regeneratorRuntime.wrap(function _callee2$(_context2) {
 	            while (1) {
 	              switch (_context2.prev = _context2.next) {
 	                case 0:
-	                  _context2.prev = 0;
-	                  _context2.next = 3;
-	                  return _this6._store.__submit__(_this6.queued(), options.weight);
+	                  args = job.args;
+	                  options = job.options;
+	                  _context2.prev = 2;
+	                  _context2.next = 5;
+	                  return this._store.__submit__(this.queued(), options.weight);
 
-	                case 3:
-	                  _ref4 = _context2.sent;
-	                  reachedHWM = _ref4.reachedHWM;
-	                  blocked = _ref4.blocked;
-	                  strategy = _ref4.strategy;
-	                  _context2.next = 15;
+	                case 5:
+	                  _ref3 = _context2.sent;
+	                  reachedHWM = _ref3.reachedHWM;
+	                  blocked = _ref3.blocked;
+	                  strategy = _ref3.strategy;
+	                  _context2.next = 17;
 	                  break;
 
-	                case 9:
-	                  _context2.prev = 9;
-	                  _context2.t0 = _context2["catch"](0);
+	                case 11:
+	                  _context2.prev = 11;
+	                  _context2.t0 = _context2["catch"](2);
 	                  error = _context2.t0;
-
-	                  _this6.Events.trigger("debug", "Could not queue ".concat(options.id), {
+	                  this.Events.trigger("debug", "Could not queue ".concat(options.id), {
 	                    args: args,
 	                    options: options,
 	                    error: error
 	                  });
-
 	                  job.doDrop({
 	                    error: error
 	                  });
 	                  return _context2.abrupt("return", false);
 
-	                case 15:
+	                case 17:
 	                  if (!blocked) {
-	                    _context2.next = 20;
+	                    _context2.next = 22;
 	                    break;
 	                  }
 
 	                  job.doDrop();
 	                  return _context2.abrupt("return", true);
 
-	                case 20:
+	                case 22:
 	                  if (!reachedHWM) {
-	                    _context2.next = 26;
+	                    _context2.next = 28;
 	                    break;
 	                  }
 
-	                  shifted = strategy === Bottleneck.prototype.strategy.LEAK ? _this6._queues.shiftLastFrom(options.priority) : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? _this6._queues.shiftLastFrom(options.priority + 1) : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
+	                  shifted = strategy === Bottleneck.prototype.strategy.LEAK ? this._queues.shiftLastFrom(options.priority) : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? this._queues.shiftLastFrom(options.priority + 1) : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
 
 	                  if (shifted != null) {
 	                    shifted.doDrop();
 	                  }
 
 	                  if (!(shifted == null || strategy === Bottleneck.prototype.strategy.OVERFLOW)) {
-	                    _context2.next = 26;
+	                    _context2.next = 28;
 	                    break;
 	                  }
 
@@ -4710,29 +4709,42 @@
 
 	                  return _context2.abrupt("return", reachedHWM);
 
-	                case 26:
+	                case 28:
 	                  job.doQueue(reachedHWM, blocked);
 
-	                  _this6._queues.push(job);
+	                  this._queues.push(job);
 
-	                  _context2.next = 30;
-	                  return _this6._drainAll();
+	                  _context2.next = 32;
+	                  return this._drainAll();
 
-	                case 30:
+	                case 32:
 	                  return _context2.abrupt("return", reachedHWM);
 
-	                case 31:
+	                case 33:
 	                case "end":
 	                  return _context2.stop();
 	              }
 	            }
-	          }, _callee2, this, [[0, 9]]);
-	        })));
+	          }, _callee2, this, [[2, 11]]);
+	        }));
+
+	        return function _addToQueue(_x5) {
+	          return _addToQueue2.apply(this, arguments);
+	        };
+	      }()
+	    }, {
+	      key: "_receive",
+	      value: function _receive(job) {
+	        if (job.doReceive()) {
+	          return this._submitLock.schedule(this._addToQueue, job);
+	        } else {
+	          return false;
+	        }
 	      }
 	    }, {
 	      key: "submit",
 	      value: function submit() {
-	        var _this7 = this;
+	        var _this6 = this;
 
 	        for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
 	          args[_key2] = arguments[_key2];
@@ -4741,14 +4753,14 @@
 	        var cb, fn, job, options, ref, ref1, task;
 
 	        if (typeof args[0] === "function") {
-	          var _ref5, _ref6, _splice$call, _splice$call2;
+	          var _ref4, _ref5, _splice$call, _splice$call2;
 
-	          ref = args, (_ref5 = ref, _ref6 = _toArray(_ref5), fn = _ref6[0], args = _ref6.slice(1), _ref5), (_splice$call = splice$1.call(args, -1), _splice$call2 = _slicedToArray(_splice$call, 1), cb = _splice$call2[0], _splice$call);
+	          ref = args, (_ref4 = ref, _ref5 = _toArray(_ref4), fn = _ref5[0], args = _ref5.slice(1), _ref4), (_splice$call = splice.call(args, -1), _splice$call2 = _slicedToArray(_splice$call, 1), cb = _splice$call2[0], _splice$call);
 	          options = parser$8.load({}, this.jobDefaults);
 	        } else {
-	          var _ref7, _ref8, _splice$call3, _splice$call4;
+	          var _ref6, _ref7, _splice$call3, _splice$call4;
 
-	          ref1 = args, (_ref7 = ref1, _ref8 = _toArray(_ref7), options = _ref8[0], fn = _ref8[1], args = _ref8.slice(2), _ref7), (_splice$call3 = splice$1.call(args, -1), _splice$call4 = _slicedToArray(_splice$call3, 1), cb = _splice$call4[0], _splice$call3);
+	          ref1 = args, (_ref6 = ref1, _ref7 = _toArray(_ref6), options = _ref7[0], fn = _ref7[1], args = _ref7.slice(2), _ref6), (_splice$call3 = splice.call(args, -1), _splice$call4 = _slicedToArray(_splice$call3, 1), cb = _splice$call4[0], _splice$call3);
 	          options = parser$8.load(options, this.jobDefaults);
 	        }
 
@@ -4757,7 +4769,7 @@
 	            args[_key3] = arguments[_key3];
 	          }
 
-	          return new _this7.Promise(function (resolve, reject) {
+	          return new _this6.Promise(function (resolve, reject) {
 	            return fn.apply(void 0, args.concat([function () {
 	              for (var _len4 = arguments.length, args = new Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
 	                args[_key4] = arguments[_key4];
@@ -4778,7 +4790,7 @@
 	            return typeof cb === "function" ? cb(args) : void 0;
 	          }
 	        });
-	        return this._addToQueue(job);
+	        return this._receive(job);
 	      }
 	    }, {
 	      key: "schedule",
@@ -4809,7 +4821,7 @@
 
 	        job = new Job$1(task, args, options, this.jobDefaults, this.rejectOnDrop, this.Events, this._states, this.Promise);
 
-	        this._addToQueue(job);
+	        this._receive(job);
 
 	        return job.promise;
 	      }
@@ -4817,7 +4829,7 @@
 	      key: "wrap",
 	      value: function wrap(fn) {
 	        var schedule, wrapped;
-	        schedule = this.schedule;
+	        schedule = this.schedule.bind(this);
 
 	        wrapped = function wrapped() {
 	          for (var _len6 = arguments.length, args = new Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {

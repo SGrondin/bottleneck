@@ -7,21 +7,22 @@ class Sync
   _tryToRun: ->
     if (@_running < 1) and @_queue.length > 0
       @_running++
-      next = @_queue.shift()
-      next.task next.args..., (args...) =>
-        @_running--
-        @_tryToRun()
-        next.cb? args...
-  submit: (task, args..., cb) =>
-    @_queue.push {task, args, cb}
+      { task, args, resolve, reject } = @_queue.shift()
+      cb = try
+        returned = await task args...
+        () -> resolve returned
+      catch error
+        () -> reject error
+      @_running--
+      @_tryToRun()
+      cb()
+  schedule: (task, args...) =>
+    resolve = reject = null
+    promise = new @Promise (_resolve, _reject) ->
+      resolve = _resolve
+      reject = _reject
+    @_queue.push { task, args, resolve, reject }
     @_tryToRun()
-  schedule: (task, args...) ->
-    wrapped = (args..., cb) ->
-      (task args...)
-      .then (args...) -> cb null, args...
-      .catch (args...) -> cb args...
-    new @Promise (resolve, reject) =>
-      @submit wrapped, args..., (args...) ->
-        (if args[0]? then reject else args.shift(); resolve) args...
+    promise
 
 module.exports = Sync

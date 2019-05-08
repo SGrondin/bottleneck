@@ -733,14 +733,13 @@
 
 	var States_1 = States;
 
-	var DLList$2, Sync,
-	  splice = [].splice;
+	var DLList$2, Sync;
 
 	DLList$2 = DLList_1;
 
 	Sync = class Sync {
 	  constructor(name, Promise) {
-	    this.submit = this.submit.bind(this);
+	    this.schedule = this.schedule.bind(this);
 	    this.name = name;
 	    this.Promise = Promise;
 	    this._running = 0;
@@ -751,42 +750,40 @@
 	    return this._queue.length === 0;
 	  }
 
-	  _tryToRun() {
-	    var next;
+	  async _tryToRun() {
+	    var args, cb, error, reject, resolve, returned, task;
 	    if ((this._running < 1) && this._queue.length > 0) {
 	      this._running++;
-	      next = this._queue.shift();
-	      return next.task(...next.args, (...args) => {
-	        this._running--;
-	        this._tryToRun();
-	        return typeof next.cb === "function" ? next.cb(...args) : void 0;
-	      });
+	      ({task, args, resolve, reject} = this._queue.shift());
+	      cb = (await (async function() {
+	        try {
+	          returned = (await task(...args));
+	          return function() {
+	            return resolve(returned);
+	          };
+	        } catch (error1) {
+	          error = error1;
+	          return function() {
+	            return reject(error);
+	          };
+	        }
+	      })());
+	      this._running--;
+	      this._tryToRun();
+	      return cb();
 	    }
 	  }
 
-	  submit(task, ...args) {
-	    var cb, ref;
-	    ref = args, [...args] = ref, [cb] = splice.call(args, -1);
-	    this._queue.push({task, args, cb});
-	    return this._tryToRun();
-	  }
-
 	  schedule(task, ...args) {
-	    var wrapped;
-	    wrapped = function(...args) {
-	      var cb, ref;
-	      ref = args, [...args] = ref, [cb] = splice.call(args, -1);
-	      return (task(...args)).then(function(...args) {
-	        return cb(null, ...args);
-	      }).catch(function(...args) {
-	        return cb(...args);
-	      });
-	    };
-	    return new this.Promise((resolve, reject) => {
-	      return this.submit(wrapped, ...args, function(...args) {
-	        return (args[0] != null ? reject : (args.shift(), resolve))(...args);
-	      });
+	    var promise, reject, resolve;
+	    resolve = reject = null;
+	    promise = new this.Promise(function(_resolve, _reject) {
+	      resolve = _resolve;
+	      return reject = _reject;
 	    });
+	    this._queue.push({task, args, resolve, reject});
+	    this._tryToRun();
+	    return promise;
 	  }
 
 	};
@@ -825,7 +822,6 @@
 	  class Group {
 	    constructor(limiterOptions = {}) {
 	      this.deleteKey = this.deleteKey.bind(this);
-	      this.updateSettings = this.updateSettings.bind(this);
 	      this.limiterOptions = limiterOptions;
 	      parser$3.load(this.limiterOptions, this.defaults, this);
 	      this.Events = new Events$2(this);
@@ -1025,7 +1021,7 @@
 	var require$$8 = getCjsExportFromNamespace(version$2);
 
 	var Bottleneck, DEFAULT_PRIORITY$1, Events$4, Job$1, LocalDatastore$1, NUM_PRIORITIES$1, Queues$1, RedisDatastore$1, States$1, Sync$1, parser$5,
-	  splice$1 = [].splice;
+	  splice = [].splice;
 
 	NUM_PRIORITIES$1 = 10;
 
@@ -1051,11 +1047,7 @@
 	  class Bottleneck {
 	    constructor(options = {}, ...invalid) {
 	      var storeInstanceOptions, storeOptions;
-	      this._drainOne = this._drainOne.bind(this);
-	      this.submit = this.submit.bind(this);
-	      this.schedule = this.schedule.bind(this);
-	      this.updateSettings = this.updateSettings.bind(this);
-	      this.incrementReservoir = this.incrementReservoir.bind(this);
+	      this._addToQueue = this._addToQueue.bind(this);
 	      this._validateOptions(options, invalid);
 	      parser$5.load(options, this.instanceDefaults, this);
 	      this._queues = new Queues$1(NUM_PRIORITIES$1);
@@ -1309,7 +1301,7 @@
 	      }, () => {
 	        return waitForExecuting(1);
 	      });
-	      this._addToQueue = function(job) {
+	      this._receive = function(job) {
 	        return job._reject(new Bottleneck.prototype.BottleneckError(options.enqueueErrorMessage));
 	      };
 	      this.stop = () => {
@@ -1318,51 +1310,53 @@
 	      return done;
 	    }
 
-	    _addToQueue(job) {
-	      var args, options;
+	    async _addToQueue(job) {
+	      var args, blocked, error, options, reachedHWM, shifted, strategy;
 	      ({args, options} = job);
-	      if (!job.doReceive()) {
+	      try {
+	        ({reachedHWM, blocked, strategy} = (await this._store.__submit__(this.queued(), options.weight)));
+	      } catch (error1) {
+	        error = error1;
+	        this.Events.trigger("debug", `Could not queue ${options.id}`, {args, options, error});
+	        job.doDrop({error});
 	        return false;
 	      }
-	      return this._submitLock.schedule(async() => {
-	        var blocked, error, reachedHWM, shifted, strategy;
-	        try {
-	          ({reachedHWM, blocked, strategy} = (await this._store.__submit__(this.queued(), options.weight)));
-	        } catch (error1) {
-	          error = error1;
-	          this.Events.trigger("debug", `Could not queue ${options.id}`, {args, options, error});
-	          job.doDrop({error});
-	          return false;
+	      if (blocked) {
+	        job.doDrop();
+	        return true;
+	      } else if (reachedHWM) {
+	        shifted = strategy === Bottleneck.prototype.strategy.LEAK ? this._queues.shiftLastFrom(options.priority) : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? this._queues.shiftLastFrom(options.priority + 1) : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
+	        if (shifted != null) {
+	          shifted.doDrop();
 	        }
-	        if (blocked) {
-	          job.doDrop();
-	          return true;
-	        } else if (reachedHWM) {
-	          shifted = strategy === Bottleneck.prototype.strategy.LEAK ? this._queues.shiftLastFrom(options.priority) : strategy === Bottleneck.prototype.strategy.OVERFLOW_PRIORITY ? this._queues.shiftLastFrom(options.priority + 1) : strategy === Bottleneck.prototype.strategy.OVERFLOW ? job : void 0;
-	          if (shifted != null) {
-	            shifted.doDrop();
+	        if ((shifted == null) || strategy === Bottleneck.prototype.strategy.OVERFLOW) {
+	          if (shifted == null) {
+	            job.doDrop();
 	          }
-	          if ((shifted == null) || strategy === Bottleneck.prototype.strategy.OVERFLOW) {
-	            if (shifted == null) {
-	              job.doDrop();
-	            }
-	            return reachedHWM;
-	          }
+	          return reachedHWM;
 	        }
-	        job.doQueue(reachedHWM, blocked);
-	        this._queues.push(job);
-	        await this._drainAll();
-	        return reachedHWM;
-	      });
+	      }
+	      job.doQueue(reachedHWM, blocked);
+	      this._queues.push(job);
+	      await this._drainAll();
+	      return reachedHWM;
+	    }
+
+	    _receive(job) {
+	      if (job.doReceive()) {
+	        return this._submitLock.schedule(this._addToQueue, job);
+	      } else {
+	        return false;
+	      }
 	    }
 
 	    submit(...args) {
 	      var cb, fn, job, options, ref, ref1, task;
 	      if (typeof args[0] === "function") {
-	        ref = args, [fn, ...args] = ref, [cb] = splice$1.call(args, -1);
+	        ref = args, [fn, ...args] = ref, [cb] = splice.call(args, -1);
 	        options = parser$5.load({}, this.jobDefaults);
 	      } else {
-	        ref1 = args, [options, fn, ...args] = ref1, [cb] = splice$1.call(args, -1);
+	        ref1 = args, [options, fn, ...args] = ref1, [cb] = splice.call(args, -1);
 	        options = parser$5.load(options, this.jobDefaults);
 	      }
 	      task = (...args) => {
@@ -1382,7 +1376,7 @@
 	          return typeof cb === "function" ? cb(args) : void 0;
 	        }
 	      });
-	      return this._addToQueue(job);
+	      return this._receive(job);
 	    }
 
 	    schedule(...args) {
@@ -1394,17 +1388,17 @@
 	        [options, task, ...args] = args;
 	      }
 	      job = new Job$1(task, args, options, this.jobDefaults, this.rejectOnDrop, this.Events, this._states, this.Promise);
-	      this._addToQueue(job);
+	      this._receive(job);
 	      return job.promise;
 	    }
 
 	    wrap(fn) {
 	      var schedule, wrapped;
-	      schedule = this.schedule;
+	      schedule = this.schedule.bind(this);
 	      wrapped = function(...args) {
 	        return schedule(fn.bind(this), ...args);
 	      };
-	      wrapped.withOptions = (options, ...args) => {
+	      wrapped.withOptions = function(options, ...args) {
 	        return schedule(options, fn, ...args);
 	      };
 	      return wrapped;
