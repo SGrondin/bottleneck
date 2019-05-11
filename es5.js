@@ -11,14 +11,14 @@
 	(global.Bottleneck = factory());
 }(this, (function () { 'use strict';
 
-	var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+	var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
 	function createCommonjsModule(fn, module) {
 		return module = { exports: {} }, fn(module, module.exports), module.exports;
 	}
 
 	function getCjsExportFromNamespace (n) {
-		return n && n.default || n;
+		return n && n['default'] || n;
 	}
 
 	var runtime = createCommonjsModule(function (module) {
@@ -1316,9 +1316,11 @@
 	        }, _callee2, this, [[1, 13]]);
 	      }));
 
-	      return function trigger(_x) {
+	      function trigger(_x) {
 	        return _trigger.apply(this, arguments);
-	      };
+	      }
+
+	      return trigger;
 	    }()
 	  }]);
 
@@ -1633,9 +1635,11 @@
 	        }, _callee, this, [[3, 14]]);
 	      }));
 
-	      return function doExecute(_x, _x2, _x3, _x4) {
+	      function doExecute(_x, _x2, _x3, _x4) {
 	        return _doExecute.apply(this, arguments);
-	      };
+	      }
+
+	      return doExecute;
 	    }()
 	  }, {
 	    key: "doExpire",
@@ -1700,9 +1704,11 @@
 	        }, _callee2, this);
 	      }));
 
-	      return function _onFailure(_x5, _x6, _x7, _x8, _x9) {
+	      function _onFailure(_x5, _x6, _x7, _x8, _x9) {
 	        return _onFailure2.apply(this, arguments);
-	      };
+	      }
+
+	      return _onFailure;
 	    }()
 	  }, {
 	    key: "doDone",
@@ -1817,9 +1823,11 @@
 	        }, _callee, this);
 	      }));
 
-	      return function __publish__(_x) {
+	      function __publish__(_x) {
 	        return _publish__.apply(this, arguments);
-	      };
+	      }
+
+	      return __publish__;
 	    }()
 	  }, {
 	    key: "__disconnect__",
@@ -1846,9 +1854,11 @@
 	        }, _callee2, this);
 	      }));
 
-	      return function __disconnect__(_x2) {
+	      function __disconnect__(_x2) {
 	        return _disconnect__.apply(this, arguments);
-	      };
+	      }
+
+	      return __disconnect__;
 	    }()
 	  }, {
 	    key: "yieldLoop",
@@ -1894,9 +1904,11 @@
 	        }, _callee3, this);
 	      }));
 
-	      return function __updateSettings__(_x3) {
+	      function __updateSettings__(_x3) {
 	        return _updateSettings__.apply(this, arguments);
-	      };
+	      }
+
+	      return __updateSettings__;
 	    }()
 	  }, {
 	    key: "__running__",
@@ -1922,9 +1934,11 @@
 	        }, _callee4, this);
 	      }));
 
-	      return function __running__() {
+	      function __running__() {
 	        return _running__.apply(this, arguments);
-	      };
+	      }
+
+	      return __running__;
 	    }()
 	  }, {
 	    key: "__queued__",
@@ -1950,9 +1964,11 @@
 	        }, _callee5, this);
 	      }));
 
-	      return function __queued__() {
+	      function __queued__() {
 	        return _queued__.apply(this, arguments);
-	      };
+	      }
+
+	      return __queued__;
 	    }()
 	  }, {
 	    key: "__done__",
@@ -1978,9 +1994,11 @@
 	        }, _callee6, this);
 	      }));
 
-	      return function __done__() {
+	      function __done__() {
 	        return _done__.apply(this, arguments);
-	      };
+	      }
+
+	      return __done__;
 	    }()
 	  }, {
 	    key: "__groupCheck__",
@@ -2006,9 +2024,11 @@
 	        }, _callee7, this);
 	      }));
 
-	      return function __groupCheck__(_x4) {
+	      function __groupCheck__(_x4) {
 	        return _groupCheck__.apply(this, arguments);
-	      };
+	      }
+
+	      return __groupCheck__;
 	    }()
 	  }, {
 	    key: "computeCapacity",
@@ -2064,9 +2084,11 @@
 	        }, _callee8, this);
 	      }));
 
-	      return function __incrementReservoir__(_x5) {
+	      function __incrementReservoir__(_x5) {
 	        return _incrementReservoir__.apply(this, arguments);
-	      };
+	      }
+
+	      return __incrementReservoir__;
 	    }()
 	  }, {
 	    key: "__currentReservoir__",
@@ -2092,9 +2114,11 @@
 	        }, _callee9, this);
 	      }));
 
-	      return function __currentReservoir__() {
+	      function __currentReservoir__() {
 	        return _currentReservoir__.apply(this, arguments);
-	      };
+	      }
+
+	      return __currentReservoir__;
 	    }()
 	  }, {
 	    key: "isBlocked",
@@ -2132,9 +2156,11 @@
 	        }, _callee10, this);
 	      }));
 
-	      return function __check__(_x6) {
+	      function __check__(_x6) {
 	        return _check__.apply(this, arguments);
-	      };
+	      }
+
+	      return __check__;
 	    }()
 	  }, {
 	    key: "__register__",
@@ -2185,9 +2211,11 @@
 	        }, _callee11, this);
 	      }));
 
-	      return function __register__(_x7, _x8, _x9) {
+	      function __register__(_x7, _x8, _x9) {
 	        return _register__.apply(this, arguments);
-	      };
+	      }
+
+	      return __register__;
 	    }()
 	  }, {
 	    key: "strategyIsBlock",
@@ -2242,9 +2270,11 @@
 	        }, _callee12, this);
 	      }));
 
-	      return function __submit__(_x10, _x11) {
+	      function __submit__(_x10, _x11) {
 	        return _submit__.apply(this, arguments);
-	      };
+	      }
+
+	      return __submit__;
 	    }()
 	  }, {
 	    key: "__free__",
@@ -2277,9 +2307,11 @@
 	        }, _callee13, this);
 	      }));
 
-	      return function __free__(_x12, _x13) {
+	      function __free__(_x12, _x13) {
 	        return _free__.apply(this, arguments);
-	      };
+	      }
+
+	      return __free__;
 	    }()
 	  }]);
 
@@ -2616,9 +2648,11 @@
 	          }, _callee, this);
 	        }));
 
-	        return function __runCommand__(_x) {
+	        function __runCommand__(_x) {
 	          return _runCommand__.apply(this, arguments);
-	        };
+	        }
+
+	        return __runCommand__;
 	      }()
 	    }, {
 	      key: "__addLimiter__",
@@ -2859,9 +2893,11 @@
 	          }, _callee, this);
 	        }));
 
-	        return function __runCommand__(_x) {
+	        function __runCommand__(_x) {
 	          return _runCommand__.apply(this, arguments);
-	        };
+	        }
+
+	        return __runCommand__;
 	      }()
 	    }, {
 	      key: "__addLimiter__",
@@ -3056,9 +3092,11 @@
 	        }, _callee, this);
 	      }));
 
-	      return function __publish__(_x) {
+	      function __publish__(_x) {
 	        return _publish__.apply(this, arguments);
-	      };
+	      }
+
+	      return __publish__;
 	    }()
 	  }, {
 	    key: "onMessage",
@@ -3210,9 +3248,11 @@
 	        }, _callee3, this, [[0, 47]]);
 	      }));
 
-	      return function onMessage(_x2, _x3) {
+	      function onMessage(_x2, _x3) {
 	        return _onMessage.apply(this, arguments);
-	      };
+	      }
+
+	      return onMessage;
 	    }()
 	  }, {
 	    key: "__disconnect__",
@@ -3286,9 +3326,11 @@
 	        }, _callee4, this);
 	      }));
 
-	      return function runScript(_x4, _x5) {
+	      function runScript(_x4, _x5) {
 	        return _runScript.apply(this, arguments);
-	      };
+	      }
+
+	      return runScript;
 	    }()
 	  }, {
 	    key: "prepareArray",
@@ -3358,9 +3400,11 @@
 	        }, _callee5, this);
 	      }));
 
-	      return function __updateSettings__(_x6) {
+	      function __updateSettings__(_x6) {
 	        return _updateSettings__.apply(this, arguments);
-	      };
+	      }
+
+	      return __updateSettings__;
 	    }()
 	  }, {
 	    key: "__running__",
@@ -3403,9 +3447,11 @@
 	        }, _callee6, this);
 	      }));
 
-	      return function __groupCheck__() {
+	      function __groupCheck__() {
 	        return _groupCheck__.apply(this, arguments);
-	      };
+	      }
+
+	      return __groupCheck__;
 	    }()
 	  }, {
 	    key: "__incrementReservoir__",
@@ -3443,9 +3489,11 @@
 	        }, _callee7, this);
 	      }));
 
-	      return function __check__(_x7) {
+	      function __check__(_x7) {
 	        return _check__.apply(this, arguments);
-	      };
+	      }
+
+	      return __check__;
 	    }()
 	  }, {
 	    key: "__register__",
@@ -3482,9 +3530,11 @@
 	        }, _callee8, this);
 	      }));
 
-	      return function __register__(_x8, _x9, _x10) {
+	      function __register__(_x8, _x9, _x10) {
 	        return _register__.apply(this, arguments);
-	      };
+	      }
+
+	      return __register__;
 	    }()
 	  }, {
 	    key: "__submit__",
@@ -3542,9 +3592,11 @@
 	        }, _callee9, this, [[0, 11]]);
 	      }));
 
-	      return function __submit__(_x11, _x12) {
+	      function __submit__(_x11, _x12) {
 	        return _submit__.apply(this, arguments);
-	      };
+	      }
+
+	      return __submit__;
 	    }()
 	  }, {
 	    key: "__free__",
@@ -3574,9 +3626,11 @@
 	        }, _callee10, this);
 	      }));
 
-	      return function __free__(_x13, _x14) {
+	      function __free__(_x13, _x14) {
 	        return _free__.apply(this, arguments);
-	      };
+	      }
+
+	      return __free__;
 	    }()
 	  }]);
 
@@ -3783,9 +3837,11 @@
 	        }, _callee2, this);
 	      }));
 
-	      return function _tryToRun() {
+	      function _tryToRun() {
 	        return _tryToRun2.apply(this, arguments);
-	      };
+	      }
+
+	      return _tryToRun;
 	    }()
 	  }, {
 	    key: "schedule",
@@ -3939,9 +3995,11 @@
 	          }, _callee, this);
 	        }));
 
-	        return function deleteKey() {
+	        function deleteKey() {
 	          return _deleteKey.apply(this, arguments);
-	        };
+	        }
+
+	        return deleteKey;
 	      }()
 	    }, {
 	      key: "limiters",
@@ -4025,9 +4083,11 @@
 	          }, _callee2, this);
 	        }));
 
-	        return function clusterKeys() {
+	        function clusterKeys() {
 	          return _clusterKeys.apply(this, arguments);
-	        };
+	        }
+
+	        return clusterKeys;
 	      }()
 	    }, {
 	      key: "_startAutoCleanup",
@@ -4446,9 +4506,11 @@
 	          }, _callee, this, [[0, 10]]);
 	        }));
 
-	        return function _free(_x, _x2, _x3, _x4) {
+	        function _free(_x, _x2, _x3, _x4) {
 	          return _free2.apply(this, arguments);
-	        };
+	        }
+
+	        return _free;
 	      }()
 	    }, {
 	      key: "_run",
@@ -4728,9 +4790,11 @@
 	          }, _callee2, this, [[2, 11]]);
 	        }));
 
-	        return function _addToQueue(_x5) {
+	        function _addToQueue(_x5) {
 	          return _addToQueue2.apply(this, arguments);
-	        };
+	        }
+
+	        return _addToQueue;
 	      }()
 	    }, {
 	      key: "_receive",
@@ -4877,9 +4941,11 @@
 	          }, _callee3, this);
 	        }));
 
-	        return function updateSettings() {
+	        function updateSettings() {
 	          return _updateSettings.apply(this, arguments);
-	        };
+	        }
+
+	        return updateSettings;
 	      }()
 	    }, {
 	      key: "currentReservoir",
