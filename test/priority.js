@@ -12,13 +12,16 @@ describe('Priority', function () {
   it('Should do basic ordering', function () {
     c = makeTest({maxConcurrent: 1, minTime: 100, rejectOnDrop: false})
 
-    c.limiter.submit(c.slowJob, 50, null, 1, c.noErrVal(1))
-    c.limiter.submit(c.job, null, 2, c.noErrVal(2))
-    c.limiter.submit(c.job, null, 3, c.noErrVal(3))
-    c.limiter.submit(c.job, null, 4, c.noErrVal(4))
-    c.limiter.submit({priority: 1}, c.job, null, 5, 6, c.noErrVal(5, 6))
-
-    return c.last()
+    return Promise.all([
+      c.pNoErrVal(c.limiter.schedule(c.slowPromise, 50, null, 1), 1),
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2),
+      c.pNoErrVal(c.limiter.schedule({priority: 1}, c.promise, null, 5, 6), 5, 6),
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 3), 3),
+      c.pNoErrVal(c.limiter.schedule(c.promise, null, 4), 4)
+    ])
+    .then(function () {
+      return c.last()
+    })
     .then(function (results) {
       c.checkResultsOrder([[1], [5,6], [2] ,[3], [4]])
       c.checkDuration(400)
