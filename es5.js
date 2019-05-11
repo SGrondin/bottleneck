@@ -3875,7 +3875,7 @@
 
 	var Sync_1 = Sync;
 
-	var version = "2.18.0";
+	var version = "2.18.1";
 	var version$1 = {
 		version: version
 	};
