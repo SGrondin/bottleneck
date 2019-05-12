@@ -42,21 +42,23 @@
 	var DLList;
 
 	DLList = class DLList {
-	  constructor(_queues) {
-	    this._queues = _queues;
+	  constructor(incr, decr) {
+	    this.incr = incr;
+	    this.decr = decr;
 	    this._first = null;
 	    this._last = null;
 	    this.length = 0;
 	  }
 
 	  push(value) {
-	    var node, ref1;
+	    var node;
 	    this.length++;
-	    if ((ref1 = this._queues) != null) {
-	      ref1.incr();
+	    if (typeof this.incr === "function") {
+	      this.incr();
 	    }
 	    node = {
 	      value,
+	      prev: this._last,
 	      next: null
 	    };
 	    if (this._last != null) {
@@ -69,17 +71,21 @@
 	  }
 
 	  shift() {
-	    var ref1, ref2, value;
+	    var value;
 	    if (this._first == null) {
-	      return void 0;
+	      return;
 	    } else {
 	      this.length--;
-	      if ((ref1 = this._queues) != null) {
-	        ref1.decr();
+	      if (typeof this.decr === "function") {
+	        this.decr();
 	      }
 	    }
 	    value = this._first.value;
-	    this._first = (ref2 = this._first.next) != null ? ref2 : (this._last = null);
+	    if ((this._first = this._first.next) != null) {
+	      this._first.prev = null;
+	    } else {
+	      this._last = null;
+	    }
 	    return value;
 	  }
 
@@ -106,6 +112,20 @@
 	      (cb(node), node = this.shift());
 	    }
 	    return void 0;
+	  }
+
+	  debug() {
+	    var node, ref, ref1, ref2, results;
+	    node = this._first;
+	    results = [];
+	    while (node != null) {
+	      results.push((ref = node, node = node.next, {
+	        value: ref.value,
+	        prev: (ref1 = ref.prev) != null ? ref1.value : void 0,
+	        next: (ref2 = ref.next) != null ? ref2.value : void 0
+	      }));
+	    }
+	    return results;
 	  }
 
 	};
@@ -219,7 +239,11 @@
 	      var j, ref, results;
 	      results = [];
 	      for (i = j = 1, ref = num_priorities; (1 <= ref ? j <= ref : j >= ref); i = 1 <= ref ? ++j : --j) {
-	        results.push(new DLList$1(this));
+	        results.push(new DLList$1((() => {
+	          return this.incr();
+	        }), (() => {
+	          return this.decr();
+	        })));
 	      }
 	      return results;
 	    }).call(this);
@@ -347,14 +371,8 @@
 	  }
 
 	  doReceive() {
-	    if (this._states.jobStatus(this.options.id) != null) {
-	      this._reject(new BottleneckError$1(`A job with the same id already exists (id=${this.options.id})`));
-	      return false;
-	    } else {
-	      this._states.start(this.options.id);
-	      this.Events.trigger("debug", `Queueing ${this.options.id}`, {args: this.args, options: this.options});
-	      return true;
-	    }
+	    this._states.start(this.options.id);
+	    return this.Events.trigger("debug", `Queueing ${this.options.id}`, {args: this.args, options: this.options});
 	  }
 
 	  doQueue(reachedHWM, blocked) {
@@ -388,7 +406,8 @@
 	      if (clearGlobalState()) {
 	        this.doDone(eventInfo);
 	        await free(this.options, eventInfo);
-	        return this.doResolve(null, passed);
+	        this._assertStatus("DONE");
+	        return this._resolve(passed);
 	      }
 	    } catch (error1) {
 	      error = error1;
@@ -416,7 +435,8 @@
 	      } else {
 	        this.doDone(eventInfo);
 	        await free(this.options, eventInfo);
-	        return this.doResolve(error);
+	        this._assertStatus("DONE");
+	        return this._reject(error);
 	      }
 	    }
 	  }
@@ -426,15 +446,6 @@
 	    this._states.next(this.options.id);
 	    this.Events.trigger("debug", `Completed ${this.options.id}`, eventInfo);
 	    return this.Events.trigger("done", `Completed ${this.options.id}`, eventInfo);
-	  }
-
-	  doResolve(error, passed) {
-	    this._assertStatus("DONE");
-	    if (error != null) {
-	      return this._reject(error);
-	    } else {
-	      return this._resolve(passed);
-	    }
 	  }
 
 	};
@@ -659,7 +670,7 @@
 	States = class States {
 	  constructor(status1) {
 	    this.status = status1;
-	    this.jobs = {};
+	    this._jobs = {};
 	    this.counts = this.status.map(function() {
 	      return 0;
 	    });
@@ -667,38 +678,38 @@
 
 	  next(id) {
 	    var current, next;
-	    current = this.jobs[id];
+	    current = this._jobs[id];
 	    next = current + 1;
 	    if ((current != null) && next < this.status.length) {
 	      this.counts[current]--;
 	      this.counts[next]++;
-	      return this.jobs[id]++;
+	      return this._jobs[id]++;
 	    } else if (current != null) {
 	      this.counts[current]--;
-	      return delete this.jobs[id];
+	      return delete this._jobs[id];
 	    }
 	  }
 
 	  start(id) {
 	    var initial;
 	    initial = 0;
-	    this.jobs[id] = initial;
+	    this._jobs[id] = initial;
 	    return this.counts[initial]++;
 	  }
 
 	  remove(id) {
 	    var current;
-	    current = this.jobs[id];
+	    current = this._jobs[id];
 	    if (current != null) {
 	      this.counts[current]--;
-	      delete this.jobs[id];
+	      delete this._jobs[id];
 	    }
 	    return current != null;
 	  }
 
 	  jobStatus(id) {
 	    var ref;
-	    return (ref = this.status[this.jobs[id]]) != null ? ref : null;
+	    return (ref = this.status[this._jobs[id]]) != null ? ref : null;
 	  }
 
 	  statusJobs(status) {
@@ -708,7 +719,7 @@
 	      if (pos < 0) {
 	        throw new BottleneckError$3(`status must be one of ${this.status.join(', ')}`);
 	      }
-	      ref = this.jobs;
+	      ref = this._jobs;
 	      results = [];
 	      for (k in ref) {
 	        v = ref[k];
@@ -718,7 +729,7 @@
 	      }
 	      return results;
 	    } else {
-	      return Object.keys(this.jobs);
+	      return Object.keys(this._jobs);
 	    }
 	  }
 
@@ -1343,10 +1354,12 @@
 	    }
 
 	    _receive(job) {
-	      if (job.doReceive()) {
-	        return this._submitLock.schedule(this._addToQueue, job);
-	      } else {
+	      if (this._states.jobStatus(job.options.id) != null) {
+	        job._reject(new Bottleneck.prototype.BottleneckError(`A job with the same id already exists (id=${job.options.id})`));
 	        return false;
+	      } else {
+	        job.doReceive();
+	        return this._submitLock.schedule(this._addToQueue, job);
 	      }
 	    }
 

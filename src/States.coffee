@@ -1,42 +1,42 @@
 BottleneckError = require "./BottleneckError"
 class States
   constructor: (@status) ->
-    @jobs = {}
+    @_jobs = {}
     @counts = @status.map(-> 0)
 
   next: (id) ->
-    current = @jobs[id]
+    current = @_jobs[id]
     next = current + 1
     if current? and next < @status.length
       @counts[current]--
       @counts[next]++
-      @jobs[id]++
+      @_jobs[id]++
     else if current?
       @counts[current]--
-      delete @jobs[id]
+      delete @_jobs[id]
 
   start: (id) ->
     initial = 0
-    @jobs[id] = initial
+    @_jobs[id] = initial
     @counts[initial]++
 
   remove: (id) ->
-    current = @jobs[id]
+    current = @_jobs[id]
     if current?
       @counts[current]--
-      delete @jobs[id]
+      delete @_jobs[id]
     current?
 
-  jobStatus: (id) -> @status[@jobs[id]] ? null
+  jobStatus: (id) -> @status[@_jobs[id]] ? null
 
   statusJobs: (status) ->
     if status?
       pos = @status.indexOf status
       if pos < 0
         throw new BottleneckError "status must be one of #{@status.join ', '}"
-      k for k,v of @jobs when v == pos
+      k for k,v of @_jobs when v == pos
     else
-      Object.keys @jobs
+      Object.keys @_jobs
 
   statusCounts: -> @counts.reduce(((acc, v, i) => acc[@status[i]] = v; acc), {})
 

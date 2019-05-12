@@ -1028,10 +1028,11 @@
 	DLList =
 	/*#__PURE__*/
 	function () {
-	  function DLList(_queues) {
+	  function DLList(incr, decr) {
 	    _classCallCheck(this, DLList);
 
-	    this._queues = _queues;
+	    this.incr = incr;
+	    this.decr = decr;
 	    this._first = null;
 	    this._last = null;
 	    this.length = 0;
@@ -1040,15 +1041,16 @@
 	  _createClass(DLList, [{
 	    key: "push",
 	    value: function push(value) {
-	      var node, ref1;
+	      var node;
 	      this.length++;
 
-	      if ((ref1 = this._queues) != null) {
-	        ref1.incr();
+	      if (typeof this.incr === "function") {
+	        this.incr();
 	      }
 
 	      node = {
 	        value: value,
+	        prev: this._last,
 	        next: null
 	      };
 
@@ -1064,20 +1066,26 @@
 	  }, {
 	    key: "shift",
 	    value: function shift() {
-	      var ref1, ref2, value;
+	      var value;
 
 	      if (this._first == null) {
-	        return void 0;
+	        return;
 	      } else {
 	        this.length--;
 
-	        if ((ref1 = this._queues) != null) {
-	          ref1.decr();
+	        if (typeof this.decr === "function") {
+	          this.decr();
 	        }
 	      }
 
 	      value = this._first.value;
-	      this._first = (ref2 = this._first.next) != null ? ref2 : this._last = null;
+
+	      if ((this._first = this._first.next) != null) {
+	        this._first.prev = null;
+	      } else {
+	        this._last = null;
+	      }
+
 	      return value;
 	    }
 	  }, {
@@ -1111,6 +1119,23 @@
 	      }
 
 	      return void 0;
+	    }
+	  }, {
+	    key: "debug",
+	    value: function debug() {
+	      var node, ref, ref1, ref2, results;
+	      node = this._first;
+	      results = [];
+
+	      while (node != null) {
+	        results.push((ref = node, node = node.next, {
+	          value: ref.value,
+	          prev: (ref1 = ref.prev) != null ? ref1.value : void 0,
+	          next: (ref2 = ref.next) != null ? ref2.value : void 0
+	        }));
+	      }
+
+	      return results;
 	    }
 	  }]);
 
@@ -1344,11 +1369,17 @@
 	    this._length = 0;
 
 	    this._lists = function () {
+	      var _this = this;
+
 	      var j, ref, results;
 	      results = [];
 
 	      for (i = j = 1, ref = num_priorities; 1 <= ref ? j <= ref : j >= ref; i = 1 <= ref ? ++j : --j) {
-	        results.push(new DLList$1(this));
+	        results.push(new DLList$1(function () {
+	          return _this.incr();
+	        }, function () {
+	          return _this.decr();
+	        }));
 	      }
 
 	      return results;
@@ -1526,19 +1557,12 @@
 	  }, {
 	    key: "doReceive",
 	    value: function doReceive() {
-	      if (this._states.jobStatus(this.options.id) != null) {
-	        this._reject(new BottleneckError$1("A job with the same id already exists (id=".concat(this.options.id, ")")));
+	      this._states.start(this.options.id);
 
-	        return false;
-	      } else {
-	        this._states.start(this.options.id);
-
-	        this.Events.trigger("debug", "Queueing ".concat(this.options.id), {
-	          args: this.args,
-	          options: this.options
-	        });
-	        return true;
-	      }
+	      return this.Events.trigger("debug", "Queueing ".concat(this.options.id), {
+	        args: this.args,
+	        options: this.options
+	      });
 	    }
 	  }, {
 	    key: "doQueue",
@@ -1606,7 +1630,7 @@
 	                passed = _context.sent;
 
 	                if (!clearGlobalState()) {
-	                  _context.next = 12;
+	                  _context.next = 13;
 	                  break;
 	                }
 
@@ -1615,24 +1639,26 @@
 	                return free(this.options, eventInfo);
 
 	              case 11:
-	                return _context.abrupt("return", this.doResolve(null, passed));
+	                this._assertStatus("DONE");
 
-	              case 12:
-	                _context.next = 18;
+	                return _context.abrupt("return", this._resolve(passed));
+
+	              case 13:
+	                _context.next = 19;
 	                break;
 
-	              case 14:
-	                _context.prev = 14;
+	              case 15:
+	                _context.prev = 15;
 	                _context.t0 = _context["catch"](3);
 	                error = _context.t0;
 	                return _context.abrupt("return", this._onFailure(error, eventInfo, clearGlobalState, run, free));
 
-	              case 18:
+	              case 19:
 	              case "end":
 	                return _context.stop();
 	            }
 	          }
-	        }, _callee, this, [[3, 14]]);
+	        }, _callee, this, [[3, 15]]);
 	      }));
 
 	      function doExecute(_x, _x2, _x3, _x4) {
@@ -1668,7 +1694,7 @@
 	            switch (_context2.prev = _context2.next) {
 	              case 0:
 	                if (!clearGlobalState()) {
-	                  _context2.next = 15;
+	                  _context2.next = 16;
 	                  break;
 	                }
 
@@ -1694,9 +1720,11 @@
 	                return free(this.options, eventInfo);
 
 	              case 14:
-	                return _context2.abrupt("return", this.doResolve(error));
+	                this._assertStatus("DONE");
 
-	              case 15:
+	                return _context2.abrupt("return", this._reject(error));
+
+	              case 16:
 	              case "end":
 	                return _context2.stop();
 	            }
@@ -1719,17 +1747,6 @@
 
 	      this.Events.trigger("debug", "Completed ".concat(this.options.id), eventInfo);
 	      return this.Events.trigger("done", "Completed ".concat(this.options.id), eventInfo);
-	    }
-	  }, {
-	    key: "doResolve",
-	    value: function doResolve(error, passed) {
-	      this._assertStatus("DONE");
-
-	      if (error != null) {
-	        return this._reject(error);
-	      } else {
-	        return this._resolve(passed);
-	      }
 	    }
 	  }]);
 
@@ -3649,7 +3666,7 @@
 	    _classCallCheck(this, States);
 
 	    this.status = status1;
-	    this.jobs = {};
+	    this._jobs = {};
 	    this.counts = this.status.map(function () {
 	      return 0;
 	    });
@@ -3659,16 +3676,16 @@
 	    key: "next",
 	    value: function next(id) {
 	      var current, next;
-	      current = this.jobs[id];
+	      current = this._jobs[id];
 	      next = current + 1;
 
 	      if (current != null && next < this.status.length) {
 	        this.counts[current]--;
 	        this.counts[next]++;
-	        return this.jobs[id]++;
+	        return this._jobs[id]++;
 	      } else if (current != null) {
 	        this.counts[current]--;
-	        return delete this.jobs[id];
+	        return delete this._jobs[id];
 	      }
 	    }
 	  }, {
@@ -3676,18 +3693,18 @@
 	    value: function start(id) {
 	      var initial;
 	      initial = 0;
-	      this.jobs[id] = initial;
+	      this._jobs[id] = initial;
 	      return this.counts[initial]++;
 	    }
 	  }, {
 	    key: "remove",
 	    value: function remove(id) {
 	      var current;
-	      current = this.jobs[id];
+	      current = this._jobs[id];
 
 	      if (current != null) {
 	        this.counts[current]--;
-	        delete this.jobs[id];
+	        delete this._jobs[id];
 	      }
 
 	      return current != null;
@@ -3696,7 +3713,7 @@
 	    key: "jobStatus",
 	    value: function jobStatus(id) {
 	      var ref;
-	      return (ref = this.status[this.jobs[id]]) != null ? ref : null;
+	      return (ref = this.status[this._jobs[id]]) != null ? ref : null;
 	    }
 	  }, {
 	    key: "statusJobs",
@@ -3710,7 +3727,7 @@
 	          throw new BottleneckError$4("status must be one of ".concat(this.status.join(', ')));
 	        }
 
-	        ref = this.jobs;
+	        ref = this._jobs;
 	        results = [];
 
 	        for (k in ref) {
@@ -3723,7 +3740,7 @@
 
 	        return results;
 	      } else {
-	        return Object.keys(this.jobs);
+	        return Object.keys(this._jobs);
 	      }
 	    }
 	  }, {
@@ -4799,10 +4816,13 @@
 	    }, {
 	      key: "_receive",
 	      value: function _receive(job) {
-	        if (job.doReceive()) {
-	          return this._submitLock.schedule(this._addToQueue, job);
-	        } else {
+	        if (this._states.jobStatus(job.options.id) != null) {
+	          job._reject(new Bottleneck.prototype.BottleneckError("A job with the same id already exists (id=".concat(job.options.id, ")")));
+
 	          return false;
+	        } else {
+	          job.doReceive();
+	          return this._submitLock.schedule(this._addToQueue, job);
 	        }
 	      }
 	    }, {

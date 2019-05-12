@@ -32,13 +32,8 @@ class Job
       throw new BottleneckError "Invalid job status #{status}, expected #{expected}. Please open an issue at https://github.com/SGrondin/bottleneck/issues"
 
   doReceive: () ->
-    if @_states.jobStatus(@options.id)?
-      @_reject new BottleneckError "A job with the same id already exists (id=#{@options.id})"
-      false
-    else
-      @_states.start @options.id
-      @Events.trigger "debug", "Queueing #{@options.id}", { @args, @options }
-      true
+    @_states.start @options.id
+    @Events.trigger "debug", "Queueing #{@options.id}", { @args, @options }
 
   doQueue: (reachedHWM, blocked) ->
     @_assertStatus "RECEIVED"
@@ -68,7 +63,8 @@ class Job
       if clearGlobalState()
         @doDone eventInfo
         await free @options, eventInfo
-        @doResolve null, passed
+        @_assertStatus "DONE"
+        @_resolve passed
     catch error
       @_onFailure error, eventInfo, clearGlobalState, run, free
 
@@ -89,18 +85,13 @@ class Job
       else
         @doDone eventInfo
         await free @options, eventInfo
-        @doResolve error
+        @_assertStatus "DONE"
+        @_reject error
 
   doDone: (eventInfo) ->
     @_assertStatus "EXECUTING"
     @_states.next @options.id
     @Events.trigger "debug", "Completed #{@options.id}", eventInfo
     @Events.trigger "done", "Completed #{@options.id}", eventInfo
-
-
-  doResolve: (error, passed) ->
-    @_assertStatus "DONE"
-    if error? then @_reject error else @_resolve passed
-
 
 module.exports = Job

@@ -243,9 +243,12 @@ class Bottleneck
     reachedHWM
 
   _receive: (job) ->
-    if job.doReceive()
+    if @_states.jobStatus(job.options.id)?
+      job._reject new Bottleneck::BottleneckError "A job with the same id already exists (id=#{job.options.id})"
+      false
+    else
+      job.doReceive()
       @_submitLock.schedule @_addToQueue, job
-    else false
 
   submit: (args...) ->
     if typeof args[0] == "function"

@@ -6,7 +6,7 @@ class Queues
   constructor: (num_priorities) ->
     @Events = new Events @
     @_length = 0
-    @_lists = for i in [1..num_priorities] then new DLList @
+    @_lists = for i in [1..num_priorities] then new DLList (=> @incr()), (=> @decr())
 
   incr: -> if @_length++ == 0 then @Events.trigger "leftzero"
 

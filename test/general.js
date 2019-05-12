@@ -14,7 +14,7 @@ describe('General', function () {
     process.env.DATASTORE !== 'redis' && process.env.DATASTORE !== 'ioredis' &&
     process.env.BUILD !== 'es5' && process.env.BUILD !== 'light'
   ) {
-    it('Should not leak memory on instantiation', async function () {
+    it.only('Should not leak memory on instantiation', async function () {
       c = makeTest()
       this.timeout(8000)
       const { iterate } = require('leakage')
@@ -23,8 +23,28 @@ describe('General', function () {
         const limiter = new Bottleneck({ datastore: 'local' })
         await limiter.ready()
         return limiter.disconnect(false)
-      }, { iterations: 50 })
+      }, { iterations: 25 })
 
+    })
+
+    it.only('Should not leak memory running jobs', async function () {
+      c = makeTest()
+      this.timeout(81000)
+      const { iterate } = require('leakage')
+      const limiter = new Bottleneck({ datastore: 'local', maxConcurrent: 1, minTime: 10 })
+      await limiter.ready()
+      var ctr = 0
+      var i = 0
+
+      const result = await iterate.async(async () => {
+        await limiter.schedule(function (zero, one) {
+          i = i + zero + one
+        }, 0, 1)
+        await limiter.schedule(function (zero, one) {
+          i = i + zero + one
+        }, 0, 1)
+      }, { iterations: 25 })
+      c.mustEqual(i, 151)
     })
   }
 
@@ -187,20 +207,16 @@ describe('General', function () {
       })
     })
 
-    it('Should reject duplicate Job IDs', function (done) {
+    it('Should refuse duplicate Job IDs', async function () {
       c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
 
-      c.limiter.schedule({ id: 'a' }, c.promise, null, 1)
-      .then(function () {
-        return c.limiter.schedule({ id: 'b' }, c.promise, null, 2)
-      })
-      .then(function () {
-        return c.limiter.schedule({ id: 'a' }, c.promise, null, 3)
-      })
-      .catch(function (e) {
+      try {
+        await c.limiter.schedule({ id: 'a' }, c.promise, null, 1)
+        await c.limiter.schedule({ id: 'b' }, c.promise, null, 2)
+        await c.limiter.schedule({ id: 'a' }, c.promise, null, 3)
+      } catch (e) {
         c.mustEqual(e.message, 'A job with the same id already exists (id=a)')
-        done()
-      })
+      }
     })
 
     it('Should return job statuses', function () {
