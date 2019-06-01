@@ -1534,9 +1534,9 @@
 	        }
 
 	        this.Events.trigger("dropped", {
-	          task: this.task,
 	          args: this.args,
 	          options: this.options,
+	          task: this.task,
 	          promise: this.promise
 	        });
 	        return true;
@@ -1557,15 +1557,9 @@
 	  }, {
 	    key: "doReceive",
 	    value: function doReceive() {
-	      var eventInfo;
-
 	      this._states.start(this.options.id);
 
-	      eventInfo = {
-	        args: this.args,
-	        options: this.options
-	      };
-	      return this.Events.trigger("received", "Received ".concat(this.options.id), {
+	      return this.Events.trigger("received", {
 	        args: this.args,
 	        options: this.options
 	      });
@@ -1573,25 +1567,20 @@
 	  }, {
 	    key: "doQueue",
 	    value: function doQueue(reachedHWM, blocked) {
-	      var eventInfo;
-
 	      this._assertStatus("RECEIVED");
 
 	      this._states.next(this.options.id);
 
-	      eventInfo = {
+	      return this.Events.trigger("queued", {
 	        args: this.args,
 	        options: this.options,
 	        reachedHWM: reachedHWM,
 	        blocked: blocked
-	      };
-	      return this.Events.trigger("queued", "Queued ".concat(this.options.id), eventInfo);
+	      });
 	    }
 	  }, {
 	    key: "doRun",
 	    value: function doRun() {
-	      var eventInfo;
-
 	      if (this.retryCount === 0) {
 	        this._assertStatus("QUEUED");
 
@@ -1600,11 +1589,10 @@
 	        this._assertStatus("EXECUTING");
 	      }
 
-	      eventInfo = {
+	      return this.Events.trigger("scheduled", {
 	        args: this.args,
 	        options: this.options
-	      };
-	      return this.Events.trigger("scheduled", "Scheduled ".concat(this.options.id), eventInfo);
+	      });
 	    }
 	  }, {
 	    key: "doExecute",
@@ -1630,7 +1618,7 @@
 	                  options: this.options,
 	                  retryCount: this.retryCount
 	                };
-	                this.Events.trigger("executing", "Executing ".concat(this.options.id), eventInfo);
+	                this.Events.trigger("executing", eventInfo);
 	                _context.prev = 3;
 	                _context.next = 6;
 	                return chained != null ? chained.schedule.apply(chained, [this.options, this.task].concat(_toConsumableArray(this.args))) : this.task.apply(this, _toConsumableArray(this.args));
@@ -1754,7 +1742,7 @@
 
 	      this._states.next(this.options.id);
 
-	      return this.Events.trigger("done", "Completed ".concat(this.options.id), eventInfo);
+	      return this.Events.trigger("done", eventInfo);
 	    }
 	  }]);
 

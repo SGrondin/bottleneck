@@ -26,7 +26,10 @@ let limiter = new Bottleneck({
   highWater: 20,
   strategy: Bottleneck.strategy.LEAK,
   reservoirRefreshInterval: 1000 * 60,
-  reservoirRefreshAmount: 10
+  reservoirRefreshAmount: 10,
+  reservoirIncreaseInterval: 1000 * 60,
+  reservoirIncreaseAmount: 2,
+  reservoirIncreaseMaximum: 15
 });
 
 limiter.ready().then(() => { console.log('Ready') });
@@ -46,6 +49,10 @@ limiter.incrementReservoir(5).then(function (x) {
 });
 
 limiter.running().then(function (x) {
+  let i: number = x;
+});
+
+limiter.clusterQueued().then(function (x) {
   let i: number = x;
 });
 
@@ -74,6 +81,53 @@ foo.then(function (result: string) {
 limiter.on("message", (msg) => console.log(msg));
 
 limiter.publish(JSON.stringify({ a: "abc", b: { c: 123 }}));
+
+function checkEventInfo(info: Bottleneck.EventInfo) {
+  const numArgs: number = info.args.length;
+  const id: string = info.options.id;
+}
+
+limiter.on('dropped', (info) => {
+  checkEventInfo(info)
+  const task: Function = info.task;
+  const promise: Promise<any> = info.promise;
+})
+
+limiter.on('received', (info) => {
+  checkEventInfo(info)
+})
+
+limiter.on('queued', (info) => {
+  checkEventInfo(info)
+  const blocked: boolean = info.blocked;
+  const reachedHWM: boolean = info.reachedHWM;
+})
+
+limiter.on('scheduled', (info) => {
+  checkEventInfo(info)
+})
+
+limiter.on('executing', (info) => {
+  checkEventInfo(info)
+  const count: number = info.retryCount;
+})
+
+limiter.on('failed', (error, info) => {
+  checkEventInfo(info)
+  const message: string = error.message;
+  const count: number = info.retryCount;
+  return Promise.resolve(10)
+})
+
+limiter.on('retry', (message: string, info) => {
+  checkEventInfo(info)
+  const count: number = info.retryCount;
+})
+
+limiter.on('done', (info) => {
+  checkEventInfo(info)
+  const count: number = info.retryCount;
+})
 
 let group = new Bottleneck.Group({
   maxConcurrent: 5,

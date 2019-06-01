@@ -355,7 +355,7 @@
 	      if (this.rejectOnDrop) {
 	        this._reject(error != null ? error : new BottleneckError$1(message));
 	      }
-	      this.Events.trigger("dropped", {task: this.task, args: this.args, options: this.options, promise: this.promise});
+	      this.Events.trigger("dropped", {args: this.args, options: this.options, task: this.task, promise: this.promise});
 	      return true;
 	    } else {
 	      return false;
@@ -371,30 +371,24 @@
 	  }
 
 	  doReceive() {
-	    var eventInfo;
 	    this._states.start(this.options.id);
-	    eventInfo = {args: this.args, options: this.options};
-	    return this.Events.trigger("received", `Received ${this.options.id}`, {args: this.args, options: this.options});
+	    return this.Events.trigger("received", {args: this.args, options: this.options});
 	  }
 
 	  doQueue(reachedHWM, blocked) {
-	    var eventInfo;
 	    this._assertStatus("RECEIVED");
 	    this._states.next(this.options.id);
-	    eventInfo = {args: this.args, options: this.options, reachedHWM, blocked};
-	    return this.Events.trigger("queued", `Queued ${this.options.id}`, eventInfo);
+	    return this.Events.trigger("queued", {args: this.args, options: this.options, reachedHWM, blocked});
 	  }
 
 	  doRun() {
-	    var eventInfo;
 	    if (this.retryCount === 0) {
 	      this._assertStatus("QUEUED");
 	      this._states.next(this.options.id);
 	    } else {
 	      this._assertStatus("EXECUTING");
 	    }
-	    eventInfo = {args: this.args, options: this.options};
-	    return this.Events.trigger("scheduled", `Scheduled ${this.options.id}`, eventInfo);
+	    return this.Events.trigger("scheduled", {args: this.args, options: this.options});
 	  }
 
 	  async doExecute(chained, clearGlobalState, run, free) {
@@ -406,7 +400,7 @@
 	      this._assertStatus("EXECUTING");
 	    }
 	    eventInfo = {args: this.args, options: this.options, retryCount: this.retryCount};
-	    this.Events.trigger("executing", `Executing ${this.options.id}`, eventInfo);
+	    this.Events.trigger("executing", eventInfo);
 	    try {
 	      passed = (await (chained != null ? chained.schedule(this.options, this.task, ...this.args) : this.task(...this.args)));
 	      if (clearGlobalState()) {
@@ -450,7 +444,7 @@
 	  doDone(eventInfo) {
 	    this._assertStatus("EXECUTING");
 	    this._states.next(this.options.id);
-	    return this.Events.trigger("done", `Completed ${this.options.id}`, eventInfo);
+	    return this.Events.trigger("done", eventInfo);
 	  }
 
 	};

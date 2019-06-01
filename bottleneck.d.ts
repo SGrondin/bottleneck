@@ -8,7 +8,7 @@ declare module "bottleneck" {
             /**
              * How long to wait after launching a job before launching another one.
              */
-            readonly minTime?: number;
+            readonly minTime?: number | null;
             /**
              * How long can the queue get? When the queue length exceeds that value, the selected `strategy` is executed to shed the load.
              */
@@ -16,7 +16,7 @@ declare module "bottleneck" {
             /**
              * Which strategy to use if the queue gets longer than the high water mark.
              */
-            readonly strategy?: Bottleneck.Strategy;
+            readonly strategy?: Bottleneck.Strategy | null;
             /**
              * The `penalty` value used by the `Bottleneck.strategy.BLOCK` strategy.
              */
@@ -26,7 +26,7 @@ declare module "bottleneck" {
              */
             readonly reservoir?: number | null;
             /**
-             * Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically reset to `reservoirRefreshAmount`. This feature has an accuracy of +/- 5 seconds.
+             * Every `reservoirRefreshInterval` milliseconds, the `reservoir` value will be automatically reset to `reservoirRefreshAmount`.
              */
             readonly reservoirRefreshInterval?: number | null;
             /**
@@ -34,21 +34,33 @@ declare module "bottleneck" {
              */
             readonly reservoirRefreshAmount?: number | null;
             /**
+             * The increment applied to `reservoir` when `reservoirIncreaseInterval` is in use.
+             */
+            readonly reservoirIncreaseAmount?: number | null;
+            /**
+             * Every `reservoirIncreaseInterval` milliseconds, the `reservoir` value will be automatically incremented by `reservoirIncreaseAmount`.
+             */
+            readonly reservoirIncreaseInterval?: number | null;
+            /**
+             * The maximum value that `reservoir` can reach when `reservoirIncreaseInterval` is in use.
+             */
+            readonly reservoirIncreaseMaximum?: number | null;
+            /**
              * Optional identifier
              */
-            readonly id?: string;
+            readonly id?: string | null;
             /**
              * Set to true to leave your failed jobs hanging instead of failing them.
              */
-            readonly rejectOnDrop?: boolean;
+            readonly rejectOnDrop?: boolean | null;
             /**
              * Set to true to keep track of done jobs with counts() and jobStatus(). Uses more memory.
              */
-            readonly trackDoneStatus?: boolean;
+            readonly trackDoneStatus?: boolean | null;
             /**
              * Where the limiter stores its internal state. The default (`local`) keeps the state in the limiter itself. Set it to `redis` to enable Clustering.
              */
-            readonly datastore?: string;
+            readonly datastore?: string | null;
             /**
              * Override the Promise library used by Bottleneck.
              */
@@ -65,11 +77,11 @@ declare module "bottleneck" {
              * An existing Bottleneck.RedisConnection or Bottleneck.IORedisConnection object to use.
              * If using, `datastore`, `clientOptions` and `clusterNodes` will be ignored.
              */
-            readonly connection?: Bottleneck.RedisConnection | Bottleneck.IORedisConnection;
+            readonly connection?: Bottleneck.RedisConnection | Bottleneck.IORedisConnection | null;
             /**
              * When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db.
              */
-            readonly clearDatastore?: boolean;
+            readonly clearDatastore?: boolean | null;
             /**
              * The Redis TTL in milliseconds for the keys created by the limiter. When `timeout` is set, the limiter's state will be automatically removed from Redis after timeout milliseconds of inactivity. Note: timeout is 300000 (5 minutes) by default when using a Group.
              */
@@ -81,11 +93,11 @@ declare module "bottleneck" {
             /**
              * A priority between `0` and `9`. A job with a priority of `4` will _always_ be executed before a job with a priority of `5`.
              */
-            readonly priority?: number;
+            readonly priority?: number | null;
             /**
              * Must be an integer equal to or higher than `0`. The `weight` is what increases the number of running jobs (up to `maxConcurrent`, if using) and decreases the `reservoir` value (if using).
              */
-            readonly weight?: number;
+            readonly weight?: number | null;
             /**
              * The number milliseconds a job has to finish. Jobs that take longer than their `expiration` will be failed with a `BottleneckError`.
              */
@@ -93,26 +105,45 @@ declare module "bottleneck" {
             /**
              * Optional identifier, helps with debug output.
              */
-            readonly id?: string;
+            readonly id?: string | null;
         };
         type StopOptions = {
             /**
              * When `true`, drop all the RECEIVED, QUEUED and RUNNING jobs. When `false`, allow those jobs to complete before resolving the Promise returned by this method.
              */
-            readonly dropWaitingJobs?: boolean;
+            readonly dropWaitingJobs?: boolean | null;
             /**
              * The error message used to drop jobs when `dropWaitingJobs` is `true`.
              */
-            readonly dropErrorMessage?: string;
+            readonly dropErrorMessage?: string | null;
             /**
              * The error message used to reject a job added to the limiter after `stop()` has been called.
              */
-            readonly enqueueErrorMessage?: string;
+            readonly enqueueErrorMessage?: string | null;
         };
         type Callback<T> = (err: any, result: T) => void;
-        interface ClientsList { client?: any; subscriber?: any }
-        interface GroupLimiterPair { key: string; limiter: Bottleneck }
+        type ClientsList = { client?: any; subscriber?: any };
+        type GroupLimiterPair = { key: string; limiter: Bottleneck };
         interface Strategy {}
+
+        type EventInfo = {
+            readonly args: any[];
+            readonly options: {
+                readonly id: string;
+                readonly priority: number;
+                readonly weight: number;
+                readonly expiration?: number;
+            };
+        };
+        type EventInfoDropped = EventInfo & {
+            readonly task: Function;
+            readonly promise: Promise<any>;
+        };
+        type EventInfoQueued = EventInfo & {
+            readonly reachedHWM: boolean;
+            readonly blocked: boolean;
+        };
+        type EventInfoRetryable = EventInfo & { readonly retryCount: number; };
 
         enum Status {
             RECEIVED = "RECEIVED",
@@ -121,13 +152,13 @@ declare module "bottleneck" {
             EXECUTING = "EXECUTING",
             DONE = "DONE"
         }
-        interface Counts {
+        type Counts = {
             RECEIVED: number,
             QUEUED: number,
             RUNNING: number,
             EXECUTING: number,
             DONE?: number
-        }
+        };
 
         type RedisConnectionOptions = {
             /**
@@ -159,11 +190,11 @@ declare module "bottleneck" {
             /**
              * Maximum acceptable time (in milliseconds) a request can have to wait before being flushed to the `"batch"` event.
              */
-            readonly maxTime?: number;
+            readonly maxTime?: number | null;
             /**
              * Maximum number of requests in a batch.
              */
-            readonly maxSize?: number;
+            readonly maxSize?: number | null;
         };
 
         class BottleneckError extends Error {
@@ -177,7 +208,6 @@ declare module "bottleneck" {
              * @param name - The event name.
              * @param fn - The callback function.
              */
-            on(name: string, fn: Function): void;
             on(name: "error", fn: (error: any) => void): void;
 
             /**
@@ -185,7 +215,6 @@ declare module "bottleneck" {
              * @param name - The event name.
              * @param fn - The callback function.
              */
-            once(name: string, fn: Function): void;
             once(name: "error", fn: (error: any) => void): void;
 
             /**
@@ -208,7 +237,6 @@ declare module "bottleneck" {
              * @param name - The event name.
              * @param fn - The callback function.
              */
-            on(name: string, fn: Function): void;
             on(name: "error", fn: (error: any) => void): void;
 
             /**
@@ -216,7 +244,6 @@ declare module "bottleneck" {
              * @param name - The event name.
              * @param fn - The callback function.
              */
-            once(name: string, fn: Function): void;
             once(name: "error", fn: (error: any) => void): void;
 
             /**
@@ -278,7 +305,7 @@ declare module "bottleneck" {
              */
             on(name: string, fn: Function): void;
             on(name: "error", fn: (error: any) => void): void;
-            on(name: "created", fn: (created: Bottleneck, key: string) => void): void;
+            on(name: "created", fn: (limiter: Bottleneck, key: string) => void): void;
 
             /**
              * Register an event listener for one event only.
@@ -287,7 +314,7 @@ declare module "bottleneck" {
              */
             once(name: string, fn: Function): void;
             once(name: "error", fn: (error: any) => void): void;
-            once(name: "created", fn: (created: Bottleneck, key: string) => void): void;
+            once(name: "created", fn: (limiter: Bottleneck, key: string) => void): void;
 
             /**
              * Removes all registered event listeners.
@@ -423,6 +450,11 @@ declare module "bottleneck" {
         queued(priority?: number): number;
 
         /**
+         * Returns the number of requests queued across the Cluster.
+         */
+        clusterQueued(): Promise<number>;
+
+        /**
          * Returns whether there are any jobs currently in the queue or in the process of being added to the queue.
          */
         empty(): boolean;
@@ -448,28 +480,40 @@ declare module "bottleneck" {
          * @param name - The event name.
          * @param fn - The callback function.
          */
-        on(name: string, fn: Function): void;
-        on(name: "error", fn: (error: any) => void): void;
-        on(name: "empty", fn: () => void): void;
-        on(name: "idle", fn: () => void): void;
-        on(name: "depleted", fn: (empty: boolean) => void): void;
-        on(name: "dropped", fn: (dropped: any) => void): void;
-        on(name: "message", fn: (message: string) => void): void;
-        on(name: "debug", fn: (message: string, data: any) => void): void;
+        on(name: "error",     fn: (error: any) => void): void;
+        on(name: "empty",     fn: () => void): void;
+        on(name: "idle",      fn: () => void): void;
+        on(name: "depleted",  fn: (empty: boolean) => void): void;
+        on(name: "message",   fn: (message: string) => void): void;
+        on(name: "debug",     fn: (message: string, info: any) => void): void;
+        on(name: "dropped",   fn: (dropped: Bottleneck.EventInfoDropped) => void): void;
+        on(name: "received",  fn: (info: Bottleneck.EventInfo) => void): void;
+        on(name: "queued",    fn: (info: Bottleneck.EventInfoQueued) => void): void;
+        on(name: "scheduled", fn: (info: Bottleneck.EventInfo) => void): void;
+        on(name: "executing", fn: (info: Bottleneck.EventInfoRetryable) => void): void;
+        on(name: "failed",    fn: (error: any, info: Bottleneck.EventInfoRetryable) => Promise<number> | void): void;
+        on(name: "retry",     fn: (message: string, info: Bottleneck.EventInfoRetryable) => void): void;
+        on(name: "done",      fn: (info: Bottleneck.EventInfoRetryable) => void): void;
 
         /**
          * Register an event listener for one event only.
          * @param name - The event name.
          * @param fn - The callback function.
          */
-        once(name: string, fn: Function): void;
-        once(name: "error", fn: (error: any) => void): void;
-        once(name: "empty", fn: () => void): void;
-        once(name: "idle", fn: () => void): void;
-        once(name: "depleted", fn: (empty: boolean) => void): void;
-        once(name: "dropped", fn: (dropped: any) => void): void;
-        once(name: "message", fn: (message: string) => void): void;
-        once(name: "debug", fn: (message: string, data: any) => void): void;
+        once(name: "error",     fn: (error: any) => void): void;
+        once(name: "empty",     fn: () => void): void;
+        once(name: "idle",      fn: () => void): void;
+        once(name: "depleted",  fn: (empty: boolean) => void): void;
+        once(name: "message",   fn: (message: string) => void): void;
+        once(name: "debug",     fn: (message: string, info: any) => void): void;
+        once(name: "dropped",   fn: (dropped: Bottleneck.EventInfoDropped) => void): void;
+        once(name: "received",  fn: (info: Bottleneck.EventInfo) => void): void;
+        once(name: "queued",    fn: (info: Bottleneck.EventInfoQueued) => void): void;
+        once(name: "scheduled", fn: (info: Bottleneck.EventInfo) => void): void;
+        once(name: "executing", fn: (info: Bottleneck.EventInfoRetryable) => void): void;
+        once(name: "failed",    fn: (error: any, info: Bottleneck.EventInfoRetryable) => Promise<number> | void): void;
+        once(name: "retry",     fn: (message: string, info: Bottleneck.EventInfoRetryable) => void): void;
+        once(name: "done",      fn: (info: Bottleneck.EventInfoRetryable) => void): void;
 
         /**
          * Removes all registered event listeners.

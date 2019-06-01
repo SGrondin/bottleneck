@@ -21,7 +21,7 @@ class Job
   doDrop: ({ error, message="This job has been dropped by Bottleneck" } = {}) ->
     if @_states.remove @options.id
       if @rejectOnDrop then @_reject (error ? new BottleneckError message)
-      @Events.trigger "dropped", { @task, @args, @options, @promise }
+      @Events.trigger "dropped", { @args, @options, @task, @promise }
       true
     else
       false
@@ -33,22 +33,19 @@ class Job
 
   doReceive: () ->
     @_states.start @options.id
-    eventInfo = { @args, @options }
-    @Events.trigger "received", "Received #{@options.id}", { @args, @options }
+    @Events.trigger "received", { @args, @options }
 
   doQueue: (reachedHWM, blocked) ->
     @_assertStatus "RECEIVED"
     @_states.next @options.id
-    eventInfo = { @args, @options, reachedHWM, blocked }
-    @Events.trigger "queued", "Queued #{@options.id}", eventInfo
+    @Events.trigger "queued", { @args, @options, reachedHWM, blocked }
 
   doRun: () ->
     if @retryCount == 0
       @_assertStatus "QUEUED"
       @_states.next @options.id
     else @_assertStatus "EXECUTING"
-    eventInfo = { @args, @options }
-    @Events.trigger "scheduled", "Scheduled #{@options.id}", eventInfo
+    @Events.trigger "scheduled", { @args, @options }
 
   doExecute: (chained, clearGlobalState, run, free) ->
     if @retryCount == 0
@@ -56,7 +53,7 @@ class Job
       @_states.next @options.id
     else @_assertStatus "EXECUTING"
     eventInfo = { @args, @options, @retryCount }
-    @Events.trigger "executing", "Executing #{@options.id}", eventInfo
+    @Events.trigger "executing", eventInfo
 
     try
       passed = await if chained?
@@ -94,6 +91,6 @@ class Job
   doDone: (eventInfo) ->
     @_assertStatus "EXECUTING"
     @_states.next @options.id
-    @Events.trigger "done", "Completed #{@options.id}", eventInfo
+    @Events.trigger "done", eventInfo
 
 module.exports = Job

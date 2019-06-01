@@ -322,23 +322,23 @@ describe('General', function () {
       var onScheduled = 0
       var onExecuting = 0
       var onDone = 0
-      c.limiter.on('received', (message, info) => {
+      c.limiter.on('received', (info) => {
         c.mustEqual(Object.keys(info).sort(), ['args', 'options'])
         onReceived++
       })
-      c.limiter.on('queued', (message, info) => {
+      c.limiter.on('queued', (info) => {
         c.mustEqual(Object.keys(info).sort(), ['args', 'blocked', 'options', 'reachedHWM'])
         onQueued++
       })
-      c.limiter.on('scheduled', (message, info) => {
+      c.limiter.on('scheduled', (info) => {
         c.mustEqual(Object.keys(info).sort(), ['args', 'options'])
         onScheduled++
       })
-      c.limiter.on('executing', (message, info) => {
+      c.limiter.on('executing', (info) => {
         c.mustEqual(Object.keys(info).sort(), ['args', 'options', 'retryCount'])
         onExecuting++
       })
-      c.limiter.on('done', (message, info) => {
+      c.limiter.on('done', (info) => {
         c.mustEqual(Object.keys(info).sort(), ['args', 'options', 'retryCount'])
         onDone++
       })
