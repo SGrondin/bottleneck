@@ -459,8 +459,6 @@ Checks if a new job would be executed immediately if it was submitted now. Retur
 
 ### Events
 
-Event names: `"error"`, `"empty"`, `"idle"`, `"dropped"`, `"depleted"` and `"debug"`.
-
 __'error'__
 ```js
 limiter.on("error", function (error) {
@@ -481,7 +479,7 @@ __'retry'__
 
 See [Retries](#retries) to learn how to automatically retry jobs.
 ```js
-limiter.on("retry", function (error, jobInfo) {
+limiter.on("retry", function (message, jobInfo) {
   // This will be called every time a job is retried.
 });
 ```
@@ -523,6 +521,23 @@ limiter.on("debug", function (message, data) {
   // and to help debug your application
 });
 ```
+
+__'received'__
+__'queued'__
+__'scheduled'__
+__'executing'__
+__'done'__
+```js
+limiter.on("queued", function (info) {
+  // This event is triggered when a job transitions from one Lifecycle stage to another
+});
+```
+
+See #jobs-lifecycle for more information.
+
+These Lifecycle events are not triggered for jobs located on another limiter in a Cluster, for performance reasons.
+
+#### Other event methods
 
 Use `removeAllListeners()` with an optional event name as first argument to remove listeners.
 
