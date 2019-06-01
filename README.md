@@ -533,7 +533,7 @@ limiter.on("queued", function (info) {
 });
 ```
 
-See #jobs-lifecycle for more information.
+See [Jobs Lifecycle](#jobs-lifecycle) for more information.
 
 These Lifecycle events are not triggered for jobs located on another limiter in a Cluster, for performance reasons.
 
