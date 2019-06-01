@@ -14,7 +14,7 @@ describe('General', function () {
     process.env.DATASTORE !== 'redis' && process.env.DATASTORE !== 'ioredis' &&
     process.env.BUILD !== 'es5' && process.env.BUILD !== 'light'
   ) {
-    it.only('Should not leak memory on instantiation', async function () {
+    it('Should not leak memory on instantiation', async function () {
       c = makeTest()
       this.timeout(8000)
       const { iterate } = require('leakage')
@@ -27,9 +27,9 @@ describe('General', function () {
 
     })
 
-    it.only('Should not leak memory running jobs', async function () {
+    it('Should not leak memory running jobs', async function () {
       c = makeTest()
-      this.timeout(81000)
+      this.timeout(12000)
       const { iterate } = require('leakage')
       const limiter = new Bottleneck({ datastore: 'local', maxConcurrent: 1, minTime: 10 })
       await limiter.ready()
@@ -44,7 +44,7 @@ describe('General', function () {
           i = i + zero + one
         }, 0, 1)
       }, { iterations: 25 })
-      c.mustEqual(i, 151)
+      c.mustEqual(i, 302)
     })
   }
 
@@ -310,6 +310,67 @@ describe('General', function () {
       })
       .then(function (results) {
         c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 4 })
+        c.checkDuration(400)
+        c.checkResultsOrder([[1], [2], [3]])
+      })
+    })
+
+    it('Should trigger events on status changes', function () {
+      c = makeTest({maxConcurrent: 2, minTime: 100, trackDoneStatus: true})
+      var onReceived = 0
+      var onQueued = 0
+      var onScheduled = 0
+      var onExecuting = 0
+      var onDone = 0
+      c.limiter.on('received', (message, info) => {
+        c.mustEqual(Object.keys(info).sort(), ['args', 'options'])
+        onReceived++
+      })
+      c.limiter.on('queued', (message, info) => {
+        c.mustEqual(Object.keys(info).sort(), ['args', 'blocked', 'options', 'reachedHWM'])
+        onQueued++
+      })
+      c.limiter.on('scheduled', (message, info) => {
+        c.mustEqual(Object.keys(info).sort(), ['args', 'options'])
+        onScheduled++
+      })
+      c.limiter.on('executing', (message, info) => {
+        c.mustEqual(Object.keys(info).sort(), ['args', 'options', 'retryCount'])
+        onExecuting++
+      })
+      c.limiter.on('done', (message, info) => {
+        c.mustEqual(Object.keys(info).sort(), ['args', 'options', 'retryCount'])
+        onDone++
+      })
+
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
+
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 1 }, c.slowPromise, 100, null, 1), 1)
+      c.pNoErrVal(c.limiter.schedule({ weight: 1, id: 2 }, c.slowPromise, 200, null, 2), 2)
+      c.pNoErrVal(c.limiter.schedule({ weight: 2, id: 3 }, c.slowPromise, 100, null, 3), 3)
+      c.mustEqual(c.limiter.counts(), { RECEIVED: 3, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 0 })
+
+      c.mustEqual([onReceived, onQueued, onScheduled, onExecuting, onDone], [3, 0, 0, 0, 0])
+
+      return c.wait(50)
+      .then(function () {
+        c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 1, EXECUTING: 1, DONE: 0 })
+        c.mustEqual([onReceived, onQueued, onScheduled, onExecuting, onDone], [3, 3, 2, 1, 0])
+
+        return c.wait(100)
+      })
+      .then(function () {
+        c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 1, RUNNING: 0, EXECUTING: 1, DONE: 1 })
+        c.mustEqual(c.limiter.jobs('DONE'), ['1'])
+        c.mustEqual(c.limiter.jobs('EXECUTING'), ['2'])
+        c.mustEqual(c.limiter.jobs('QUEUED'), ['3'])
+        c.mustEqual([onReceived, onQueued, onScheduled, onExecuting, onDone], [3, 3, 2, 2, 1])
+
+        return c.last()
+      })
+      .then(function (results) {
+        c.mustEqual(c.limiter.counts(), { RECEIVED: 0, QUEUED: 0, RUNNING: 0, EXECUTING: 0, DONE: 4 })
+        c.mustEqual([onReceived, onQueued, onScheduled, onExecuting, onDone], [4, 4, 4, 4, 4])
         c.checkDuration(400)
         c.checkResultsOrder([[1], [2], [3]])
       })

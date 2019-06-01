@@ -33,27 +33,30 @@ class Job
 
   doReceive: () ->
     @_states.start @options.id
-    @Events.trigger "debug", "Queueing #{@options.id}", { @args, @options }
+    eventInfo = { @args, @options }
+    @Events.trigger "received", "Received #{@options.id}", { @args, @options }
 
   doQueue: (reachedHWM, blocked) ->
     @_assertStatus "RECEIVED"
     @_states.next @options.id
-    @Events.trigger "debug", "Queued #{@options.id}", { @args, @options, reachedHWM, blocked }
+    eventInfo = { @args, @options, reachedHWM, blocked }
+    @Events.trigger "queued", "Queued #{@options.id}", eventInfo
 
   doRun: () ->
     if @retryCount == 0
       @_assertStatus "QUEUED"
       @_states.next @options.id
     else @_assertStatus "EXECUTING"
-    @Events.trigger "debug", "Scheduling #{@options.id}", { @args, @options }
+    eventInfo = { @args, @options }
+    @Events.trigger "scheduled", "Scheduled #{@options.id}", eventInfo
 
   doExecute: (chained, clearGlobalState, run, free) ->
     if @retryCount == 0
       @_assertStatus "RUNNING"
       @_states.next @options.id
     else @_assertStatus "EXECUTING"
-    @Events.trigger "debug", "Executing #{@options.id}", { @args, @options }
     eventInfo = { @args, @options, @retryCount }
+    @Events.trigger "executing", "Executing #{@options.id}", eventInfo
 
     try
       passed = await if chained?
@@ -91,7 +94,6 @@ class Job
   doDone: (eventInfo) ->
     @_assertStatus "EXECUTING"
     @_states.next @options.id
-    @Events.trigger "debug", "Completed #{@options.id}", eventInfo
     @Events.trigger "done", "Completed #{@options.id}", eventInfo
 
 module.exports = Job

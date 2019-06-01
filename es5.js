@@ -1557,9 +1557,15 @@
 	  }, {
 	    key: "doReceive",
 	    value: function doReceive() {
+	      var eventInfo;
+
 	      this._states.start(this.options.id);
 
-	      return this.Events.trigger("debug", "Queueing ".concat(this.options.id), {
+	      eventInfo = {
+	        args: this.args,
+	        options: this.options
+	      };
+	      return this.Events.trigger("received", "Received ".concat(this.options.id), {
 	        args: this.args,
 	        options: this.options
 	      });
@@ -1567,20 +1573,25 @@
 	  }, {
 	    key: "doQueue",
 	    value: function doQueue(reachedHWM, blocked) {
+	      var eventInfo;
+
 	      this._assertStatus("RECEIVED");
 
 	      this._states.next(this.options.id);
 
-	      return this.Events.trigger("debug", "Queued ".concat(this.options.id), {
+	      eventInfo = {
 	        args: this.args,
 	        options: this.options,
 	        reachedHWM: reachedHWM,
 	        blocked: blocked
-	      });
+	      };
+	      return this.Events.trigger("queued", "Queued ".concat(this.options.id), eventInfo);
 	    }
 	  }, {
 	    key: "doRun",
 	    value: function doRun() {
+	      var eventInfo;
+
 	      if (this.retryCount === 0) {
 	        this._assertStatus("QUEUED");
 
@@ -1589,10 +1600,11 @@
 	        this._assertStatus("EXECUTING");
 	      }
 
-	      return this.Events.trigger("debug", "Scheduling ".concat(this.options.id), {
+	      eventInfo = {
 	        args: this.args,
 	        options: this.options
-	      });
+	      };
+	      return this.Events.trigger("scheduled", "Scheduled ".concat(this.options.id), eventInfo);
 	    }
 	  }, {
 	    key: "doExecute",
@@ -1613,15 +1625,12 @@
 	                  this._assertStatus("EXECUTING");
 	                }
 
-	                this.Events.trigger("debug", "Executing ".concat(this.options.id), {
-	                  args: this.args,
-	                  options: this.options
-	                });
 	                eventInfo = {
 	                  args: this.args,
 	                  options: this.options,
 	                  retryCount: this.retryCount
 	                };
+	                this.Events.trigger("executing", "Executing ".concat(this.options.id), eventInfo);
 	                _context.prev = 3;
 	                _context.next = 6;
 	                return chained != null ? chained.schedule.apply(chained, [this.options, this.task].concat(_toConsumableArray(this.args))) : this.task.apply(this, _toConsumableArray(this.args));
@@ -1745,7 +1754,6 @@
 
 	      this._states.next(this.options.id);
 
-	      this.Events.trigger("debug", "Completed ".concat(this.options.id), eventInfo);
 	      return this.Events.trigger("done", "Completed ".concat(this.options.id), eventInfo);
 	    }
 	  }]);
