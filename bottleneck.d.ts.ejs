@@ -491,7 +491,7 @@ declare module "bottleneck" {
         on(name: "queued",    fn: (info: Bottleneck.EventInfoQueued) => void): void;
         on(name: "scheduled", fn: (info: Bottleneck.EventInfo) => void): void;
         on(name: "executing", fn: (info: Bottleneck.EventInfoRetryable) => void): void;
-        on(name: "failed",    fn: (error: any, info: Bottleneck.EventInfoRetryable) => Promise<number> | void): void;
+        on(name: "failed",    fn: (error: any, info: Bottleneck.EventInfoRetryable) => Promise<number | void | null> | number | void | null): void;
         on(name: "retry",     fn: (message: string, info: Bottleneck.EventInfoRetryable) => void): void;
         on(name: "done",      fn: (info: Bottleneck.EventInfoRetryable) => void): void;
 
@@ -511,7 +511,7 @@ declare module "bottleneck" {
         once(name: "queued",    fn: (info: Bottleneck.EventInfoQueued) => void): void;
         once(name: "scheduled", fn: (info: Bottleneck.EventInfo) => void): void;
         once(name: "executing", fn: (info: Bottleneck.EventInfoRetryable) => void): void;
-        once(name: "failed",    fn: (error: any, info: Bottleneck.EventInfoRetryable) => Promise<number> | void): void;
+        once(name: "failed",    fn: (error: any, info: Bottleneck.EventInfoRetryable) => Promise<number | void | null> | number | void | null): void;
         once(name: "retry",     fn: (message: string, info: Bottleneck.EventInfoRetryable) => void): void;
         once(name: "done",      fn: (info: Bottleneck.EventInfoRetryable) => void): void;
 

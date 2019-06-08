@@ -119,6 +119,40 @@ limiter.on('failed', (error, info) => {
   return Promise.resolve(10)
 })
 
+limiter.on('failed', (error, info) => {
+  checkEventInfo(info)
+  const message: string = error.message;
+  const count: number = info.retryCount;
+  return Promise.resolve(null)
+})
+
+limiter.on('failed', (error, info) => {
+  checkEventInfo(info)
+  const message: string = error.message;
+  const count: number = info.retryCount;
+  return Promise.resolve()
+})
+
+limiter.on('failed', (error, info) => {
+  checkEventInfo(info)
+  const message: string = error.message;
+  const count: number = info.retryCount;
+  return 10
+})
+
+limiter.on('failed', (error, info) => {
+  checkEventInfo(info)
+  const message: string = error.message;
+  const count: number = info.retryCount;
+  return null
+})
+
+limiter.on('failed', (error, info) => {
+  checkEventInfo(info)
+  const message: string = error.message;
+  const count: number = info.retryCount;
+})
+
 limiter.on('retry', (message: string, info) => {
   checkEventInfo(info)
   const count: number = info.retryCount;
