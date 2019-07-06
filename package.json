@@ -34,13 +34,13 @@
     "url": "https://github.com/SGrondin/bottleneck/issues"
   },
   "devDependencies": {
-    "@babel/core": "^7.2.2",
-    "@babel/preset-env": "^7.1.6",
+    "@babel/core": "^7.5.0",
+    "@babel/preset-env": "^7.5.0",
     "@types/es6-promise": "0.0.33",
     "assert": "1.4.x",
     "coffeescript": "2.3.x",
-    "ejs-cli": "2.0.1",
-    "ioredis": "^4.5.1",
+    "ejs-cli": "SGrondin/ejs-cli#master",
+    "ioredis": "^4.11.1",
     "leakage": "^0.4.0",
     "mocha": "4.x",
     "redis": "^2.8.0",

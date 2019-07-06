@@ -1305,7 +1305,7 @@
 	                            return _context.stop();
 	                        }
 	                      }
-	                    }, _callee, this, [[3, 14]]);
+	                    }, _callee, null, [[3, 14]]);
 	                  }));
 
 	                  return function (_x2) {
@@ -2732,7 +2732,7 @@
 	                    return _context2.stop();
 	                }
 	              }
-	            }, _callee2, this);
+	            }, _callee2);
 	          }));
 
 	          return function (_x2) {
@@ -2959,7 +2959,7 @@
 	                    return _context2.stop();
 	                }
 	              }
-	            }, _callee2, this);
+	            }, _callee2);
 	          }));
 
 	          return function (_x2) {
@@ -3068,7 +3068,7 @@
 	      var base;
 
 	      if (typeof (base = _this.heartbeat = setInterval(function () {
-	        return _this.runScript("heartbeat", []).catch(function (e) {
+	        return _this.runScript("heartbeat", [])["catch"](function (e) {
 	          return _this.instance.Events.trigger("error", e);
 	        });
 	      }, _this.heartbeatInterval)).unref === "function") {
@@ -3218,7 +3218,7 @@
 	                          return _context2.stop();
 	                      }
 	                    }
-	                  }, _callee2, this, [[0, 9]]);
+	                  }, _callee2, null, [[0, 9]]);
 	                })), 1000));
 
 	              case 35:
@@ -3315,7 +3315,7 @@
 	                    return resolve(replies);
 	                  });
 	                  return _this3.connection.__scriptFn__(name).apply(void 0, _toConsumableArray(arr));
-	                }).catch(function (e) {
+	                })["catch"](function (e) {
 	                  if (e.message === "SETTINGS_KEY_NOT_FOUND") {
 	                    if (name === "heartbeat") {
 	                      return _this3.Promise.resolve();
@@ -3833,7 +3833,7 @@
 	                          return _context.stop();
 	                      }
 	                    }
-	                  }, _callee, this, [[0, 7]]);
+	                  }, _callee, null, [[0, 7]]);
 	                }))();
 
 	              case 9:
@@ -3861,16 +3861,16 @@
 	  }, {
 	    key: "schedule",
 	    value: function schedule(task) {
-	      for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-	        args[_key - 1] = arguments[_key];
-	      }
-
 	      var promise, reject, resolve;
 	      resolve = reject = null;
 	      promise = new this.Promise(function (_resolve, _reject) {
 	        resolve = _resolve;
 	        return reject = _reject;
 	      });
+
+	      for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+	        args[_key - 1] = arguments[_key];
+	      }
 
 	      this._queue.push({
 	        task: task,
@@ -4173,7 +4173,7 @@
 	                  return _context3.stop();
 	              }
 	            }
-	          }, _callee3, this, [[7, 17]]);
+	          }, _callee3, null, [[7, 17]]);
 	        })), this.timeout / 2)).unref === "function" ? base.unref() : void 0;
 	      }
 	    }, {
@@ -4624,7 +4624,7 @@
 	          } else {
 	            return _this4.Promise.resolve(total);
 	          }
-	        }).catch(function (e) {
+	        })["catch"](function (e) {
 	          return _this4.Events.trigger("error", e);
 	        });
 	      }
@@ -4865,7 +4865,7 @@
 	        job = new Job$1(task, args, options, this.jobDefaults, this.rejectOnDrop, this.Events, this._states, this.Promise);
 	        job.promise.then(function (args) {
 	          return typeof cb === "function" ? cb.apply(void 0, _toConsumableArray(args)) : void 0;
-	        }).catch(function (args) {
+	        })["catch"](function (args) {
 	          if (Array.isArray(args)) {
 	            return typeof cb === "function" ? cb.apply(void 0, _toConsumableArray(args)) : void 0;
 	          } else {
@@ -4980,7 +4980,7 @@
 
 	    return Bottleneck;
 	  }();
-	  Bottleneck.default = Bottleneck;
+	  Bottleneck["default"] = Bottleneck;
 	  Bottleneck.Events = Events$6;
 	  Bottleneck.version = Bottleneck.prototype.version = require$$8.version;
 	  Bottleneck.strategy = Bottleneck.prototype.strategy = {
