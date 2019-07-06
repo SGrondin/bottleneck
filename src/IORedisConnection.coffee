@@ -20,6 +20,8 @@ class IORedisConnection
     if @clusterNodes?
       @client = new Redis.Cluster @clusterNodes, @clientOptions
       @subscriber = new Redis.Cluster @clusterNodes, @clientOptions
+    else if @client? and !@client.duplicate?
+      @subscriber = new Redis.Cluster @client.startupNodes, @client.options
     else
       @client ?= new Redis @clientOptions
       @subscriber = @client.duplicate()

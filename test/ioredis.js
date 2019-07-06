@@ -25,6 +25,23 @@ if (process.env.DATASTORE === 'ioredis') {
       assert(c.limiter._store.connection.client.nodes().length >= 0)
     })
 
+    it('Should connect in Redis Cluster mode with premade client', function () {
+      var client = new Redis.Cluster('')
+      var connection = new Bottleneck.IORedisConnection({ client })
+      c = makeTest({
+        maxConcurrent: 2,
+        clientOptions: {},
+        clusterNodes: [{
+          host: process.env.REDIS_HOST,
+          port: process.env.REDIS_PORT
+        }]
+      })
+
+      c.mustEqual(c.limiter.datastore, 'ioredis')
+      assert(c.limiter._store.connection.client.nodes().length >= 0)
+      connection.disconnect(false)
+    })
+
     it('Should accept existing connections', function () {
       var connection = new Bottleneck.IORedisConnection()
       connection.id = 'super-connection'

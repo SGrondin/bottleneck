@@ -2816,6 +2816,8 @@
 	      if (this.clusterNodes != null) {
 	        this.client = new Redis.Cluster(this.clusterNodes, this.clientOptions);
 	        this.subscriber = new Redis.Cluster(this.clusterNodes, this.clientOptions);
+	      } else if (this.client != null && this.client.duplicate == null) {
+	        this.subscriber = new Redis.Cluster(this.client.startupNodes, this.client.options);
 	      } else {
 	        if (this.client == null) {
 	          this.client = new Redis(this.clientOptions);
