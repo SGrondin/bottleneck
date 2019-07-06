@@ -1080,12 +1080,12 @@
 	        }
 	      }).call(this);
 	      this._queues.on("leftzero", () => {
-	        var base;
-	        return typeof (base = this._store.heartbeat).ref === "function" ? base.ref() : void 0;
+	        var ref;
+	        return (ref = this._store.heartbeat) != null ? typeof ref.ref === "function" ? ref.ref() : void 0 : void 0;
 	      });
 	      this._queues.on("zero", () => {
-	        var base;
-	        return typeof (base = this._store.heartbeat).unref === "function" ? base.unref() : void 0;
+	        var ref;
+	        return (ref = this._store.heartbeat) != null ? typeof ref.unref === "function" ? ref.unref() : void 0 : void 0;
 	      });
 	    }
 

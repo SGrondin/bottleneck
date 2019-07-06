@@ -83,8 +83,8 @@ class Bottleneck
     else
       throw new Bottleneck::BottleneckError "Invalid datastore type: #{@datastore}"
 
-    @_queues.on "leftzero", => @_store.heartbeat.ref?()
-    @_queues.on "zero", => @_store.heartbeat.unref?()
+    @_queues.on "leftzero", => @_store.heartbeat?.ref?()
+    @_queues.on "zero", => @_store.heartbeat?.unref?()
 
   _validateOptions: (options, invalid) ->
     unless options? and typeof options == "object" and invalid.length == 0
