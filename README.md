@@ -811,12 +811,14 @@ const limiter = new Bottleneck({
 
 **Note:** If you are seeing a runtime error due to the `require()` function not being able to load `redis`/`ioredis`, then directly pass the module as the `Redis` option. Example:
 ```js
-import Redis from 'ioredis'
+import Redis from "ioredis"
 
 const limiter = new Bottleneck({
+  id: "my-super-app",
+  datastore: "ioredis",
   clientOptions: { host: '12.34.56.78', port: 6379 },
   Redis
-})
+});
 ```
 Unfortunately, this is a side effect of having to disable inlining, which is necessary to make Bottleneck easy to use in the browser.
 
