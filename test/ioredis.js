@@ -11,6 +11,20 @@ if (process.env.DATASTORE === 'ioredis') {
       return c.limiter.disconnect(false)
     })
 
+    it('Should accept ioredis lib override', function () {
+      c = makeTest({
+        maxConcurrent: 2,
+        Redis,
+        clientOptions: {},
+        clusterNodes: [{
+          host: process.env.REDIS_HOST,
+          port: process.env.REDIS_PORT
+        }]
+      })
+
+      c.mustEqual(c.limiter.datastore, 'ioredis')
+    })
+
     it('Should connect in Redis Cluster mode', function () {
       c = makeTest({
         maxConcurrent: 2,
@@ -54,19 +68,19 @@ if (process.env.DATASTORE === 'ioredis') {
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
 
       return c.last()
-      .then(function (results) {
-        c.checkResultsOrder([[1], [2]])
-        c.checkDuration(50)
-        c.mustEqual(c.limiter.connection.id, 'super-connection')
-        c.mustEqual(c.limiter.datastore, 'ioredis')
+        .then(function (results) {
+          c.checkResultsOrder([[1], [2]])
+          c.checkDuration(50)
+          c.mustEqual(c.limiter.connection.id, 'super-connection')
+          c.mustEqual(c.limiter.datastore, 'ioredis')
 
-        return c.limiter.disconnect()
-      })
-      .then(function () {
+          return c.limiter.disconnect()
+        })
+        .then(function () {
         // Shared connections should not be disconnected by the limiter
-        c.mustEqual(c.limiter.clients().client.status, 'ready')
-        return connection.disconnect()
-      })
+          c.mustEqual(c.limiter.clients().client.status, 'ready')
+          return connection.disconnect()
+        })
     })
 
     it('Should accept existing redis clients', function () {
@@ -84,20 +98,20 @@ if (process.env.DATASTORE === 'ioredis') {
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
 
       return c.last()
-      .then(function (results) {
-        c.checkResultsOrder([[1], [2]])
-        c.checkDuration(50)
-        c.mustEqual(c.limiter.clients().client.id, 'super-client')
-        c.mustEqual(c.limiter.connection.id, 'super-connection')
-        c.mustEqual(c.limiter.datastore, 'ioredis')
+        .then(function (results) {
+          c.checkResultsOrder([[1], [2]])
+          c.checkDuration(50)
+          c.mustEqual(c.limiter.clients().client.id, 'super-client')
+          c.mustEqual(c.limiter.connection.id, 'super-connection')
+          c.mustEqual(c.limiter.datastore, 'ioredis')
 
-        return c.limiter.disconnect()
-      })
-      .then(function () {
+          return c.limiter.disconnect()
+        })
+        .then(function () {
         // Shared connections should not be disconnected by the limiter
-        c.mustEqual(c.limiter.clients().client.status, 'ready')
-        return connection.disconnect()
-      })
+          c.mustEqual(c.limiter.clients().client.status, 'ready')
+          return connection.disconnect()
+        })
     })
 
     it('Should trigger error events on the shared connection', function (done) {
@@ -117,6 +131,5 @@ if (process.env.DATASTORE === 'ioredis') {
         done(err)
       })
     })
-
   })
 }

@@ -5,18 +5,19 @@ Scripts = require "./Scripts"
 class RedisConnection
   datastore: "redis"
   defaults:
+    Redis: null
     clientOptions: {}
     client: null
     Promise: Promise
     Events: null
 
   constructor: (options={}) ->
-    Redis = eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module
     parser.load options, @defaults, @
+    @Redis ?= eval("require")("redis") # Obfuscated or else Webpack/Angular will try to inline the optional redis module. To override this behavior: pass the redis module to Bottleneck as the 'Redis' option.
     @Events ?= new Events @
     @terminated = false
 
-    @client ?= Redis.createClient @clientOptions
+    @client ?= @Redis.createClient @clientOptions
     @subscriber = @client.duplicate()
     @limiters = {}
     @shas = {}

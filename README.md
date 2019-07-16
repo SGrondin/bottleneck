@@ -805,8 +805,20 @@ const limiter = new Bottleneck({
 | `clientOptions` | `{}` | This object is passed directly to the redis client library you've selected. |
 | `clusterNodes` | `null` | **ioredis only.** When `clusterNodes` is not null, the client will be instantiated by calling `new Redis.Cluster(clusterNodes, clientOptions)` instead of `new Redis(clientOptions)`. |
 | `timeout` | `null` (no TTL) | The Redis TTL in milliseconds ([TTL](https://redis.io/commands/ttl)) for the keys created by the limiter. When `timeout` is set, the limiter's state will be automatically removed from Redis after `timeout` milliseconds of inactivity. |
+| `Redis` | `null` | Overrides the import/require of the redis/ioredis library. You shouldn't need to set this option unless your application is failing to start due to a failure to require/import the client library. |
 
 **Note: When using Groups**, the `timeout` option has a default of `300000` milliseconds and the generated limiters automatically receive an `id` with the pattern `${group.id}-${KEY}`.
+
+**Note:** If you are seeing a runtime error due to the `require()` function not being able to load `redis`/`ioredis`, then directly pass the module as the `Redis` option. Example:
+```js
+import Redis from 'ioredis'
+
+const limiter = new Bottleneck({
+  clientOptions: { host: '12.34.56.78', port: 6379 },
+  Redis
+})
+```
+Unfortunately, this is a side effect of having to disable inlining, which is necessary to make Bottleneck easy to use in the browser.
 
 ### Important considerations when Clustering
 

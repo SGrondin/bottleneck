@@ -11,6 +11,16 @@ if (process.env.DATASTORE === 'redis') {
       return c.limiter.disconnect(false)
     })
 
+    it('Should accept node_redis lib override', function () {
+      c = makeTest({
+        maxConcurrent: 2,
+        Redis,
+        clientOptions: {}
+      })
+
+      c.mustEqual(c.limiter.datastore, 'redis')
+    })
+
     it('Should accept existing connections', function () {
       var connection = new Bottleneck.RedisConnection()
       connection.id = 'super-connection'
@@ -23,19 +33,19 @@ if (process.env.DATASTORE === 'redis') {
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
 
       return c.last()
-      .then(function (results) {
-        c.checkResultsOrder([[1], [2]])
-        c.checkDuration(50)
-        c.mustEqual(c.limiter.connection.id, 'super-connection')
-        c.mustEqual(c.limiter.datastore, 'redis')
+        .then(function (results) {
+          c.checkResultsOrder([[1], [2]])
+          c.checkDuration(50)
+          c.mustEqual(c.limiter.connection.id, 'super-connection')
+          c.mustEqual(c.limiter.datastore, 'redis')
 
-        return c.limiter.disconnect()
-      })
-      .then(function () {
+          return c.limiter.disconnect()
+        })
+        .then(function () {
         // Shared connections should not be disconnected by the limiter
-        c.mustEqual(c.limiter.clients().client.ready, true)
-        return connection.disconnect()
-      })
+          c.mustEqual(c.limiter.clients().client.ready, true)
+          return connection.disconnect()
+        })
     })
 
     it('Should accept existing redis clients', function () {
@@ -53,20 +63,20 @@ if (process.env.DATASTORE === 'redis') {
       c.pNoErrVal(c.limiter.schedule(c.promise, null, 2), 2)
 
       return c.last()
-      .then(function (results) {
-        c.checkResultsOrder([[1], [2]])
-        c.checkDuration(50)
-        c.mustEqual(c.limiter.clients().client.id, 'super-client')
-        c.mustEqual(c.limiter.connection.id, 'super-connection')
-        c.mustEqual(c.limiter.datastore, 'redis')
+        .then(function (results) {
+          c.checkResultsOrder([[1], [2]])
+          c.checkDuration(50)
+          c.mustEqual(c.limiter.clients().client.id, 'super-client')
+          c.mustEqual(c.limiter.connection.id, 'super-connection')
+          c.mustEqual(c.limiter.datastore, 'redis')
 
-        return c.limiter.disconnect()
-      })
-      .then(function () {
+          return c.limiter.disconnect()
+        })
+        .then(function () {
         // Shared connections should not be disconnected by the limiter
-        c.mustEqual(c.limiter.clients().client.ready, true)
-        return connection.disconnect()
-      })
+          c.mustEqual(c.limiter.clients().client.ready, true)
+          return connection.disconnect()
+        })
     })
 
     it('Should trigger error events on the shared connection', function (done) {
@@ -86,6 +96,5 @@ if (process.env.DATASTORE === 'redis') {
         done(err)
       })
     })
-
   })
 }

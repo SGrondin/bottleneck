@@ -1486,6 +1486,7 @@
 	    timeout: null,
 	    heartbeatInterval: 5000,
 	    clientTimeout: 10000,
+	    Redis: null,
 	    clientOptions: {},
 	    clusterNodes: null,
 	    clearDatastore: false,

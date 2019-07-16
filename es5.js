@@ -2547,10 +2547,11 @@
 
 	      _classCallCheck(this, RedisConnection);
 
-	      var Redis;
-	      Redis = eval("require")("redis"); // Obfuscated or else Webpack/Angular will try to inline the optional redis module
-
 	      parser$3.load(options, this.defaults, this);
+
+	      if (this.Redis == null) {
+	        this.Redis = eval("require")("redis"); // Obfuscated or else Webpack/Angular will try to inline the optional redis module. To override this behavior: pass the redis module to Bottleneck as the 'Redis' option.
+	      }
 
 	      if (this.Events == null) {
 	        this.Events = new Events$2(this);
@@ -2559,7 +2560,7 @@
 	      this.terminated = false;
 
 	      if (this.client == null) {
-	        this.client = Redis.createClient(this.clientOptions);
+	        this.client = this.Redis.createClient(this.clientOptions);
 	      }
 
 	      this.subscriber = this.client.duplicate();
@@ -2776,6 +2777,7 @@
 	  }();
 	  RedisConnection.prototype.datastore = "redis";
 	  RedisConnection.prototype.defaults = {
+	    Redis: null,
 	    clientOptions: {},
 	    client: null,
 	    Promise: Promise,
@@ -2802,10 +2804,11 @@
 
 	      _classCallCheck(this, IORedisConnection);
 
-	      var Redis;
-	      Redis = eval("require")("ioredis"); // Obfuscated or else Webpack/Angular will try to inline the optional ioredis module
-
 	      parser$4.load(options, this.defaults, this);
+
+	      if (this.Redis == null) {
+	        this.Redis = eval("require")("ioredis"); // Obfuscated or else Webpack/Angular will try to inline the optional ioredis module. To override this behavior: pass the ioredis module to Bottleneck as the 'Redis' option.
+	      }
 
 	      if (this.Events == null) {
 	        this.Events = new Events$3(this);
@@ -2814,13 +2817,13 @@
 	      this.terminated = false;
 
 	      if (this.clusterNodes != null) {
-	        this.client = new Redis.Cluster(this.clusterNodes, this.clientOptions);
-	        this.subscriber = new Redis.Cluster(this.clusterNodes, this.clientOptions);
+	        this.client = new this.Redis.Cluster(this.clusterNodes, this.clientOptions);
+	        this.subscriber = new this.Redis.Cluster(this.clusterNodes, this.clientOptions);
 	      } else if (this.client != null && this.client.duplicate == null) {
-	        this.subscriber = new Redis.Cluster(this.client.startupNodes, this.client.options);
+	        this.subscriber = new this.Redis.Cluster(this.client.startupNodes, this.client.options);
 	      } else {
 	        if (this.client == null) {
-	          this.client = new Redis(this.clientOptions);
+	          this.client = new this.Redis(this.clientOptions);
 	        }
 
 	        this.subscriber = this.client.duplicate();
@@ -3008,6 +3011,7 @@
 	  }();
 	  IORedisConnection.prototype.datastore = "ioredis";
 	  IORedisConnection.prototype.defaults = {
+	    Redis: null,
 	    clientOptions: {},
 	    clusterNodes: null,
 	    client: null,
@@ -3044,10 +3048,12 @@
 
 	    if (this.connection == null) {
 	      this.connection = this.instance.datastore === "redis" ? new RedisConnection$1({
+	        Redis: this.Redis,
 	        clientOptions: this.clientOptions,
 	        Promise: this.Promise,
 	        Events: this.instance.Events
 	      }) : this.instance.datastore === "ioredis" ? new IORedisConnection$1({
+	        Redis: this.Redis,
 	        clientOptions: this.clientOptions,
 	        clusterNodes: this.clusterNodes,
 	        Promise: this.Promise,
@@ -5023,6 +5029,7 @@
 	    timeout: null,
 	    heartbeatInterval: 5000,
 	    clientTimeout: 10000,
+	    Redis: null,
 	    clientOptions: {},
 	    clusterNodes: null,
 	    clearDatastore: false,

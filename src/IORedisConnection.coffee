@@ -5,6 +5,7 @@ Scripts = require "./Scripts"
 class IORedisConnection
   datastore: "ioredis"
   defaults:
+    Redis: null
     clientOptions: {}
     clusterNodes: null
     client: null
@@ -12,18 +13,18 @@ class IORedisConnection
     Events: null
 
   constructor: (options={}) ->
-    Redis = eval("require")("ioredis") # Obfuscated or else Webpack/Angular will try to inline the optional ioredis module
     parser.load options, @defaults, @
+    @Redis ?= eval("require")("ioredis") # Obfuscated or else Webpack/Angular will try to inline the optional ioredis module. To override this behavior: pass the ioredis module to Bottleneck as the 'Redis' option.
     @Events ?= new Events @
     @terminated = false
 
     if @clusterNodes?
-      @client = new Redis.Cluster @clusterNodes, @clientOptions
-      @subscriber = new Redis.Cluster @clusterNodes, @clientOptions
+      @client = new @Redis.Cluster @clusterNodes, @clientOptions
+      @subscriber = new @Redis.Cluster @clusterNodes, @clientOptions
     else if @client? and !@client.duplicate?
-      @subscriber = new Redis.Cluster @client.startupNodes, @client.options
+      @subscriber = new @Redis.Cluster @client.startupNodes, @client.options
     else
-      @client ?= new Redis @clientOptions
+      @client ?= new @Redis @clientOptions
       @subscriber = @client.duplicate()
     @limiters = {}
 
