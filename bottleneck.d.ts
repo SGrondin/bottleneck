@@ -77,6 +77,13 @@ declare module "bottleneck" {
              * An existing Bottleneck.RedisConnection or Bottleneck.IORedisConnection object to use.
              * If using, `datastore`, `clientOptions` and `clusterNodes` will be ignored.
              */
+            /**
+             * Optional Redis/IORedis library from `require('ioredis')` or equivalent. If not, Bottleneck will attempt to require Redis/IORedis at runtime.
+             */
+            readonly Redis?: any;
+            /**
+             * Bottleneck connection object created from `new Bottleneck.RedisConnection` or `new Bottleneck.IORedisConnection`.
+             */
             readonly connection?: Bottleneck.RedisConnection | Bottleneck.IORedisConnection | null;
             /**
              * When set to `true`, on initial startup, the limiter will wipe any existing Bottleneck state data on the Redis db.
@@ -170,7 +177,7 @@ declare module "bottleneck" {
              */
             readonly client?: any;
             /**
-             * Optional IORedis library from `require('ioredis')` or equivalent. If not, bottleneck will attempt to require ioredis at runtime.
+             * Optional Redis library from `require('redis')` or equivalent. If not, Bottleneck will attempt to require Redis at runtime.
              */
             readonly Redis?: any;
         };
@@ -189,7 +196,7 @@ declare module "bottleneck" {
              */
             readonly client?: any;
             /**
-             * Optional IORedis library from `require('ioredis')` or equivalent. If not, bottleneck will attempt to require 
+             * Optional IORedis library from `require('ioredis')` or equivalent. If not, Bottleneck will attempt to require IORedis at runtime.
              */
             readonly Redis?: any;
         };
