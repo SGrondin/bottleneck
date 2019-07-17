@@ -169,6 +169,10 @@ declare module "bottleneck" {
              * An existing NodeRedis client to use. If using, `clientOptions` will be ignored.
              */
             readonly client?: any;
+            /**
+             * Optional IORedis library from `require('ioredis')` or equivalent. If not, bottleneck will attempt to require ioredis at runtime.
+             */
+            readonly Redis?: any;
         };
 
         type IORedisConnectionOptions = {
@@ -184,6 +188,10 @@ declare module "bottleneck" {
              * An existing ioredis client to use. If using, `clientOptions` and `clusterNodes` will be ignored.
              */
             readonly client?: any;
+            /**
+             * Optional IORedis library from `require('ioredis')` or equivalent. If not, bottleneck will attempt to require 
+             */
+            readonly Redis?: any;
         };
 
         type BatcherOptions = {
