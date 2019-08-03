@@ -8,10 +8,10 @@
 	(global.Bottleneck = factory());
 }(this, (function () { 'use strict';
 
-	var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+	var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
 	function getCjsExportFromNamespace (n) {
-		return n && n.default || n;
+		return n && n['default'] || n;
 	}
 
 	var load = function(received, defaults, onto = {}) {
@@ -803,7 +803,7 @@
 
 	var Sync_1 = Sync;
 
-	var version = "2.19.4";
+	var version = "2.19.5";
 	var version$1 = {
 		version: version
 	};
