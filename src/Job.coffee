@@ -69,6 +69,8 @@ class Job
       @_onFailure error, eventInfo, clearGlobalState, run, free
 
   doExpire: (clearGlobalState, run, free) ->
+    if @_states.jobStatus @options.id == "RUNNING"
+      @_states.next @options.id
     @_assertStatus "EXECUTING"
     eventInfo = { @args, @options, @retryCount }
     error = new BottleneckError "This job timed out after #{@options.expiration} ms."

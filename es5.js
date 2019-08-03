@@ -11,14 +11,14 @@
 	(global.Bottleneck = factory());
 }(this, (function () { 'use strict';
 
-	var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+	var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
 	function createCommonjsModule(fn, module) {
 		return module = { exports: {} }, fn(module, module.exports), module.exports;
 	}
 
 	function getCjsExportFromNamespace (n) {
-		return n && n['default'] || n;
+		return n && n.default || n;
 	}
 
 	var runtime = createCommonjsModule(function (module) {
@@ -1305,7 +1305,7 @@
 	                            return _context.stop();
 	                        }
 	                      }
-	                    }, _callee, null, [[3, 14]]);
+	                    }, _callee, this, [[3, 14]]);
 	                  }));
 
 	                  return function (_x2) {
@@ -1341,11 +1341,9 @@
 	        }, _callee2, this, [[1, 13]]);
 	      }));
 
-	      function trigger(_x) {
+	      return function trigger(_x) {
 	        return _trigger.apply(this, arguments);
-	      }
-
-	      return trigger;
+	      };
 	    }()
 	  }]);
 
@@ -1658,16 +1656,18 @@
 	        }, _callee, this, [[3, 15]]);
 	      }));
 
-	      function doExecute(_x, _x2, _x3, _x4) {
+	      return function doExecute(_x, _x2, _x3, _x4) {
 	        return _doExecute.apply(this, arguments);
-	      }
-
-	      return doExecute;
+	      };
 	    }()
 	  }, {
 	    key: "doExpire",
 	    value: function doExpire(clearGlobalState, run, free) {
 	      var error, eventInfo;
+
+	      if (this._states.jobStatus(this.options.id === "RUNNING")) {
+	        this._states.next(this.options.id);
+	      }
 
 	      this._assertStatus("EXECUTING");
 
@@ -1729,11 +1729,9 @@
 	        }, _callee2, this);
 	      }));
 
-	      function _onFailure(_x5, _x6, _x7, _x8, _x9) {
+	      return function _onFailure(_x5, _x6, _x7, _x8, _x9) {
 	        return _onFailure2.apply(this, arguments);
-	      }
-
-	      return _onFailure;
+	      };
 	    }()
 	  }, {
 	    key: "doDone",
@@ -1836,11 +1834,9 @@
 	        }, _callee, this);
 	      }));
 
-	      function __publish__(_x) {
+	      return function __publish__(_x) {
 	        return _publish__.apply(this, arguments);
-	      }
-
-	      return __publish__;
+	      };
 	    }()
 	  }, {
 	    key: "__disconnect__",
@@ -1867,11 +1863,9 @@
 	        }, _callee2, this);
 	      }));
 
-	      function __disconnect__(_x2) {
+	      return function __disconnect__(_x2) {
 	        return _disconnect__.apply(this, arguments);
-	      }
-
-	      return __disconnect__;
+	      };
 	    }()
 	  }, {
 	    key: "yieldLoop",
@@ -1917,11 +1911,9 @@
 	        }, _callee3, this);
 	      }));
 
-	      function __updateSettings__(_x3) {
+	      return function __updateSettings__(_x3) {
 	        return _updateSettings__.apply(this, arguments);
-	      }
-
-	      return __updateSettings__;
+	      };
 	    }()
 	  }, {
 	    key: "__running__",
@@ -1947,11 +1939,9 @@
 	        }, _callee4, this);
 	      }));
 
-	      function __running__() {
+	      return function __running__() {
 	        return _running__.apply(this, arguments);
-	      }
-
-	      return __running__;
+	      };
 	    }()
 	  }, {
 	    key: "__queued__",
@@ -1977,11 +1967,9 @@
 	        }, _callee5, this);
 	      }));
 
-	      function __queued__() {
+	      return function __queued__() {
 	        return _queued__.apply(this, arguments);
-	      }
-
-	      return __queued__;
+	      };
 	    }()
 	  }, {
 	    key: "__done__",
@@ -2007,11 +1995,9 @@
 	        }, _callee6, this);
 	      }));
 
-	      function __done__() {
+	      return function __done__() {
 	        return _done__.apply(this, arguments);
-	      }
-
-	      return __done__;
+	      };
 	    }()
 	  }, {
 	    key: "__groupCheck__",
@@ -2037,11 +2023,9 @@
 	        }, _callee7, this);
 	      }));
 
-	      function __groupCheck__(_x4) {
+	      return function __groupCheck__(_x4) {
 	        return _groupCheck__.apply(this, arguments);
-	      }
-
-	      return __groupCheck__;
+	      };
 	    }()
 	  }, {
 	    key: "computeCapacity",
@@ -2097,11 +2081,9 @@
 	        }, _callee8, this);
 	      }));
 
-	      function __incrementReservoir__(_x5) {
+	      return function __incrementReservoir__(_x5) {
 	        return _incrementReservoir__.apply(this, arguments);
-	      }
-
-	      return __incrementReservoir__;
+	      };
 	    }()
 	  }, {
 	    key: "__currentReservoir__",
@@ -2127,11 +2109,9 @@
 	        }, _callee9, this);
 	      }));
 
-	      function __currentReservoir__() {
+	      return function __currentReservoir__() {
 	        return _currentReservoir__.apply(this, arguments);
-	      }
-
-	      return __currentReservoir__;
+	      };
 	    }()
 	  }, {
 	    key: "isBlocked",
@@ -2169,11 +2149,9 @@
 	        }, _callee10, this);
 	      }));
 
-	      function __check__(_x6) {
+	      return function __check__(_x6) {
 	        return _check__.apply(this, arguments);
-	      }
-
-	      return __check__;
+	      };
 	    }()
 	  }, {
 	    key: "__register__",
@@ -2224,11 +2202,9 @@
 	        }, _callee11, this);
 	      }));
 
-	      function __register__(_x7, _x8, _x9) {
+	      return function __register__(_x7, _x8, _x9) {
 	        return _register__.apply(this, arguments);
-	      }
-
-	      return __register__;
+	      };
 	    }()
 	  }, {
 	    key: "strategyIsBlock",
@@ -2283,11 +2259,9 @@
 	        }, _callee12, this);
 	      }));
 
-	      function __submit__(_x10, _x11) {
+	      return function __submit__(_x10, _x11) {
 	        return _submit__.apply(this, arguments);
-	      }
-
-	      return __submit__;
+	      };
 	    }()
 	  }, {
 	    key: "__free__",
@@ -2320,11 +2294,9 @@
 	        }, _callee13, this);
 	      }));
 
-	      function __free__(_x12, _x13) {
+	      return function __free__(_x12, _x13) {
 	        return _free__.apply(this, arguments);
-	      }
-
-	      return __free__;
+	      };
 	    }()
 	  }]);
 
@@ -2662,11 +2634,9 @@
 	          }, _callee, this);
 	        }));
 
-	        function __runCommand__(_x) {
+	        return function __runCommand__(_x) {
 	          return _runCommand__.apply(this, arguments);
-	        }
-
-	        return __runCommand__;
+	        };
 	      }()
 	    }, {
 	      key: "__addLimiter__",
@@ -2733,7 +2703,7 @@
 	                    return _context2.stop();
 	                }
 	              }
-	            }, _callee2);
+	            }, _callee2, this);
 	          }));
 
 	          return function (_x2) {
@@ -2911,11 +2881,9 @@
 	          }, _callee, this);
 	        }));
 
-	        function __runCommand__(_x) {
+	        return function __runCommand__(_x) {
 	          return _runCommand__.apply(this, arguments);
-	        }
-
-	        return __runCommand__;
+	        };
 	      }()
 	    }, {
 	      key: "__addLimiter__",
@@ -2962,7 +2930,7 @@
 	                    return _context2.stop();
 	                }
 	              }
-	            }, _callee2);
+	            }, _callee2, this);
 	          }));
 
 	          return function (_x2) {
@@ -3074,7 +3042,7 @@
 	      var base;
 
 	      if (typeof (base = _this.heartbeat = setInterval(function () {
-	        return _this.runScript("heartbeat", [])["catch"](function (e) {
+	        return _this.runScript("heartbeat", []).catch(function (e) {
 	          return _this.instance.Events.trigger("error", e);
 	        });
 	      }, _this.heartbeatInterval)).unref === "function") {
@@ -3113,11 +3081,9 @@
 	        }, _callee, this);
 	      }));
 
-	      function __publish__(_x) {
+	      return function __publish__(_x) {
 	        return _publish__.apply(this, arguments);
-	      }
-
-	      return __publish__;
+	      };
 	    }()
 	  }, {
 	    key: "onMessage",
@@ -3224,7 +3190,7 @@
 	                          return _context2.stop();
 	                      }
 	                    }
-	                  }, _callee2, null, [[0, 9]]);
+	                  }, _callee2, this, [[0, 9]]);
 	                })), 1000));
 
 	              case 35:
@@ -3269,11 +3235,9 @@
 	        }, _callee3, this, [[0, 47]]);
 	      }));
 
-	      function onMessage(_x2, _x3) {
+	      return function onMessage(_x2, _x3) {
 	        return _onMessage.apply(this, arguments);
-	      }
-
-	      return onMessage;
+	      };
 	    }()
 	  }, {
 	    key: "__disconnect__",
@@ -3321,7 +3285,7 @@
 	                    return resolve(replies);
 	                  });
 	                  return _this3.connection.__scriptFn__(name).apply(void 0, _toConsumableArray(arr));
-	                })["catch"](function (e) {
+	                }).catch(function (e) {
 	                  if (e.message === "SETTINGS_KEY_NOT_FOUND") {
 	                    if (name === "heartbeat") {
 	                      return _this3.Promise.resolve();
@@ -3347,11 +3311,9 @@
 	        }, _callee4, this);
 	      }));
 
-	      function runScript(_x4, _x5) {
+	      return function runScript(_x4, _x5) {
 	        return _runScript.apply(this, arguments);
-	      }
-
-	      return runScript;
+	      };
 	    }()
 	  }, {
 	    key: "prepareArray",
@@ -3421,11 +3383,9 @@
 	        }, _callee5, this);
 	      }));
 
-	      function __updateSettings__(_x6) {
+	      return function __updateSettings__(_x6) {
 	        return _updateSettings__.apply(this, arguments);
-	      }
-
-	      return __updateSettings__;
+	      };
 	    }()
 	  }, {
 	    key: "__running__",
@@ -3468,11 +3428,9 @@
 	        }, _callee6, this);
 	      }));
 
-	      function __groupCheck__() {
+	      return function __groupCheck__() {
 	        return _groupCheck__.apply(this, arguments);
-	      }
-
-	      return __groupCheck__;
+	      };
 	    }()
 	  }, {
 	    key: "__incrementReservoir__",
@@ -3510,11 +3468,9 @@
 	        }, _callee7, this);
 	      }));
 
-	      function __check__(_x7) {
+	      return function __check__(_x7) {
 	        return _check__.apply(this, arguments);
-	      }
-
-	      return __check__;
+	      };
 	    }()
 	  }, {
 	    key: "__register__",
@@ -3551,11 +3507,9 @@
 	        }, _callee8, this);
 	      }));
 
-	      function __register__(_x8, _x9, _x10) {
+	      return function __register__(_x8, _x9, _x10) {
 	        return _register__.apply(this, arguments);
-	      }
-
-	      return __register__;
+	      };
 	    }()
 	  }, {
 	    key: "__submit__",
@@ -3613,11 +3567,9 @@
 	        }, _callee9, this, [[0, 11]]);
 	      }));
 
-	      function __submit__(_x11, _x12) {
+	      return function __submit__(_x11, _x12) {
 	        return _submit__.apply(this, arguments);
-	      }
-
-	      return __submit__;
+	      };
 	    }()
 	  }, {
 	    key: "__free__",
@@ -3647,11 +3599,9 @@
 	        }, _callee10, this);
 	      }));
 
-	      function __free__(_x13, _x14) {
+	      return function __free__(_x13, _x14) {
 	        return _free__.apply(this, arguments);
-	      }
-
-	      return __free__;
+	      };
 	    }()
 	  }]);
 
@@ -3839,7 +3789,7 @@
 	                          return _context.stop();
 	                      }
 	                    }
-	                  }, _callee, null, [[0, 7]]);
+	                  }, _callee, this, [[0, 7]]);
 	                }))();
 
 	              case 9:
@@ -3858,25 +3808,23 @@
 	        }, _callee2, this);
 	      }));
 
-	      function _tryToRun() {
+	      return function _tryToRun() {
 	        return _tryToRun2.apply(this, arguments);
-	      }
-
-	      return _tryToRun;
+	      };
 	    }()
 	  }, {
 	    key: "schedule",
 	    value: function schedule(task) {
+	      for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+	        args[_key - 1] = arguments[_key];
+	      }
+
 	      var promise, reject, resolve;
 	      resolve = reject = null;
 	      promise = new this.Promise(function (_resolve, _reject) {
 	        resolve = _resolve;
 	        return reject = _reject;
 	      });
-
-	      for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-	        args[_key - 1] = arguments[_key];
-	      }
 
 	      this._queue.push({
 	        task: task,
@@ -4016,11 +3964,9 @@
 	          }, _callee, this);
 	        }));
 
-	        function deleteKey() {
+	        return function deleteKey() {
 	          return _deleteKey.apply(this, arguments);
-	        }
-
-	        return deleteKey;
+	        };
 	      }()
 	    }, {
 	      key: "limiters",
@@ -4104,11 +4050,9 @@
 	          }, _callee2, this);
 	        }));
 
-	        function clusterKeys() {
+	        return function clusterKeys() {
 	          return _clusterKeys.apply(this, arguments);
-	        }
-
-	        return clusterKeys;
+	        };
 	      }()
 	    }, {
 	      key: "_startAutoCleanup",
@@ -4179,7 +4123,7 @@
 	                  return _context3.stop();
 	              }
 	            }
-	          }, _callee3, null, [[7, 17]]);
+	          }, _callee3, this, [[7, 17]]);
 	        })), this.timeout / 2)).unref === "function" ? base.unref() : void 0;
 	      }
 	    }, {
@@ -4527,11 +4471,9 @@
 	          }, _callee, this, [[0, 10]]);
 	        }));
 
-	        function _free(_x, _x2, _x3, _x4) {
+	        return function _free(_x, _x2, _x3, _x4) {
 	          return _free2.apply(this, arguments);
-	        }
-
-	        return _free;
+	        };
 	      }()
 	    }, {
 	      key: "_run",
@@ -4630,7 +4572,7 @@
 	          } else {
 	            return _this4.Promise.resolve(total);
 	          }
-	        })["catch"](function (e) {
+	        }).catch(function (e) {
 	          return _this4.Events.trigger("error", e);
 	        });
 	      }
@@ -4811,11 +4753,9 @@
 	          }, _callee2, this, [[2, 11]]);
 	        }));
 
-	        function _addToQueue(_x5) {
+	        return function _addToQueue(_x5) {
 	          return _addToQueue2.apply(this, arguments);
-	        }
-
-	        return _addToQueue;
+	        };
 	      }()
 	    }, {
 	      key: "_receive",
@@ -4871,7 +4811,7 @@
 	        job = new Job$1(task, args, options, this.jobDefaults, this.rejectOnDrop, this.Events, this._states, this.Promise);
 	        job.promise.then(function (args) {
 	          return typeof cb === "function" ? cb.apply(void 0, _toConsumableArray(args)) : void 0;
-	        })["catch"](function (args) {
+	        }).catch(function (args) {
 	          if (Array.isArray(args)) {
 	            return typeof cb === "function" ? cb.apply(void 0, _toConsumableArray(args)) : void 0;
 	          } else {
@@ -4965,11 +4905,9 @@
 	          }, _callee3, this);
 	        }));
 
-	        function updateSettings() {
+	        return function updateSettings() {
 	          return _updateSettings.apply(this, arguments);
-	        }
-
-	        return updateSettings;
+	        };
 	      }()
 	    }, {
 	      key: "currentReservoir",
@@ -4986,7 +4924,7 @@
 
 	    return Bottleneck;
 	  }();
-	  Bottleneck["default"] = Bottleneck;
+	  Bottleneck.default = Bottleneck;
 	  Bottleneck.Events = Events$6;
 	  Bottleneck.version = Bottleneck.prototype.version = require$$8.version;
 	  Bottleneck.strategy = Bottleneck.prototype.strategy = {

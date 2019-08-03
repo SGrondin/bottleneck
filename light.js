@@ -8,10 +8,10 @@
 	(global.Bottleneck = factory());
 }(this, (function () { 'use strict';
 
-	var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+	var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
 	function getCjsExportFromNamespace (n) {
-		return n && n['default'] || n;
+		return n && n.default || n;
 	}
 
 	var load = function(received, defaults, onto = {}) {
@@ -417,6 +417,9 @@
 
 	  doExpire(clearGlobalState, run, free) {
 	    var error, eventInfo;
+	    if (this._states.jobStatus(this.options.id === "RUNNING")) {
+	      this._states.next(this.options.id);
+	    }
 	    this._assertStatus("EXECUTING");
 	    eventInfo = {args: this.args, options: this.options, retryCount: this.retryCount};
 	    error = new BottleneckError$1(`This job timed out after ${this.options.expiration} ms.`);
