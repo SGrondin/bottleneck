@@ -185,6 +185,8 @@ limiter.schedule(() => object.doSomething());
 
 * **When using `submit()`**, make sure all the jobs will eventually complete by calling their callback, or set an [`expiration`](#job-options). Even if you submitted your job with a `null` callback , it still needs to call its callback. This is particularly important if you are using a `maxConcurrent` value that isn't `null` (unlimited), otherwise those not completed jobs will be clogging up the limiter and no new jobs will be allowed to run. It's safe to call the callback more than once, subsequent calls are ignored.
 
+* Using tools like `mockdate` in your tests to change time in JavaScript will likely result in undefined behavior from Bottleneck.
+
 ## Docs
 
 ### Constructor
