@@ -564,7 +564,7 @@ declare module "bottleneck" {
         chain(limiter?: Bottleneck): Bottleneck;
 
         wrap<R, T extends any[]>(
-            fn: (...args: T) => Promise<R>
+            fn: (...args: T) => PromiseLike<R>
         ): ((...args: T) => Promise<R>) & { withOptions: (options: Bottleneck.JobOptions) => Promise<R> };
 
         submit<R>(fn: (callback: Bottleneck.Callback<R>) => void, callback: Bottleneck.Callback<R>): void;
