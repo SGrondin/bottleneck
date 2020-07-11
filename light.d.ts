@@ -1,4 +1,4 @@
-declare module "bottleneck" {
+declare module "bottleneck/light" {
     namespace Bottleneck {
     type ConstructorOptions = {
         /**
@@ -625,6 +625,5 @@ class Bottleneck {
 }
 
 export default Bottleneck;
-
 }
 
