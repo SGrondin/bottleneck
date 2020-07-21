@@ -48,6 +48,7 @@ makeLight() {
 makeTypings() {
   echo '[B] Compiling and testing TS typings...'
   npx ejs-cli bottleneck.d.ts.ejs > bottleneck.d.ts
+  npx ejs-cli light.d.ts.ejs > light.d.ts
   npx tsc --noEmit --strict test.ts
 }
 
