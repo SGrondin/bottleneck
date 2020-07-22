@@ -58,7 +58,7 @@ var Bottleneck = require("bottleneck/es5");
 
 ### Step 1 of 3
 
-Most APIs have a rate limit. For example, to execute 3 requests per second:
+Most APIs have a rate limit. For example, to wait 333ms after launching a job before launching another one:
 ```js
 const limiter = new Bottleneck({
   minTime: 333
