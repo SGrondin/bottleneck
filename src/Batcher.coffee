@@ -35,7 +35,7 @@ class Batcher
         @_flush()
       , @maxTime
     ret
-  
+
   flush: ->
     if @_arr.length
       @_flush()

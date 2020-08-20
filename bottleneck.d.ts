@@ -298,9 +298,14 @@ declare module "bottleneck" {
           * Add a request to the Batcher. Batches are flushed to the "batch" event.
           */
         add(data: any): Promise<void>;
+
+        /**
+         * Force a 'batch' event if there are any rows currently in the batch
+         */
+        flush(): void;
     }
 
-    class Group {
+        class Group {
         constructor(options?: Bottleneck.ConstructorOptions);
 
         id: string;
