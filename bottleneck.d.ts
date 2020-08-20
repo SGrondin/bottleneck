@@ -495,40 +495,40 @@ class Bottleneck {
       * @param name - The event name.
       * @param fn - The callback function.
       */
-    on(name: "error",     fn: (error: any) => void): void;
-    on(name: "empty",     fn: () => void): void;
-    on(name: "idle",      fn: () => void): void;
-    on(name: "depleted",  fn: (empty: boolean) => void): void;
-    on(name: "message",   fn: (message: string) => void): void;
-    on(name: "debug",     fn: (message: string, info: any) => void): void;
-    on(name: "dropped",   fn: (dropped: Bottleneck.EventInfoDropped) => void): void;
-    on(name: "received",  fn: (info: Bottleneck.EventInfo) => void): void;
-    on(name: "queued",    fn: (info: Bottleneck.EventInfoQueued) => void): void;
-    on(name: "scheduled", fn: (info: Bottleneck.EventInfo) => void): void;
-    on(name: "executing", fn: (info: Bottleneck.EventInfoRetryable) => void): void;
-    on(name: "failed",    fn: (error: any, info: Bottleneck.EventInfoRetryable) => Promise<number | void | null> | number | void | null): void;
-    on(name: "retry",     fn: (message: string, info: Bottleneck.EventInfoRetryable) => void): void;
-    on(name: "done",      fn: (info: Bottleneck.EventInfoRetryable) => void): void;
+    on(name: "error",     fn: (error: any) => void): Bottleneck;
+    on(name: "empty",     fn: () => void): Bottleneck;
+    on(name: "idle",      fn: () => void): Bottleneck;
+    on(name: "depleted",  fn: (empty: boolean) => void): Bottleneck;
+    on(name: "message",   fn: (message: string) => void): Bottleneck;
+    on(name: "debug",     fn: (message: string, info: any) => void): Bottleneck;
+    on(name: "dropped",   fn: (dropped: Bottleneck.EventInfoDropped) => void): Bottleneck;
+    on(name: "received",  fn: (info: Bottleneck.EventInfo) => void): Bottleneck;
+    on(name: "queued",    fn: (info: Bottleneck.EventInfoQueued) => void): Bottleneck;
+    on(name: "scheduled", fn: (info: Bottleneck.EventInfo) => void): Bottleneck;
+    on(name: "executing", fn: (info: Bottleneck.EventInfoRetryable) => void): Bottleneck;
+    on(name: "failed",    fn: (error: any, info: Bottleneck.EventInfoRetryable) => Promise<number | void | null> | number | void | null): Bottleneck;
+    on(name: "retry",     fn: (message: string, info: Bottleneck.EventInfoRetryable) => void): Bottleneck;
+    on(name: "done",      fn: (info: Bottleneck.EventInfoRetryable) => void): Bottleneck;
 
     /**
       * Register an event listener for one event only.
       * @param name - The event name.
       * @param fn - The callback function.
       */
-    once(name: "error",     fn: (error: any) => void): void;
-    once(name: "empty",     fn: () => void): void;
-    once(name: "idle",      fn: () => void): void;
-    once(name: "depleted",  fn: (empty: boolean) => void): void;
-    once(name: "message",   fn: (message: string) => void): void;
-    once(name: "debug",     fn: (message: string, info: any) => void): void;
-    once(name: "dropped",   fn: (dropped: Bottleneck.EventInfoDropped) => void): void;
-    once(name: "received",  fn: (info: Bottleneck.EventInfo) => void): void;
-    once(name: "queued",    fn: (info: Bottleneck.EventInfoQueued) => void): void;
-    once(name: "scheduled", fn: (info: Bottleneck.EventInfo) => void): void;
-    once(name: "executing", fn: (info: Bottleneck.EventInfoRetryable) => void): void;
-    once(name: "failed",    fn: (error: any, info: Bottleneck.EventInfoRetryable) => Promise<number | void | null> | number | void | null): void;
-    once(name: "retry",     fn: (message: string, info: Bottleneck.EventInfoRetryable) => void): void;
-    once(name: "done",      fn: (info: Bottleneck.EventInfoRetryable) => void): void;
+    once(name: "error",     fn: (error: any) => void): Bottleneck;
+    once(name: "empty",     fn: () => void): Bottleneck;
+    once(name: "idle",      fn: () => void): Bottleneck;
+    once(name: "depleted",  fn: (empty: boolean) => void): Bottleneck;
+    once(name: "message",   fn: (message: string) => void): Bottleneck;
+    once(name: "debug",     fn: (message: string, info: any) => void): Bottleneck;
+    once(name: "dropped",   fn: (dropped: Bottleneck.EventInfoDropped) => void): Bottleneck;
+    once(name: "received",  fn: (info: Bottleneck.EventInfo) => void): Bottleneck;
+    once(name: "queued",    fn: (info: Bottleneck.EventInfoQueued) => void): Bottleneck;
+    once(name: "scheduled", fn: (info: Bottleneck.EventInfo) => void): Bottleneck;
+    once(name: "executing", fn: (info: Bottleneck.EventInfoRetryable) => void): Bottleneck;
+    once(name: "failed",    fn: (error: any, info: Bottleneck.EventInfoRetryable) => Promise<number | void | null> | number | void | null): Bottleneck;
+    once(name: "retry",     fn: (message: string, info: Bottleneck.EventInfoRetryable) => void): Bottleneck;
+    once(name: "done",      fn: (info: Bottleneck.EventInfoRetryable) => void): Bottleneck;
 
     /**
       * Removes all registered event listeners.
