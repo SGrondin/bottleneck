@@ -223,14 +223,14 @@ declare module "bottleneck" {
           * @param name - The event name.
           * @param fn - The callback function.
           */
-        on(name: "error", fn: (error: any) => void): void;
+        on(name: "error", fn: (error: any) => void): RedisConnection;
 
         /**
           * Register an event listener for one event only.
           * @param name - The event name.
           * @param fn - The callback function.
           */
-        once(name: "error", fn: (error: any) => void): void;
+        once(name: "error", fn: (error: any) => void): RedisConnection;
 
         /**
           * Waits until the connection is ready and returns the raw Node_Redis clients.
@@ -252,14 +252,14 @@ declare module "bottleneck" {
           * @param name - The event name.
           * @param fn - The callback function.
           */
-        on(name: "error", fn: (error: any) => void): void;
+        on(name: "error", fn: (error: any) => void): IORedisConnection;
 
         /**
           * Register an event listener for one event only.
           * @param name - The event name.
           * @param fn - The callback function.
           */
-        once(name: "error", fn: (error: any) => void): void;
+        once(name: "error", fn: (error: any) => void): IORedisConnection;
 
         /**
           * Waits until the connection is ready and returns the raw ioredis clients.
@@ -281,18 +281,18 @@ declare module "bottleneck" {
           * @param name - The event name.
           * @param fn - The callback function.
           */
-        on(name: string, fn: Function): void;
-        on(name: "error", fn: (error: any) => void): void;
-        on(name: "batch", fn: (batch: any[]) => void): void;
+        on(name: string, fn: Function): Batcher;
+        on(name: "error", fn: (error: any) => void): Batcher;
+        on(name: "batch", fn: (batch: any[]) => void): Batcher;
 
         /**
           * Register an event listener for one event only.
           * @param name - The event name.
           * @param fn - The callback function.
           */
-        once(name: string, fn: Function): void;
-        once(name: "error", fn: (error: any) => void): void;
-        once(name: "batch", fn: (batch: any[]) => void): void;
+        once(name: string, fn: Function): Batcher;
+        once(name: "error", fn: (error: any) => void): Batcher;
+        once(name: "batch", fn: (batch: any[]) => void): Batcher;
 
         /**
           * Add a request to the Batcher. Batches are flushed to the "batch" event.
@@ -318,18 +318,18 @@ declare module "bottleneck" {
           * @param name - The event name.
           * @param fn - The callback function.
           */
-        on(name: string, fn: Function): void;
-        on(name: "error", fn: (error: any) => void): void;
-        on(name: "created", fn: (limiter: Bottleneck, key: string) => void): void;
+        on(name: string, fn: Function): Group;
+        on(name: "error", fn: (error: any) => void): Group;
+        on(name: "created", fn: (limiter: Bottleneck, key: string) => void): Group;
 
         /**
           * Register an event listener for one event only.
           * @param name - The event name.
           * @param fn - The callback function.
           */
-        once(name: string, fn: Function): void;
-        once(name: "error", fn: (error: any) => void): void;
-        once(name: "created", fn: (limiter: Bottleneck, key: string) => void): void;
+        once(name: string, fn: Function): Group;
+        once(name: "error", fn: (error: any) => void): Group;
+        once(name: "created", fn: (limiter: Bottleneck, key: string) => void): Group;
 
         /**
           * Removes all registered event listeners.
