@@ -42,7 +42,7 @@
     "ejs-cli": "github:SGrondin/ejs-cli#master",
     "ioredis": "^4.11.1",
     "leakage": "^0.4.0",
-    "mocha": "^6.1.4",
+    "mocha": "^10.2.0",
     "redis": "^2.8.0",
     "regenerator-runtime": "^0.12.1",
     "rollup": "^0.66.6",
