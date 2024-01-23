@@ -1,6 +1,6 @@
 {
-  "name": "bottleneck",
-  "version": "2.19.5",
+  "name": "@bhrigu/bottleneck",
+  "version": "2.19.6",
   "description": "Distributed task scheduler and rate limiter",
   "main": "lib/index.js",
   "typings": "bottleneck.d.ts",
