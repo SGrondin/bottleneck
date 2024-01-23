@@ -3326,7 +3326,7 @@
 	                  });
 	                  return _this3.connection.__scriptFn__(name).apply(void 0, _toConsumableArray(arr));
 	                })["catch"](function (e) {
-	                  if (e.message === "SETTINGS_KEY_NOT_FOUND") {
+	                  if (e.message.match(/^(.*\s)?SETTINGS_KEY_NOT_FOUND$/) !== null) {
 	                    if (name === "heartbeat") {
 	                      return _this3.Promise.resolve();
 	                    } else {
@@ -3334,7 +3334,7 @@
 	                        return _this3.runScript(name, args);
 	                      });
 	                    }
-	                  } else if (e.message === "UNKNOWN_CLIENT") {
+	                  } else if (e.message.match(/^(.*\s)?UNKNOWN_CLIENT$/) !== null) {
 	                    return _this3.runScript("register_client", [_this3.instance.queued()]).then(function () {
 	                      return _this3.runScript(name, args);
 	                    });
@@ -3900,7 +3900,7 @@
 
 	var Sync_1 = Sync;
 
-	var version = "2.19.5";
+	var version = "2.19.6";
 	var version$1 = {
 		version: version
 	};
