@@ -2,6 +2,7 @@
 
 set -e
 
+# shellcheck source=/dev/null
 source .env
 
 echo 'ioredis tests'
