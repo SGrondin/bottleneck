@@ -539,8 +539,9 @@ class Bottleneck {
     /**
       * Changes the settings for future requests.
       * @param options - The new settings.
+      * @returns A promise that resolves with this limiter when the settings have been updated.
       */
-    updateSettings(options?: Bottleneck.ConstructorOptions): Bottleneck;
+    updateSettings(options?: Bottleneck.ConstructorOptions): Promise<Bottleneck>;
 
     /**
       * Adds to the reservoir count and returns the new value.

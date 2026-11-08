@@ -1,6 +1,8 @@
 /// <reference path="bottleneck.d.ts" />
+/// <reference path="light.d.ts" />
 
 import Bottleneck from "bottleneck";
+import BottleneckLight from "bottleneck/light";
 // import * as assert from "assert";
 function assert(b: boolean): void { }
 
@@ -35,6 +37,21 @@ let limiter = new Bottleneck({
 limiter.ready().then(() => { console.log('Ready') });
 limiter.clients().client;
 limiter.disconnect();
+
+let settingsUpdate: Promise<Bottleneck> = limiter.updateSettings({ minTime: 100 });
+settingsUpdate.then(function (updatedLimiter) {
+  let instance: Bottleneck = updatedLimiter;
+  return instance.currentReservoir();
+});
+limiter.updateSettings().then(function (updatedLimiter) {
+  let instance: Bottleneck = updatedLimiter;
+});
+
+let lightLimiter = new BottleneckLight();
+let lightSettingsUpdate: Promise<BottleneckLight> = lightLimiter.updateSettings({ minTime: 100 });
+lightLimiter.updateSettings().then(function (updatedLimiter) {
+  let instance: BottleneckLight = updatedLimiter;
+});
 
 limiter.currentReservoir().then(function (x) {
   if (x != null) {

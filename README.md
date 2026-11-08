@@ -602,6 +602,7 @@ To re-run your job, simply return an integer from the `'failed'` event handler. 
 limiter.updateSettings(options);
 ```
 The options are the same as the [limiter constructor](#constructor).
+Returns a promise that resolves with the limiter when the settings have been updated.
 
 **Note:** Changes don't affect `SCHEDULED` jobs.
 
