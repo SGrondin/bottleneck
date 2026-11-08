@@ -62,6 +62,14 @@ describe('General', function () {
     return c.limiter.updateSettings({ minTime: 10 })
   })
 
+  it('Should resolve settings updates with the limiter', async function () {
+    c = makeTest({ reservoir: 1 })
+    var update = c.limiter.updateSettings({ reservoir: 2 })
+    assert.strictEqual(typeof update.then, 'function')
+    assert.strictEqual(await update, c.limiter)
+    c.mustEqual(await c.limiter.currentReservoir(), 2)
+  })
+
   it('Should keep scope', async function () {
     c = makeTest({ maxConcurrent: 1 })
 
